@@ -74,7 +74,8 @@ const IS_LOCAL = typeof location !== "undefined" &&
   (location.hostname === "localhost" || location.protocol === "file:");
 const API = IS_LOCAL ? "http://localhost:8080" : "";
 
-const NOTION_TOKEN = IS_LOCAL ? "[REDACTED_ROTATED_NOTION_TOKEN]" : "";
+// 토큰은 코드에 하드코딩하지 않음 — 로컬/배포 모두 설정창에서 입력 후 localStorage(v146_t)에 보관
+const NOTION_TOKEN = "";
 const DB_ID = "1de66cc1f1b581c7a69cc00da09d16c4";
 const COLORS = ["#5C6BC0","#26A69A","#EF8C00","#E91E8C","#1E88E5","#7B1FA2","#2E7D32","#D32F2F"];
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
