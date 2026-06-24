@@ -1,13 +1,9 @@
 {
-  "version": 2,
-  "routes": [
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "rewrites": [
     {
-      "src": "/api/(.*)",
-      "dest": "/api/$1"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/public/index.html"
+      "source": "/",
+      "destination": "/game-calendar-standalone.html"
     }
   ],
   "headers": [

@@ -2,5 +2,6 @@
   "name": "streaming-calendar",
   "version": "1.0.0",
   "description": "서브컬처 스트리머 게임 이벤트 캘린더",
+  "type": "module",
   "engines": { "node": ">=18" }
 }
