@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>라이브 서비스 게임 캘린더</title>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+:root{--bp:#161621;--bc:#1e1e2e;--bi:#22222e;--bh:#26263a;--tp:#cdd6f4;--ts:#a6adc8;--tm:#585b70;--br:rgba(205,214,244,.09)}
+.lm{--bp:#e8e8f2;--bc:#f8f8fc;--bi:#e0e0ea;--bh:#e4e4ee;--tp:#0d0d12;--ts:#44444c;--tm:#777780;--br:rgba(0,0,0,.15)}
+*{box-sizing:border-box;margin:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}a{text-decoration:none}
+.chip{display:flex;align-items:center;gap:3px;border-radius:4px;cursor:pointer;overflow:hidden;white-space:nowrap;line-height:1.4;transition:opacity .1s}.chip:hover{opacity:.72}
+.ecard{border-radius:6px;overflow:hidden;cursor:pointer;margin-bottom:4px;transition:opacity .12s;background:var(--bi)}.ecard:hover{opacity:.8}
+@keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin .8s linear infinite;display:inline-block}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}.pulse{animation:pulse 1.2s ease-in-out infinite}
+@keyframes bar{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}.fetchbar{animation:bar 1.4s linear infinite;height:2px;background:#378ADD;border-radius:1px;width:60%}
+::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(128,128,128,.3);border-radius:2px}
+.ib{background:none;border:none;cursor:pointer;color:var(--ts);padding:3px 5px;line-height:1;border-radius:5px;display:inline-flex;align-items:center;font-size:14px;font-family:inherit}.ib:hover{background:var(--bh);color:var(--tp)}
+.pill{font-size:11px;padding:5px 12px;border-radius:20px;cursor:pointer;font-family:inherit;border:.5px solid var(--br);background:var(--bh);color:var(--ts);display:inline-flex;align-items:center;gap:5px;white-space:nowrap}.pill:hover{color:var(--tp)}
+.inp{width:100%;font-size:11px;padding:6px 9px;border-radius:6px;border:.5px solid var(--br);background:var(--bi);color:var(--tp);font-family:inherit;outline:none}
+.overlay{position:fixed;inset:0;background:rgba(0,0,0,.72);z-index:200;display:flex;align-items:center;justify-content:center;padding:16px}
+.modal{border-radius:14px;padding:22px;width:460px;max-height:90vh;overflow:auto;background:var(--bc);border:.5px solid var(--br)}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeOut{from{opacity:1}to{opacity:0}}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#2a2a3e;color:#cdd6f4;padding:9px 20px;border-radius:20px;font-size:12px;z-index:9999;pointer-events:none;border:.5px solid rgba(205,214,244,.2);box-shadow:0 4px 20px rgba(0,0,0,.4);}
+.toast-in{animation:fadeInUp .2s ease forwards}
+.toast-out{animation:fadeOut .3s ease forwards}
+code{font-family:monospace}
+/* 주 행 애니메이션 */
+.week-cell{
+  transition: min-height 0.32s cubic-bezier(0.4,0,0.2,1);
+}
+/* hover: 하이라이트만 (크기 변화 없음) */
+.week-row-hov{
+  outline:1.5px solid rgba(55,138,221,.35) !important;
+  border-radius:8px;
+  background:rgba(55,138,221,.03);
+  transition:outline .2s,background .18s;
+}
+/* 클릭 확장: min-height 해제 + 강한 하이라이트 */
+.week-row-expanded .week-cell{
+  min-height:auto !important;
+}
+.week-row-expanded{
+  outline:1.5px solid rgba(55,138,221,.55) !important;
+  border-radius:8px;
+  background:rgba(55,138,221,.05);
+}
+@keyframes evtSlideIn{
+  from{opacity:0;transform:translateY(-6px) scaleY(0.92)}
+  to{opacity:1;transform:translateY(0) scaleY(1)}
+}
+.evt-appear{
+  animation:evtSlideIn 0.22s cubic-bezier(0.4,0,0.2,1) both;
+}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+/* ── localStorage wrapper (same interface shape as window.storage) ─────────── */
+const store = {
+  get: async (k) => { const v=localStorage.getItem(k); if(v===null) throw new Error('miss'); return {value:v}; },
+  set: async (k,v) => { localStorage.setItem(k,v); },
+};
+
+/* ── Constants ────────────────────────────────────────────────────────────── */
+// 환경 자동 감지: 로컬 → proxy.py, 배포 → Vercel /api/*
+const IS_LOCAL = typeof location !== "undefined" &&
+  (location.hostname === "localhost" || location.protocol === "file:");
+const API = IS_LOCAL ? "http://localhost:8080" : "";
+
+const NOTION_TOKEN = IS_LOCAL ? "[REDACTED_ROTATED_NOTION_TOKEN]" : "";
+const DB_ID = "1de66cc1f1b581c7a69cc00da09d16c4";
+const COLORS = ["#5C6BC0","#26A69A","#EF8C00","#E91E8C","#1E88E5","#7B1FA2","#2E7D32","#D32F2F"];
+const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
+const DOW = ["일","월","화","수","목","금","토"];
+const FTYPES = ["전체","업데이트","특별 방송","픽업","영상"];
+const TC = {
+  "업데이트":{bg:"rgba(92,107,192,.22)",  t:"#9fa8da",  b:"#5C6BC0", lbg:"#dfe3f9", lt:"#2d43b5"},
+  "특별 방송":{bg:"rgba(239,140,0,.22)",   t:"#ffb74d",  b:"#EF8C00", lbg:"#fdefd4", lt:"#9b4500"},
+  "픽업":    {bg:"rgba(233,30,140,.22)",  t:"#f48fb1",  b:"#E91E8C", lbg:"#fde0ee", lt:"#9d0047"},
+  "영상":    {bg:"rgba(123,31,162,.22)",  t:"#ce93d8",  b:"#7B1FA2", lbg:"#f0e0fc", lt:"#5e0099"},
+};
+// 문서 카테고리 색상
+const CAT_COLOR={
+  "메모":  {bg:"rgba(120,80,255,.12)", c:"#8B5CF6", b:"rgba(120,80,255,.25)"},
+  "대본":  {bg:"rgba(0,150,136,.12)",  c:"#00897B", b:"rgba(0,150,136,.25)"},
+  "정리":  {bg:"rgba(55,138,221,.12)", c:"#378ADD", b:"rgba(55,138,221,.25)"},
+};
+function catStyle(cat){const s=CAT_COLOR[cat]||CAT_COLOR["메모"];return{background:s.bg,color:s.c,border:`0.5px solid ${s.b}`};}
+
+const tb  = (t,dk=true)=>(dk?(TC[t]||TC["업데이트"]).bg  :(TC[t]||TC["업데이트"]).lbg);
+const tc  = (t,dk=true)=>(dk?(TC[t]||TC["업데이트"]).t   :(TC[t]||TC["업데이트"]).lt);
+const tbr = (t)=>(TC[t]||TC["업데이트"]).b;
+
+// 게임별 픽업 캐릭터명 추출
+function extractPickupChar(title, content) {
+  const cl = s => (s||'').replace(/<[^>]+>/g,' ').replace(/\s+/g,' ').trim();
+  const t = cl(title);
+  const c = cl(content||'').slice(0,4000);
+
+  function tryMatch(src) {
+    var m;
+    // 1. ★/☆5성: ★5 캐릭터 「이름(경로)」
+    m = src.match(/[★☆][45]\s*(?:캐릭터|공명자|요원)\s*「([^」]+)」/);
+    if (m) {
+      var name = m[1].replace(/\([^)]*\)/g,'').trim();
+      if (name.length >= 2 && name.length <= 16) return name;
+    }
+    // 2. 원신: 「이름」 이벤트/기원/소원
+    m = src.match(/「([^」]{1,12})」\s*(?:이벤트|한정|기원|소원)/);
+    if (m && !/번째|달|버전|패스/.test(m[1])) return m[1].trim();
+    // 3. 붕3rd S급 캐릭터 이름 (직책어/속성명 제외)
+    m = src.match(/[Ss]급\s*(?:발키리|캐릭터)?\s+([가-힣]{2,6})\s+/);
+    var BAD3 = /버전|달|이벤트|배틀|에이전트|요원|캐릭터|공명자|파티|지원|업데이트|강화|일정|캐스/;
+    if (m && !BAD3.test(m[1])) return m[1].trim();
+    // 4. ZZZ S/A급 요원 「이름」또는 [이름(속성)]
+    m = src.match(/[SsAa]급\s*(?:요원|에이전트)?\s*「([가-힣a-zA-Z]{2,10})」/);
+    if (m) return m[1].trim();
+    m = src.match(/[SsAa]급\s*(?:요원|에이전트)?\s*\[([가-힣a-zA-Z]{2,10})/);
+    if (m) return m[1].trim();
+    // 별도 패턴: [이름(속성·원소)]
+    m = src.match(/\[([가-힣a-zA-Z]{2,10})(?:[·•(]|$)/);
+    if (m && !/버전|달|이벤트/.test(m[1])) return m[1].trim();
+    // 5-1. 명조: "공명자 화면 | 루시" 형식 → | 뒤 캐릭터명
+    m = src.match(/공명자[^|]*\|\s*([가-힣a-zA-Z·]{2,10})/);
+    if (m) return m[1].trim();
+    // 5-2. 명조: "음률 시뮬레이션 | 카르티시아" 등 파이프 뒤 이름
+    m = src.match(/(?:공명자|기간\s*한정|모집|픽업)[^|]*\|\s*([가-힣a-zA-Z·]{2,10})/);
+    if (m) return m[1].trim();
+    // 5-3. 명조/기타 「이름」 픽업/소환/모집/공명자
+    m = src.match(/「([가-힣a-zA-Z]{2,8})」\s*(?:픽업|소환|모집|공명자)/);
+    if (m) return m[1].trim();
+    return null;
+  }
+
+  var r = tryMatch(t) || tryMatch(c);
+  if (r) return r;
+  // Fallback: 짧은 「이름」
+  var bad = /번째|달|버전|패스|치유|공허|화염|망각|깃|잿빛|블레/;
+  var metas = [];
+  var rm; var re = /「([^」]{1,8})」/g;
+  while ((rm = re.exec(t)) !== null) {
+    if (!bad.test(rm[1]) && rm[1].length >= 2) metas.push(rm[1]);
+  }
+  return metas[0] || null;
+}
+
+// 컴파일러 채널 설정
+const CACHE_MS = 6 * 60 * 60 * 1000; // 6시간 캐시
+
+const COMPILER = [
+  {label:"지지직 생방송", url:"https://chzzk.naver.com/ca22c04277e7bb5ea5ef1c218f1afe46", color:"#00C73C", emoji:"🟢"},
+  {label:"컴파일러 유튜브", url:"https://www.youtube.com/@gamecompiler",  color:"#FF0000", emoji:"🔴"},
+  {label:"통파일러(다시보기)", url:"https://www.youtube.com/@tongcompiler", color:"#FF6500", emoji:"🟠"},
+];
+
+// 5개 게임 공식 유튜브 채널 (변경 금지)
+// 붕3rd:   https://youtube.com/channel/UCHnxdu0qphnV3vrERNtCqpw
+// 붕스:    https://youtube.com/channel/UCH33CJMcI0XZUpIhWRHiUuw
+// 원신:    https://youtube.com/channel/UCcum1rCJ5GJeQ_xv0xrohqg
+// ZZZ:     https://youtube.com/channel/UCmry1hfaRHI_iTfxUMhC8mA
+// 명조:    https://youtube.com/channel/UCKuq0c-RXYaulECSuu5hFug
+const GAME_YT_CHANNELS = {
+  "def_0": "UCHnxdu0qphnV3vrERNtCqpw",
+  "def_1": "UCH33CJMcI0XZUpIhWRHiUuw",
+  "def_2": "UCcum1rCJ5GJeQ_xv0xrohqg",
+  "def_3": "UCmry1hfaRHI_iTfxUMhC8mA",
+  "def_4": "UCKuq0c-RXYaulECSuu5hFug",
+};
+
+const HOYO_CFGS = [
+  {id:"def_0",name:"붕괴3rd",color:COLORS[0],kind:"bbs",gids:"1",
+   icon:"",
+   url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   qs:"gids=1&type=1&page_size=30",
+   extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   extraQs:"gids=1&type=3&page_size=20",
+   ytChannel:"UCHnxdu0qphnV3vrERNtCqpw",officialUrl:"https://honkaiimpact3.hoyoverse.com"},
+  {id:"def_1",name:"붕괴: 스타레일",color:COLORS[1],kind:"bbs",gids:"6",
+   icon:"https://play-lh.googleusercontent.com/aWrGocSA7hEuk1qAPe7L4T57LvLKrwwH26cK2_LOqxRQMQX7j3uHYojC-EKWgYEV2PdrmE0ahqvvhLhXrAGk6Q=s128",
+   url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   qs:"gids=6&type=1&page_size=30",
+   extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   extraQs:"gids=6&type=3&page_size=20",
+   ytChannel:"UCH33CJMcI0XZUpIhWRHiUuw",twitter:"https://x.com/StarRail_KR",officialUrl:"https://hsr.hoyoverse.com"},
+  {id:"def_2",name:"원신",color:COLORS[2],kind:"bbs",gids:"2",
+   icon:"https://play-lh.googleusercontent.com/YQqyKaXX-63krqsfIzUEJWUWLINxcb5tbS6QVySdxbS7eZV7YB2dUjUvX27xA0TIGtfxQ5v-tQjwlT5tTB-O=s128",
+   url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   qs:"gids=2&type=1&page_size=30",
+   extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   extraQs:"gids=2&type=3&page_size=20",
+   ytChannel:"UCcum1rCJ5GJeQ_xv0xrohqg",twitter:"https://x.com/GenshinImpact_KR",officialUrl:"https://genshin.hoyoverse.com"},
+  {id:"def_3",name:"젠레스 존 제로",color:COLORS[3],kind:"bbs",gids:"8",
+   icon:"https://img.tapimg.net/market/images/b0e43db0909853000f0882eed93aa87b.png",
+   url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   qs:"gids=8&type=1&page_size=30",
+   extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
+   extraQs:"gids=8&type=3&page_size=20",
+   ytChannel:"UCmry1hfaRHI_iTfxUMhC8mA",twitter:"https://x.com/ZZZ_KO",officialUrl:"https://zenless.hoyoverse.com"},
+  {id:"def_4",name:"명조",color:COLORS[4],kind:"wuwa",
+   icon:"",
+   url:`${API}/api/wuwa`,
+   ytChannel:"UCKuq0c-RXYaulECSuu5hFug",officialUrl:"https://wutheringwaves.kurogames.com"},
+];
+
+// 날짜 유틸
+const lDS = d => { const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}`; };
+const fmtDateTime = d => { const p=n=>String(n).padStart(2,"0"); return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`; };
+
+function detectType(title, tag) {
+  // 비표준 공백(NBSP, ZWSP 등) → 일반 공백으로 정규화
+  const t=(title||"").toLowerCase().replace(/[\u00A0\u200B\u3000\uFEFF]+/g," ").replace(/\s+/g," ").trim();
+  const g=(tag||"").toLowerCase();
+
+  // ── 웹/앱/상점 업데이트는 게임 버전 업데이트가 아님 ──────────────────
+  if(t.includes("웹 이벤트")&&(t.includes("업데이트")||t.includes("갱신"))) return null;
+  if(t.includes("hoyolab")&&t.includes("업데이트")) return null;
+  if(t.includes("웹 페이지")&&t.includes("업데이트")) return null;     // 공략 가이드 웹페이지
+  if(t.includes("상점")&&t.includes("업데이트")&&!t.includes("점검")) return "이벤트"; // 상점 업데이트 → 이벤트
+  if((t.includes("웹")&&t.includes("업데이트"))&&!t.includes("버전")&&!t.includes("점검")) return null;
+  // ── 업데이트: 게임 버전 업데이트만 ─────────────────────────────────
+  if(t.includes("버전 업데이트")||t.includes("version update")) return "업데이트";
+  if(/v?\d+\.\d+.*업데이트|업데이트.*v?\d+\.\d+/.test(t)) return "업데이트";
+  if(t.includes("콘텐츠 일람")) return "업데이트";
+  if(t.includes("점검 공지")||(t.includes("점검")&&t.includes("버전"))) return "업데이트";
+
+  // ── 픽업: SKIP 전에 먼저 체크 (배너 공지가 SKIP에 걸리지 않도록) ──
+  // 원신 (Genshin Impact)
+  if(t.includes("이벤트 기원")||t.includes("이벤트기원")) return "픽업";
+  if(t.includes("이벤트 소원")||t.includes("한정 소원")) return "픽업"; // 원신 한국어 표기
+  if(t.includes("신의 주조")) return "픽업";           // 원신 무기 배너
+  if(t.includes("묶음 기원")||t.includes("묶음소원")) return "픽업";    // 원신 번들
+  if(t.includes("재이 기원")||t.includes("만지우")) return "픽업";      // 원신 클로니클
+  if(t.includes("상반기 이벤트")||t.includes("하반기 이벤트")) return "픽업"; // 원신 상/하반기
+  // 붕괴: 스타레일 (HSR)
+  if(t.includes("이벤트 워프")) return "픽업";
+  if(t.includes("departure warp")||t.includes("event warp")) return "픽업";
+  if(t.includes("phase i")||t.includes("phase ii")||t.includes("phase 1")||t.includes("phase 2")) return "픽업";
+  // ZZZ
+  if(t.includes("기간 한정 채널")) return "픽업";      // 기간 한정 채널(상반기/W-엔진)
+  if(t.includes("w-엔진")||t.includes("기간한정채널")) return "픽업";
+  // 붕괴3rd
+  if(t.includes("기간 한정 소환")||t.includes("기간한정소환")) return "픽업";
+  if(t.includes("기간 한정 공급")||t.includes("특별 공급")) return "픽업";
+  if(t.includes("팽창 공명")||t.includes("초공명 전개")) return "픽업";
+  if(t.includes("신규 협력 캐릭터")&&t.includes("등장")) return "픽업";
+  if((t.includes("s급 캐릭터")||t.includes("a급 캐릭터"))&&(t.includes("등장")||t.includes("예고")||t.includes("출시"))) return "픽업";  // 붕3rd
+  if(t.includes("신규 s급")&&(t.includes("등장")||t.includes("추가")||t.includes("예고"))) return "픽업";
+  if(t.includes("s급")&&t.includes("등장")&&(t.includes("신규")||t.includes("캐릭터")||t.includes("제레")||t.includes("발키리"))) return "픽업"; // 넓은 패턴
+  if((t.includes("발키리")||t.includes("valkyrie"))&&(t.includes("한정")||t.includes("limited"))) return "픽업";
+  // 명조 (WuWa)
+  if(t.includes("기간 한정 모집")||t.includes("기간한정모집")) return "픽업";
+  if(t.includes("공명자")&&(t.includes("한정")||t.includes("모집")||t.includes("소환"))) return "픽업";
+  if(t.includes("resonator")&&(t.includes("limited")||t.includes("convene"))) return "픽업";
+  if(t.includes("시험 소환")||t.includes("특별 소환")) return "픽업";   // 명조 기타 배너
+  // 공통 영문
+  if(t.includes("event wish")||t.includes("banner")||t.includes("convene")) return "픽업";
+  if(t.includes("limited supply")||t.includes("rate-up")) return "픽업";
+  if(g.includes("기원")||g.includes("소원")||g.includes("wish")||g.includes("warp")||g.includes("banner")) return "픽업";
+
+  // ── SKIP ─────────────────────────────────────────────────────────────
+  const SKIP=["월페이퍼","wallpaper","충전","결제 오류","환불","접속 불가","서버 오류",
+    "아이쨩의 극비","극비 정보","tips","기능 최적화","steam 사전 테스트",
+    "fan art","fanart","survey","설문","discord","| 파일","| 영상","달에서 ",
+    "오류 복구","오류 설명","이벤트 설명","이벤트 소개",
+    "임무 안내","임무 소개","스테이지 안내","스토리 안내","시즌 확장 안내",
+    "즐기는 법","활용법","입문","운영 성명","테스트 버전","폼폼과","리두 펀드",
+    "300%","3배 드랍",
+  ];
+  if(SKIP.some(s=>t.includes(s))) return null;
+
+  // ── 특별 방송 ─────────────────────────────────────────────────────────
+  if(t.includes("특별 프로그램")||t.includes("특별방송")||t.includes("생방송")) return "특별 방송";
+  if(t.includes("미리보기 방송")||t.includes("special program")||t.includes("livestream")) return "특별 방송";
+
+  // ── 영상(PV) ──────────────────────────────────────────────────────────
+  if(/ pv$| pv |\(pv\)/.test(t)||t.endsWith("pv")||t.includes("트레일러")) return "영상";
+  if(t.includes("trailer")||t.includes("teaser")||t.includes("cinematic mv")) return "영상";
+
+  // ── 업데이트 추가 패턴 ────────────────────────────────────────────────
+  if(t.includes("패치 노트")||t.includes("patch notes")) return "업데이트";
+  if(g.includes("업데이트")||g.includes("update")) return "업데이트";
+
+  return null;
+}
+
+/* ── Fetch JSON — local Python proxy only ────────────────────────────────── */
+// HoYoverse has no CORS headers → direct browser calls always blocked.
+// proxy.py at localhost:8080 fetches server-side → no CORS restriction.
+// YouTube ID 추출 (정규식 미사용 - 백슬래시 인코딩 문제 회피)
+function getYtId(url) {
+  if(!url) return null;
+  var patterns = ["watch?v=","watch/?v=","youtu.be/","embed/","shorts/","live/"];
+  for(var i=0;i<patterns.length;i++){
+    var idx=url.indexOf(patterns[i]);
+    if(idx>=0){var id=url.slice(idx+patterns[i].length,idx+patterns[i].length+11).replace(/[^A-Za-z0-9_-]/g,"");if(id.length===11)return id;}
+  }
+  return null;
+}
+
+async function fetchJSON(url, logs) {
+  const TIMEOUT = 12000; // 12초 타임아웃
+
+  // localhost URL은 proxy 루프 방지 - 직접 접속
+  if(url.startsWith("http://localhost")||url.startsWith("http://127.0.0.1")){
+    const ctrl=new AbortController();
+    const timer=setTimeout(()=>ctrl.abort(),TIMEOUT);
+    try{
+      const r=await fetch(url,{headers:{Accept:"application/json"},signal:ctrl.signal});
+      clearTimeout(timer);
+      if(r.ok){logs.push("[로컬 프록시] OK");return r.json();}
+      logs.push("[로컬] HTTP "+r.status);
+    }catch(e){
+      clearTimeout(timer);
+      if(e.name==="AbortError") logs.push("[로컬] 타임아웃");
+      else logs.push("[로컬] 실패: "+e.message);
+    }
+    throw new Error("FETCH_FAILED");
+  }
+
+  // 1) Local Python proxy
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), TIMEOUT);
+    const r = await fetch(`${API}/api/hoyo?url=` + encodeURIComponent(url),
+      {headers:{Accept:"application/json"}, signal:ctrl.signal});
+    clearTimeout(timer);
+    if(r.ok){ logs.push("[로컬 프록시] OK"); return r.json(); }
+    logs.push("[로컬 프록시] HTTP " + r.status);
+  } catch(e){
+    if(e.name==="AbortError") logs.push("[로컬 프록시] 타임아웃 (12s)");
+    else logs.push("[로컬 프록시] 실패: " + e.message);
+  }
+
+  // 2) Direct fallback
+  try {
+    const ctrl2 = new AbortController();
+    const timer2 = setTimeout(() => ctrl2.abort(), TIMEOUT);
+    const r = await fetch(url, {headers:{Accept:"application/json"}, signal:ctrl2.signal});
+    clearTimeout(timer2);
+    if(r.ok){ logs.push("[직접] OK"); return r.json(); }
+    logs.push("[직접] HTTP " + r.status);
+  } catch(e){
+    if(e.name==="AbortError") logs.push("[직접] 타임아웃");
+    else logs.push("[직접] CORS 차단: " + e.message);
+  }
+
+  throw new Error(location.protocol === "file:" ? "FILE_PROTOCOL" : "FETCH_FAILED");
+}
+
+/* ── Parse HoYoverse announcements ─────────────────────────────────────────── */
+function parseHoyo(data, past, future, logs) {
+  // HoYoverse API 구조: data.list = [{type_label, list:[실제공지...]}] (2단계 중첩)
+  // flatMap으로 카테고리를 펼쳐 실제 공지 아이템만 추출
+  const cats=[...(data.list||[]),...(data.pic_list||[])];
+  const list=cats.flatMap(cat=>Array.isArray(cat.list)?cat.list:Array.isArray(cat.pic_list)?cat.pic_list:[cat]);
+  const seen=new Set(), out=[], skipped=[];
+  list.forEach(ann=>{
+    const title=ann.title||"";
+    // start_time 필드명 다양하게 시도 (API 버전에 따라 다름)
+    const dateRaw=ann.start_time||ann.startTime||ann.start_at||ann.begin_time||ann.start;
+    const date=dateRaw?(typeof dateRaw==="number"?lDS(new Date(dateRaw>1e10?dateRaw:dateRaw*1000)):String(dateRaw).replace("T"," ").split(" ")[0]):null;
+    if(!date){ if(title) skipped.push("날짜없음: "+title.slice(0,40)); return; }
+    const dt=new Date(date);
+    if(dt<past||dt>future){ skipped.push("범위밖("+date+"): "+title.slice(0,30)); return; }
+    const tagRaw=ann.tag_label||ann.tagLabel||ann.tag||ann.type_label||"";
+    const type=detectType(title,tagRaw);
+    if(!type){ skipped.push("타입미분류: "+title.slice(0,40)+" [tag:"+tagRaw+"]"); return; }
+    const key=type+"|"+date+"|"+title;
+    if(seen.has(key)) return;
+    seen.add(key);
+    const vm=title.match(/(\d+\.\d+)/);
+    const img=ann.banner||ann.img||ann.image||ann.banner_img||null;
+    out.push({title,date,type,version:vm?vm[1]:null,character:null,characterImg:img,detail:null,youtubeUrl:null});
+  });
+  // 디버그: 필터링된 이유 + 실제 필드 구조 출력
+  if(logs){
+    if(skipped.length>0) logs.push("── 필터됨 "+skipped.length+"건 ──");
+    skipped.slice(0,8).forEach(s=>logs.push("  ✗ "+s));
+    if(out.length===0&&list.length>0){
+      // 첫 번째 아이템의 모든 키 출력 (필드명 파악용)
+      const first=list[0];
+      logs.push("── 첫 번째 아이템 키 ──");
+      logs.push("  keys: "+Object.keys(first).join(", "));
+      logs.push("── 값 샘플 ──");
+      Object.entries(first).slice(0,12).forEach(([k,v])=>{
+        const val=typeof v==="object"?JSON.stringify(v).slice(0,60):String(v).slice(0,60);
+        logs.push("  "+k+": "+val);
+      });
+    }
+  }
+  return out;
+}
+
+/* ── Main game fetch (returns {evs,logs} or throws) ───────────────────────── */
+async function fetchGame(game, past, future, onApplyDate) {
+  const logs=["["+game.name+"] "+game.url];
+  let evs=[];
+  let json=null;
+  // 주 URL 시도 후 실패하면 fallbackUrl 시도
+  try {
+    json = await fetchJSON(game.url+"?"+game.qs, logs);
+  } catch(e) {
+    if(game.fallbackUrl){
+      logs.push("[폴백 URL 시도] "+game.fallbackUrl);
+      json = await fetchJSON(game.fallbackUrl+"?"+game.qs, logs);
+    } else throw e;
+  }
+  if(game.kind==="bbs"){
+    // HoYoLAB 뉴스 피드 파서
+    if(json.retcode!==0) throw new Error("retcode="+json.retcode);
+    // 타입별 기본 표시 기간 (포스트 게시일로부터 N일)
+    const TYPE_DAYS={"픽업":21,"업데이트":1,"특별 방송":1,"영상":7};
+    const addDays=(dateStr,n)=>{const d=new Date(dateStr);d.setDate(d.getDate()+n);return lDS(d);};
+
+    const parseBbsItems=(items)=>{
+      const unmatched=[];
+      items.forEach(item=>{
+        const post=item.post||item;
+        let title=(post.subject||post.title||"").trim();
+        if(!title) return;
+        // BBS "영상" 포스트는 캘린더에서 제외 (유튜브 RSS가 별도 처리)
+        const rawType=detectType(title,"");
+        if(rawType==="영상"){unmatched.push("[영상-스킵] "+title.slice(0,40));return;}
+        // 날짜 추출: 본문에서 "점검 일시" 추출 시도 (사전 다운로드 != 업데이트 날짜)
+        const ts_created=post.created_at||post.publish_time||post.updated_at;
+        if(!ts_created) return;
+        const baseDate = lDS(new Date(ts_created > 1e12 ? ts_created : ts_created * 1000));
+        // 본문에서 실제 점검/업데이트 날짜 추출
+        function extractMaintDate(rawContent) {
+          if(!rawContent) return null;
+          const txt = rawContent.replace(/<[^>]+>/g,' ').replace(/&[a-z]+;/g,' ');
+          // 패턴: "점검 일시.*YYYY년 M월 D일" 또는 "업데이트 날짜.*M월 D일"
+          const patterns = [
+            /점검\s*일시[^0-9]*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/,
+            /점검[^0-9]*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/,
+            /업데이트\s*(?:일시|날짜|예정)[^0-9]*(\d{4})년\s*(\d{1,2})월\s*(\d{1,2})일/,
+            /維護時間[^0-9]*(\d{4})\D*(\d{1,2})\D*(\d{1,2})/,
+          ];
+          for(const pat of patterns) {
+            const m = txt.match(pat);
+            if(m) {
+              const y=m[1], mo=String(m[2]).padStart(2,'0'), d=String(m[3]).padStart(2,'0');
+              return `${y}-${mo}-${d}`;
+            }
+          }
+          // "M월 D일" 패턴 (연도 없음 → 올해)
+          const m2 = txt.match(/점검\s*일시[^0-9]*(\d{1,2})월\s*(\d{1,2})일/);
+          if(m2) {
+            const now=new Date(), y=now.getFullYear();
+            return `${y}-${String(m2[1]).padStart(2,'0')}-${String(m2[2]).padStart(2,'0')}`;
+          }
+          return null;
+        }
+        // BBS 목록 API는 본문이 잘려있을 수 있음 → 여러 필드 시도
+        const content = post.content || post.structured_content || post.desc || post.summary || '';
+        const maintDate = extractMaintDate(content);
+        // ★ 캘린더 표시는 항상 게시일. 업데이트 적용일은 applyDate로 별도 보관
+        const date = baseDate;
+        let applyDate = (maintDate && maintDate >= baseDate) ? maintDate : null;
+        const farPast=new Date();farPast.setMonth(farPast.getMonth()-6);
+        if(new Date(date)<farPast||new Date(date)>future) return;
+        const type=rawType;
+        if(!type){unmatched.push(title.slice(0,45));return;}
+        // 타입별 기본 종료일 자동 부여 (달력에 기간 동안 표시됨)
+        const days=TYPE_DAYS[type]??14;
+        const endDate=addDays(date,days);
+        const img=item.image_list?.[0]?.url||post.cover||null;
+        const vid=item.video?.link_url||item.video?.play_url||"";
+        const ytId=vid?getYtId(vid):null;
+        const vm=title.match(/(\d+\.\d+)/);
+        // 원신 「N번째 달」 → 버전명 변환 + 제목 정제
+        const KR_ORD={'첫':1,'두':2,'세':3,'네':4,'다섯':5,'여섯':6,'일곱':7,'여덟':8,'아홉':9,'열':10};
+        const GENSHIN_VER_BASE=6;
+        // 「N번째 달」 또는 그냥 "N번째 달" (따옴표 없는 케이스) 모두 인식
+        const vmKrOrd=title.match(/「?([가-힣]+)\s*번째\s*달」?/);
+        // vmNamed는 버전으로 사용하지 않음 (캐릭터 타이틀이 version으로 들어가는 문제 방지)
+        let version=null;
+        if(vm) version=vm[1];
+        else if(vmKrOrd){ const n=KR_ORD[vmKrOrd[1]]; version=n?`${GENSHIN_VER_BASE}.${n}`:vmKrOrd[1]; }
+        // 「N번째 달」 버전 헤더를 제목에서 제거
+        if(vmKrOrd) title=title
+          .replace(/「[가-힣]+\s*번째\s*달」\s*(달\s*)?(버전)?\s*/g,"")
+          .replace(/[가-힣]+\s*번째\s*달\s*(달\s*)?(버전)?\s*/g,"")
+          .trim();
+        // 너무 긴 제목 줄임 (40자 초과 시)
+        if(title.length>40) title=title.slice(0,38)+"…";
+        const postId=post.post_id||post.id||"";
+        const detailUrl=postId?`https://www.hoyolab.com/article/${postId}`:(post.link_url||null);
+        // 픽업일 때 캐릭터명 추출 (본문 포함)
+        const postContent = post.content || post.structured_content || "";
+        const character = (type==="픽업") ? extractPickupChar(title, postContent) : null;
+        if(type==="업데이트") logs.push(`[UP] ${title.slice(0,20)} 게시일=${baseDate} 점검일=${maintDate||"본문조회필요"}`);
+        evs.push({title,date,endDate:date,type,version,character,characterImg:img,detail:detailUrl,youtubeUrl:ytId?"https://youtu.be/"+ytId:null,postId:String(post.post_id||post.postId||""),gids:game.gids||"2",applyDate,needMaintDate:(type==="업데이트"&&!applyDate)});
+      });
+      return unmatched;
+    };
+    const items=(json.data?.list||[]);
+    logs.push("── BBS 뉴스: "+items.length+"개");
+    const um1=parseBbsItems(items);
+    if(um1.length) logs.push("타입미분류("+um1.length+"): "+um1.slice(0,5).join(" / "));
+    if(game.extraUrl){
+      try{
+        const json2=await fetchJSON(game.extraUrl+"?"+game.extraQs, logs);
+        if(json2.retcode===0){
+          const um2=parseBbsItems(json2.data?.list||[]);
+          if(um2.length) logs.push("타입미분류(공지): "+um2.slice(0,5).join(" / "));
+        }
+      }catch(e2){logs.push("extraUrl 실패: "+e2.message);}
+    }
+  } else if(game.kind==="hoyo"){
+    if(json.retcode!==0) throw new Error("retcode="+json.retcode);
+    evs = parseHoyo(json.data||{}, past, future, logs);
+  } else if(game.kind==="wuwa"){
+    // 명조: Kuro CDN API → proxy.py /api/wuwa → [{title,date,type,version,img,url}] 배열
+    const list=Array.isArray(json)?json:(json.list||json.data?.list||[]);
+    logs.push("── 명조 이벤트: "+list.length+"개");
+    list.forEach(item=>{
+      const title=(item.title||item.articleTitle||"").trim();
+      const date=(item.date||item.showTime||item.publishTime||"").slice(0,10);
+      if(!title||!date||new Date(date)<past||new Date(date)>future) return;
+      const type=item.type||detectType(title,"");
+      if(!type) return;
+      const ver=item.version||null;
+      const img=item.img||item.articleImg||item.cover||null;
+      const url=item.url||item.link||item.articleUrl||null;
+      evs.push({
+        title, date, type,
+        version: ver,
+        character: null,
+        characterImg: img,
+        detail: url,
+        youtubeUrl: null
+      });
+    });
+    logs.push("── 명조 파싱 완료: "+evs.length+"개");
+  } else {
+    // 명조(wuwa): proxy가 이미 {title,date,type,version,img,url}로 가공해서 전달
+    const list=Array.isArray(json)?json:(json.data?.list||json.data?.noticeList||json.noticeList||json.list||[]);
+    list.forEach(item=>{
+      const title=item.title||item.content||item.noticeName||item.name||"";
+      let date=item.date||null;
+      if(!date){
+        const ts=item.startTime||item.publishTime||item.createTime||item.time;
+        if(ts){
+          if(typeof ts==="number") date=lDS(new Date(ts>1e10?ts:ts*1000));
+          else date=String(ts).split(/[ T]/)[0];
+        }
+      }
+      if(!date||!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
+      if(new Date(date)<past||new Date(date)>future) return;
+      // proxy가 type을 줬으면 사용, 없으면 자체 감지
+      const type=item.type||detectType(title,item.tagName||item.typeName||"");
+      if(!type) return;
+      const character=(type==="픽업")?extractPickupChar(title,""):null;
+      evs.push({title,date,endDate:date,type,version:item.version||null,character,characterImg:item.img||item.coverUrl||item.imgUrl||null,detail:item.url||null,youtubeUrl:null});
+    });
+  }
+  // ── YouTube RSS 수집 (ytChannel 설정된 게임만) ──────────────────────────
+  if(game.ytChannel){
+    try{
+      const ctrl=new AbortController();
+      const timer=setTimeout(()=>ctrl.abort(),12000);
+      const proxyUrl=`${API}/api/yt?type=rss&channel=`+encodeURIComponent(game.ytChannel);
+      const r=await fetch(proxyUrl,{signal:ctrl.signal});
+      clearTimeout(timer);
+      if(r.ok){
+        const ytItems=await r.json();
+        logs.push("── YouTube RSS: "+ytItems.length+"개 영상");
+        ytItems.slice(0,15).forEach(item=>{
+          const title=item.title||"";
+          const date=item.date||"";
+          if(!date) return;
+          const type=detectType(title,"");
+          // 유튜브 타입 분류: 특방/PV 위주, 없으면 "특별 방송"으로
+          const tl=title.toLowerCase();
+          // detectType으로 먼저, 안되면 방송/영상 패턴
+          let evType=type;
+          if(!evType){
+            // 특별 방송 키워드
+            if(tl.includes("특별 프로그램")||tl.includes("특별방송")||tl.includes("생방송")||
+               tl.includes("미리보기 방송")||tl.includes("livestream")||tl.includes("live stream")||
+               tl.includes("special program")||tl.includes("preview program")||
+               (tl.includes("미리보기")&&(tl.includes("버전")||tl.includes("v.")))||
+               tl.includes("방송 미리보기")||/버전.{0,10}프리뷰/.test(tl))
+              evType="특별 방송";
+            // 영상(PV) 키워드
+            else if(tl.includes(" pv")||tl.endsWith("pv")||tl.includes("trailer")||
+                    tl.includes("teaser")||tl.includes("예고편")||tl.includes("트레일러")||
+                    tl.includes("character video")||tl.includes("캐릭터 pv")||
+                    tl.includes("mv")||tl.includes("opening")||tl.includes("cinematic")||
+                    / pv[^a-z]/.test(tl))
+              evType="영상";
+            // 픽업 키워드
+            else if(tl.includes("이벤트 워프")||tl.includes("이벤트 기원")||tl.includes("event warp")||
+                    tl.includes("warp")||tl.includes("phase i")||tl.includes("phase ii")||
+                    tl.includes("phase 1")||tl.includes("phase 2")||tl.includes("banner")||
+                    tl.includes("convene")||tl.includes("기간 한정 채널"))
+              evType="픽업";
+            // 업데이트 키워드
+            else if(tl.includes("버전 업데이트")||tl.includes("version update")||
+                    tl.includes("update")||tl.includes("업데이트")||tl.includes("콘텐츠 일람")||
+                    tl.includes("patch")||tl.includes("version"))
+              evType="업데이트";
+            // 공식 채널 영상 - 위 어디도 해당 안되면 영상으로 분류 (공식 채널이므로 모두 포함)
+            else
+              evType="영상";
+          }
+          // 유튜브 영상은 타입 있으면 무조건 포함 (공식 채널)
+          const ytVm=title.match(/(\d+\.\d+)/);
+          const ytVer=ytVm?ytVm[1]:null;
+          evs.push({title:item.isShort?'[Shorts] '+title:title,date,endDate:date,type:evType,version:ytVer,character:null,characterImg:item.thumb||null,detail:null,youtubeUrl:item.url||null,isShort:!!item.isShort});
+        });
+      }else{logs.push("YouTube RSS: HTTP "+r.status);}
+    }catch(e){logs.push("YouTube RSS 실패: "+e.message);}
+  }
+  // 업데이트 점검일 보정: fetchGame을 막지 않도록 백그라운드 처리 (await 안 함)
+  const needFix=evs.filter(e=>e.type==="업데이트"&&!e.applyDate&&e.postId);
+  logs.push(`[점검일보정] 대상 ${needFix.length}개(백그라운드)`);
+  if(needFix.length&&IS_LOCAL){
+    const toFix=needFix.slice(0,5); // 최신 5개만
+    // await 하지 않음 → fetchGame 즉시 반환, 보정은 백그라운드에서
+    (async()=>{
+    await Promise.all(toFix.map(async ev=>{
+      try{
+        const ctrl=new AbortController();
+        const tid=setTimeout(()=>ctrl.abort(),5000); // 5초 타임아웃
+        const r=await fetch(`${API}/api/hoyo-post?post_id=${ev.postId}&gids=${ev.gids}`,{signal:ctrl.signal});
+        clearTimeout(tid);
+        if(!r.ok) return;
+        const d=await r.json();
+        const post=d?.data?.post?.post||{};
+        const txt=(post.content||"").replace(/<[^>]+>/g," ").replace(/&[a-z]+;/g," ");
+        // 업데이트 날짜 추출: 사전 다운로드 종료일 > 점검 일시 순
+        let nd=null, method=null;
+        // 1. 사전 다운로드 기간 ... ~ YYYY.MM.DD (종료일 = 업데이트일) ★최우선
+        let m=txt.match(/사전\s*다운로드\s*기간[^~]*~\s*(\d{4})[.\-\/년]\s*(\d{1,2})[.\-\/월]\s*(\d{1,2})/);
+        if(m){nd=`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;method="사전DL종료";}
+        // 2. 점검 일시 YYYY년 M월 D일
+        if(!nd){m=txt.match(/점검\s*일시[^0-9]*(\d{4})년?\s*(\d{1,2})월\s*(\d{1,2})일/);
+          if(m){nd=`${m[1]}-${String(m[2]).padStart(2,"0")}-${String(m[3]).padStart(2,"0")}`;method="점검일시";}}
+        // 3. 점검 일시 M월 D일 (연도 생략 → 게시연도)
+        if(!nd){m=txt.match(/점검\s*일시[^0-9]*(\d{1,2})월\s*(\d{1,2})일/);
+          if(m){nd=`${ev.date.slice(0,4)}-${String(m[1]).padStart(2,"0")}-${String(m[2]).padStart(2,"0")}`;method="점검일시2";}}
+        if(nd&&nd>=ev.date){
+          ev.applyDate=nd;
+          // 보정 결과를 콜백으로 전달 (App에서 events 업데이트)
+          if(onApplyDate) onApplyDate({gameId:ev.gameId,title:ev.title,date:ev.date,applyDate:nd});
+        }
+      }catch(e){}
+    }));
+    })(); // 백그라운드 IIFE 즉시 실행
+  }
+  logs.push("완료: "+evs.length+"개");
+  return {evs, logs};
+}
+
+const stColor = s=>s==="fetching"?"#6cb4f8":s==="done"?"#0F9D75":s==="warn"?"#f0b24c":"#f17172";
+
+/* ── Protocol guide modal ─────────────────────────────────────────────────── */
+function ProtocolGuide({onClose}) {
+  return (
+    <div className="overlay" onClick={onClose}>
+      <div className="modal" onClick={e=>e.stopPropagation()}>
+        <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:14}}>
+          <h3 style={{fontSize:15,fontWeight:700,color:"var(--tp)"}}>⚠️ file:// 실행 제한</h3>
+          <button className="ib" onClick={onClose} style={{fontSize:18}}>×</button>
+        </div>
+        <p style={{fontSize:12,color:"var(--ts)",lineHeight:1.8,marginBottom:16}}>
+          HoYoverse API는 <code style={{background:"var(--bi)",padding:"1px 6px",borderRadius:3}}>file://</code> 프로토콜을 차단합니다.<br/>
+          <strong style={{color:"var(--tp)"}}>아래 방법 중 하나로 실행하면 즉시 해결됩니다.</strong>
+        </p>
+
+        {/* 방법 1: launch.bat */}
+        <div style={{background:"rgba(55,138,221,.1)",border:".5px solid rgba(55,138,221,.3)",borderRadius:8,padding:14,marginBottom:10}}>
+          <p style={{fontSize:12,fontWeight:700,color:"#6cb4f8",marginBottom:8}}>방법 1 — launch.bat 실행 (원클릭)</p>
+          <p style={{fontSize:11,color:"var(--ts)",lineHeight:1.7}}>
+            <code style={{background:"var(--bi)",padding:"1px 6px",borderRadius:3,color:"#9fa8da"}}>launch.bat</code>을 HTML·proxy.py와 같은 폴더에 두고 더블클릭<br/>
+            <span style={{color:"#6cb4f8",fontWeight:600}}>※ Python이 없으면 먼저 설치:</span>{" "}
+            <a href="https://www.python.org/downloads/" target="_blank" rel="noreferrer" style={{color:"#6cb4f8"}}>python.org/downloads</a>
+            {" "}→ <strong style={{color:"var(--tp)"}}>Add Python to PATH</strong> 체크 필수
+          </p>
+        </div>
+
+        {/* 방법 2: 수동 CMD */}
+        <div style={{background:"rgba(55,138,221,.07)",border:".5px solid rgba(55,138,221,.2)",borderRadius:8,padding:14,marginBottom:10}}>
+          <p style={{fontSize:12,fontWeight:700,color:"#6cb4f8",marginBottom:8}}>방법 2 — CMD 직접 실행</p>
+          <p style={{fontSize:11,color:"var(--ts)",marginBottom:8}}>파일이 있는 폴더에서 <strong>명령 프롬프트(CMD)</strong> 열기</p>
+          <div style={{background:"var(--bi)",borderRadius:6,padding:"8px 12px",fontFamily:"monospace",fontSize:12,color:"#9fa8da",marginBottom:6,userSelect:"all",lineHeight:1.8}}>
+            python proxy.py<br/>
+            <span style={{opacity:.5}}># Python 명령이 없으면: py proxy.py</span>
+          </div>
+          <p style={{fontSize:11,color:"var(--ts)"}}>
+            그 다음 →{" "}
+            <a href="http://localhost:8080/game-calendar-standalone.html" style={{color:"#6cb4f8"}}>
+              localhost:8080/game-calendar-standalone.html
+            </a>
+          </p>
+        </div>
+
+        {/* 방법 3: Netlify Drop */}
+        <div style={{background:"rgba(15,157,117,.1)",border:".5px solid rgba(15,157,117,.3)",borderRadius:8,padding:14,marginBottom:14}}>
+          <p style={{fontSize:12,fontWeight:700,color:"#0F9D75",marginBottom:8}}>방법 3 — Netlify Drop (서버 없이, 2분)</p>
+          <p style={{fontSize:11,color:"var(--ts)",lineHeight:1.8}}>
+            1.{" "}<a href="https://app.netlify.com/drop" target="_blank" rel="noreferrer" style={{color:"#0F9D75"}}>app.netlify.com/drop</a> 접속<br/>
+            2. 이 HTML 파일 드래그앤드롭<br/>
+            3. 생성된 HTTPS URL 접속 → 완료 <span style={{opacity:.6}}>(무료, 계정 불필요)</span>
+          </p>
+        </div>
+
+        <button onClick={onClose} style={{width:"100%",padding:9,fontSize:12,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"#378ADD",color:"#fff",border:"none"}}>
+          확인
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/* ── App ──────────────────────────────────────────────────────────────────── */
+function App() {
+  const now=new Date(), todayStr=lDS(now);
+
+  const [dark,        setDark]        = useState(true);
+  const [weekStart,   setWeekStart]   = useState(1); // 0=일요일 시작, 1=월요일 시작
+  const [chIcon0,     setChIcon0]     = useState(""); // 치지직 아이콘
+  const [chIcon1,     setChIcon1]     = useState(""); // 컴파일러 유튜브 아이콘
+  const [chIcon2,     setChIcon2]     = useState(""); // 통파일러 아이콘
+  const [gameIcons,   setGameIcons]   = useState({}); // 게임별 YouTube 채널 아이콘 {gameId: url}
+  const [yr,          setYr]          = useState(now.getFullYear());
+  const [mo,          setMo]          = useState(now.getMonth());
+  const [games,       setGames]       = useState([]);
+  const [events,      setEvents]      = useState([]);
+  const [sel,         setSel]         = useState(null);
+  const [quickAdd,    setQuickAdd]    = useState(null); // {date:"2026-06-01"}
+  const [hoverDs,     setHoverDs]     = useState(null); // 마우스 오버 날짜
+  const [hiddenTypes, setHiddenTypes] = useState(new Set());
+  const [fetchSt,     setFetchSt]     = useState({});
+  const [gDetail,     setGDetail]     = useState(null);
+  const [view,        setView]        = useState("cal");
+  const [notionTok,   setNotionTok]   = useState(NOTION_TOKEN);
+  const [notionDbId,  setNotionDbId]  = useState(DB_ID);
+  const [broadcastEvs,setBroadcastEvs]= useState([]);
+  const [selNote,     setSelNote]     = useState(null); // 선택된 노트 상세
+  const [showNotesInCal, setShowNotesInCal] = useState(true); // 캘린더에 문서 표시 여부
+  const [showBcastInCal, setShowBcastInCal] = useState(true); // 캘린더에 방송일정 표시 여부
+  const [noteLoading, setNoteLoading] = useState(false); // 노션 문서 수집 중 // 노션 방송 일정
+  const [noteDbId,    setNoteDbId]    = useState("20466cc1-f1b5-8060-b379-eb16721bd1e4"); // 문서 목록 DB
+  const [noteEvs,     setNoteEvs]     = useState([]); // 노션 노트 목록
+  const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
+  const [syncing,     setSyncing]     = useState({});
+  const [focusWeek,   setFocusWeek]   = useState(0);
+  const [expandedWeek,setExpandedWeek]= useState(null); // 클릭으로 확장된 주
+  const [scrollToDate,  setScrollToDate]  = useState(null);
+  const weekRefs = React.useRef({});
+  const calRef  = React.useRef(null);
+  const smoothScrollToRow = React.useCallback((rowIdx)=>{
+    // RAF: React 렌더 완료 + 페인트 후 측정 → stale layout 방지
+    requestAnimationFrame(()=>{
+      const container=calRef.current;
+      const el=weekRefs.current[rowIdx];
+      if(!container||!el) return;
+      const cRect=container.getBoundingClientRect();
+      const eRect=el.getBoundingClientRect();
+      const delta=eRect.top-cRect.top-(cRect.height-eRect.height)/2;
+      if(Math.abs(delta)<3) return; // 이미 충분히 중앙이면 스킵
+      container.scrollBy({top:delta,behavior:"smooth"});
+    });
+  },[]);
+
+  const [selDay,      setSelDay]      = useState(null);
+  const [showAllLogs, setShowAllLogs] = useState(false);
+  const [toast, setToast] = useState(null);
+  const showToast = React.useCallback(msg=>{
+    setToast({msg,id:Date.now()});
+    setTimeout(()=>setToast(null),2200);
+  },[]);
+  const [debugLog,    setDebugLog]    = useState({});
+  const [showDbg,     setShowDbg]     = useState(null);
+  const [showGuide,   setShowGuide]   = useState(false);
+  const [ready,       setReady]       = useState(false);
+
+  // Show guide immediately if opened via file://
+  useEffect(()=>{ if(location.protocol==="file:") setShowGuide(true); },[]);
+
+  const cells = useMemo(()=>{
+    // weekStart: 0=일, 1=월
+    const fd_raw=new Date(yr,mo,1).getDay(); // 0=일
+    const fd=(fd_raw-weekStart+7)%7;         // weekStart 기준 offset
+    const ld=new Date(yr,mo+1,0).getDate(),pl=new Date(yr,mo,0).getDate();
+    const pmo=mo===0?11:mo-1,pyr=mo===0?yr-1:yr,nmo=mo===11?0:mo+1,nyr=mo===11?yr+1:yr;
+    const res=[];
+    for(let i=fd-1;i>=0;i--){const d=pl-i;res.push({day:d,yr:pyr,mo:pmo,cur:false,ds:`${pyr}-${String(pmo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`});}
+    for(let d=1;d<=ld;d++) res.push({day:d,yr,mo,cur:true,ds:`${yr}-${String(mo+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`});
+    let nd=1; while(res.length%7!==0){res.push({day:nd,yr:nyr,mo:nmo,cur:false,ds:`${nyr}-${String(nmo+1).padStart(2,"0")}-${String(nd).padStart(2,"0")}`});nd++;}
+    // 현재 월이면 오늘 기준 -2주(이전 두 주) prepend
+    const isCurrentMonthView=(yr===now.getFullYear()&&mo===now.getMonth());
+    if(isCurrentMonthView){
+      const firstDs=res[0]?.ds;
+      const todayIdx=res.findIndex(c=>c.ds===todayStr);
+      const todayWeek=todayIdx>=0?Math.floor(todayIdx/7):0;
+      // 이미 2주 전이 포함돼 있으면 그대로, 없으면 앞에 붙임
+      if(todayWeek<2){
+        const extra=[];
+        let d=new Date(res[0].ds);
+        for(let i=14;i>0;i--){
+          const nd2=new Date(d); nd2.setDate(nd2.getDate()-i);
+          const ds=lDS(nd2);
+          if(!res.find(c=>c.ds===ds)){
+            extra.push({day:nd2.getDate(),yr:nd2.getFullYear(),mo:nd2.getMonth(),cur:nd2.getFullYear()===yr&&nd2.getMonth()===mo,ds});
+          }
+        }
+        // 7의 배수가 되도록 앞에서 잘라서 prepend
+        const toAdd=extra.slice(extra.length%7===0?0:-(extra.length-extra.length%7));
+        return [...(toAdd.length?toAdd.slice(-14):[]),...res];
+      }
+    }
+    return res;
+  },[yr,mo,weekStart]);
+  React.useEffect(()=>{setExpandedWeek(null);},[yr,mo]);
+
+  const weekRows=useMemo(()=>{const r=[];for(let i=0;i<cells.length;i+=7)r.push(cells.slice(i,i+7));return r;},[cells]);
+  const todayRowIdx=useMemo(()=>{const i=cells.findIndex(c=>c.cur&&c.ds===todayStr);return i>=0?Math.floor(i/7):0;},[cells]);
+
+  // 초기 로드 완료 후 오늘 행 중앙으로
+  React.useEffect(()=>{
+    if(ready){
+      setTimeout(()=>smoothScrollToRow(todayRowIdx),150);
+      // 노션 연동 시 자동 방송일정+문서 로드
+      if(notionTok&&noteDbId) fetchNotes();
+      if(notionTok&&(broadcastDbId||notionDbId)) fetchBroadcast();
+      // 채널 아이콘 로드 (치지직 + YouTube)
+      fetch(`${API}/api/yt?type=chzzk&chzzk=7ad99b46e1c49002efc36263b4c8b075`)
+        .then(r=>r.json()).then(d=>{if(d.url)setChIcon0(d.url);}).catch(()=>{});
+      fetch(`${API}/api/yt?type=icon&channel=UCPpSXwAg3hkSpa85Ah-dpgA`)
+        .then(r=>r.json()).then(d=>{if(d.url)setChIcon1(d.url);}).catch(()=>{});
+      fetch(`${API}/api/yt?type=icon&channel=UCPH5K7VjB2__o60u1bMpZnw`)
+        .then(r=>r.json()).then(d=>{if(d.url)setChIcon2(d.url);}).catch(()=>{});
+    }
+  },[ready]);
+  // 게임 아이콘: 정적 icon 없는 게임(붕3rd, 명조)은 YouTube 채널 아이콘으로 로드
+  // 컴파일러/통파일러 채널 아이콘과 100% 동일한 방식
+  const [ytGameIcons, setYtGameIcons] = useState({});
+  useEffect(()=>{
+    if(!ready) return;
+    // HOYO_CFGS에서 icon이 빈 게임만 골라서 채널 아이콘 fetch
+    HOYO_CFGS.filter(g=>!g.icon&&g.ytChannel).forEach(g=>{
+      fetch(`${API}/api/yt?type=icon&channel=${encodeURIComponent(g.ytChannel)}`)
+        .then(r=>r.json()).then(d=>{
+          if(d.url) setYtGameIcons(prev=>({...prev,[g.id]:d.url}));
+        }).catch(()=>{});
+    });
+  },[ready]);
+  // fetch된 아이콘을 games에 주입 (정적 URL 게임은 영향 없음)
+  useEffect(()=>{
+    if(Object.keys(ytGameIcons).length===0) return;
+    setGames(prev=>prev.map(pg=>ytGameIcons[pg.id]&&!HOYO_CFGS.find(c=>c.id===pg.id)?.icon?{...pg,icon:ytGameIcons[pg.id]}:pg));
+  },[ytGameIcons]);
+  useEffect(()=>{
+    if(yr===now.getFullYear()&&mo===now.getMonth()){setFocusWeek(todayRowIdx);setSelDay(now.getDate());}
+    else{setFocusWeek(0);setSelDay(null);}
+    setSel(null);
+    // scrollToDate: 월 전환 시 이전 달 scrollTop이 남아있어 delta 오계산 방지
+    // → scrollTop 즉시 0 리셋 후 instant 포지셔닝
+    if(scrollToDate){
+      const rowIdx=weekRows.findIndex(wk=>wk.some(c=>c.ds===scrollToDate));
+      if(rowIdx>=0){
+        setFocusWeek(rowIdx);
+        requestAnimationFrame(()=>{
+          const container=calRef.current;
+          const el=weekRefs.current[rowIdx];
+          if(!container||!el) return;
+          // 1단계: scrollTop 리셋 (이전 달 스크롤 위치 제거)
+          container.scrollTop=0;
+          // 2단계: 리셋 후 실제 위치로 instant 이동
+          requestAnimationFrame(()=>{
+            const cRect=container.getBoundingClientRect();
+            const eRect=el.getBoundingClientRect();
+            const delta=eRect.top-cRect.top-(cRect.height-eRect.height)/2;
+            if(Math.abs(delta)>2) container.scrollBy({top:delta,behavior:"instant"});
+          });
+        });
+      }
+      setScrollToDate(null);
+    }
+  },[yr,mo]);
+
+  useEffect(()=>{
+    (async()=>{
+      let ig=[];
+      try{
+        const r=await store.get("v146_g");
+        const saved=JSON.parse(r.value);
+        // URL/qs/kind/icon은 항상 최신 HOYO_CFGS 값으로 덮어씀 (구버전 URL 자동 수정)
+        ig=saved.map(g=>{
+          const def=HOYO_CFGS.find(d=>d.id===g.id);
+          return def?{...g,url:def.url,qs:def.qs,kind:def.kind,icon:def.icon||g.icon||null,gids:def.gids,fallbackUrl:def.fallbackUrl,extraUrl:def.extraUrl,extraQs:def.extraQs,ytChannel:def.ytChannel,twitter:def.twitter||null,officialUrl:def.officialUrl||null}:g;
+        });
+        // HOYO_CFGS에 새로 추가된 게임은 자동으로 목록에 추가
+        HOYO_CFGS.forEach(def=>{
+          if(!ig.find(g=>g.id===def.id)) ig.push({...def,on:true,fetched:null,fetchedAt:0});
+        });
+      }catch{ig=HOYO_CFGS.map(c=>({...c,on:true,fetched:null,fetchedAt:0}));}
+      try{const r=await store.get("v146_e");setEvents(JSON.parse(r.value));}catch{}
+      try{const r=await store.get("v146_t");if(r?.value)setNotionTok(r.value);}catch{}
+      try{const r=await store.get("v45_dbid");if(r?.value)setNotionDbId(r.value);}catch{}
+      try{const r=await store.get("v146_dk");setDark(r.value!=="0");}catch{}
+      try{const r=await store.get("v67_ws");if(r?.value)setWeekStart(Number(r.value));}catch{}
+      try{const r=await store.get("cal_filters");if(r?.value){const f=JSON.parse(r.value);if(f.showNotes!=null)setShowNotesInCal(f.showNotes);if(f.showBcast!=null)setShowBcastInCal(f.showBcast);}}catch{}
+      setGames(ig);
+      setReady(true);
+      if(location.protocol!=="file:"){
+        const stale=ig.filter(g=>!g.fetchedAt||Date.now()-g.fetchedAt>CACHE_MS);
+        for(let i=0;i<stale.length;i++){
+          await doFetch(stale[i]);
+          if(i<stale.length-1) await new Promise(r=>setTimeout(r,400));
+        }
+      }
+    })();
+  },[]);
+
+  useEffect(()=>{if(ready)store.set("v146_g",JSON.stringify(games));},[games,ready]);
+  useEffect(()=>{if(ready)store.set("v146_e",JSON.stringify(events));},[events,ready]);
+  useEffect(()=>{if(ready)store.set("v146_dk",dark?"1":"0");},[dark,ready]);
+  useEffect(()=>{if(ready)store.set("v67_ws",String(weekStart));},[weekStart,ready]);
+
+  const setSt=(gid,state,msg)=>setFetchSt(p=>({...p,[gid]:{state,msg}}));
+
+  async function doFetch(game) {
+    if(location.protocol==="file:"){setShowGuide(true);return;}
+    setSt(game.id,"fetching","수집 중...");
+    const past=new Date(now);past.setMonth(past.getMonth()-6); // 6개월 전까지 포함 (진행중 이벤트 포착)
+    const future=new Date(now);future.setMonth(future.getMonth()+3);
+    try{
+      const {evs,logs}=await fetchGame(game,past,future,(u)=>{
+        // 백그라운드 점검일 보정 완료 → events 즉시 업데이트
+        setEvents(prev=>prev.map(pe=>(pe.gameId===u.gameId&&pe.title===u.title&&pe.date===u.date)?{...pe,applyDate:u.applyDate}:pe));
+      });
+      setDebugLog(p=>({...p,[game.id]:logs.join("\n")}));
+      const mapped=evs.map(ev=>({...ev,id:game.id+"_"+ev.date+"_"+Math.random().toString(36).slice(2,6),gameId:game.id,gameName:game.name,gameColor:game.color,endDate:ev.endDate||null,synced:false}));
+      setEvents(p=>[...p.filter(e=>e.gameId!==game.id),...mapped]);
+      setGames(p=>p.map(g=>g.id===game.id?{...g,fetched:new Date().toLocaleString("ko-KR"),fetchedAt:Date.now()}:g));
+      setSt(game.id,mapped.length===0?"warn":"done",mapped.length===0?"일정 없음":mapped.length+"개 수집 완료 (토큰 0)");
+    }catch(err){
+      setDebugLog(p=>({...p,[game.id]:"오류: "+err.message}));
+      setSt(game.id,"error",err.message);
+    }
+  }
+
+  const goMonth=dir=>{const nm=mo+dir,ny=nm<0?yr-1:nm>11?yr+1:yr,am=((nm%12)+12)%12;if(new Date(ny,am,1)<new Date(now.getFullYear(),now.getMonth()-1,1))return;setYr(ny);setMo(am);};
+
+  // 단건 노션 동기화
+  // silent=true 이면 alert 없이 에러를 throw로 전달 (일괄 등록용)
+  async function syncNotion(ev, silent=false){
+    if(!notionTok){if(!silent)alert("설정 → Notion Token을 입력해주세요.");return false;}
+    if(!notionDbId){if(!silent)alert("설정 → Notion DB ID를 입력해주세요.");return false;}
+    if(ev.type!=="업데이트"&&ev.type!=="특별 방송"){
+      if(!silent)alert("업데이트·특별방송 이벤트만 노션에 등록할 수 있습니다.");return false;
+    }
+    setSyncing(m=>({...m,[ev.id]:"pending"}));
+    try{
+      const charName=ev.character||extractPickupChar(ev.title)||null;
+      const props={
+        "컨텐츠":{title:[{text:{content:ev.title||""}}]},          // title 필드명: 컨텐츠
+        "날짜":{date:{start:ev.date,end:ev.endDate||null}},
+        "컨텐츠 종류":{multi_select:ev.type?[{name:ev.type}]:[]},
+      };
+      // 버전: DB에서 rich_text 타입 → 항상 문자열로 전송
+      if(ev.version) props["버전"]={rich_text:[{text:{content:String(ev.version)}}]};
+      // 상세: DB에서 rich_text 타입 (url 아님)
+      if(ev.detail) props["상세"]={rich_text:[{text:{content:ev.detail}}]};
+      if(charName)  props["픽업 캐릭터"]={rich_text:[{text:{content:charName}}]};
+
+      const r=await fetch(`${API}/api/notion?path=pages`,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+        body:JSON.stringify({parent:{database_id:notionDbId},properties:props})
+      });
+      if(r.ok){
+        const u={...ev,synced:true};
+        setEvents(p=>p.map(e=>e.id===ev.id?u:e));
+        setSel(u);
+        setSyncing(m=>({...m,[ev.id]:"ok"}));
+        return true;
+      }else{
+        const je=await r.json().catch(()=>({}));
+        // Notion API 에러를 한국어로 안내
+        let msg=je?.message||"HTTP "+r.status;
+        if(msg.includes("Could not find database"))
+          msg="DB를 찾을 수 없습니다.\n① 설정에서 DB ID가 정확한지 확인\n② Notion DB → ··· → 연결 → '게임 캘린더' Integration을 추가해주세요.";
+        if(msg.includes("unauthorized")||r.status===401)
+          msg="인증 실패: Integration Token이 올바르지 않습니다.";
+        if(msg.includes("not_found"))
+          msg="DB를 찾을 수 없습니다. DB ID를 다시 확인해주세요.";
+        throw new Error(msg);
+      }
+    }catch(err){
+      setSyncing(m=>({...m,[ev.id]:"err"}));
+      if(!silent) alert("동기화 실패:\n"+err.message);
+      return false;
+    }
+  }
+
+  // 일괄 동기화: silent 모드로 개별 alert 없이 처리, 완료 후 toast 1개로 결과 표시
+  async function bulkSyncNotion(){
+    if(!notionTok||!notionDbId){
+      showToast("설정에서 Notion Token과 DB ID를 입력해주세요.");return;
+    }
+    const targets=events.filter(e=>!e.synced&&(e.type==="업데이트"||e.type==="특별 방송"));
+    if(targets.length===0){showToast("등록할 이벤트가 없습니다 (이미 모두 등록됨).");return;}
+    let ok=0,fail=0,failMsg="";
+    for(const ev of targets){
+      const success=await syncNotion(ev, true); // silent=true
+      if(success) ok++;
+      else{ fail++; if(!failMsg) failMsg=ev.title; }
+      await new Promise(r=>setTimeout(r,350)); // Notion API rate limit
+    }
+    if(fail===0) showToast(`✓ ${ok}개 노션 등록 완료`);
+    else showToast(`✓ ${ok}개 완료 / ✗ ${fail}개 실패${failMsg?" (첫 실패: "+failMsg.slice(0,20)+"…)":""}\n설정의 DB ID·Integration 연결을 확인해주세요.`);
+  }
+
+  // 노션 방송 일정 읽기
+  async function fetchBroadcast(){
+    const dbId=broadcastDbId||notionDbId;
+    if(!notionTok||!dbId) return;
+    try{
+      const r=await fetch(`${API}/api/notion?path=databases/${dbId}/query`,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+        body:JSON.stringify({sorts:[{property:"날짜",direction:"descending"}],page_size:100})
+      });
+      if(!r.ok){
+        const errText=await r.text().catch(()=>"");
+        showToast("방송일정 읽기 실패 "+r.status+": "+errText.slice(0,60));
+        console.error("방송일정 읽기 실패",r.status,errText);
+        return;
+      }
+      const data=await r.json();
+      const parsed=(data.results||[]).map(page=>{
+        const props=page.properties||{};
+        // 날짜 (time 포함 가능: "2026-06-05T20:00:00.000+09:00")
+        const dateProp=props["날짜"]||props["일시"]||props["Date"]||{};
+        const dateVal=dateProp.date?.start||"";
+        if(!dateVal) return null;
+        const dateStr=dateVal.slice(0,10);
+        // 시간 파싱 → 없으면 기본값 오후 7시(19:00)
+        let timeStr="오후 7:00";
+        if(dateVal.includes("T")){
+          const d=new Date(dateVal);
+          let h=d.getHours(), m=d.getMinutes();
+          const ap=h>=12?"오후":"오전";
+          const h12=h>12?h-12:h===0?12:h;
+          timeStr=`${ap} ${h12}${m>0?":"+String(m).padStart(2,"0"):""}시`;
+        }
+        // 게임명: "컨텐츠" title 필드
+        const titleProp=props["컨텐츠"]||props["이름"]||props["제목"]||props["Name"]||{};
+        const titleArr=titleProp.title||titleProp.rich_text||[];
+        const rawTitle=titleArr.map(t=>t.plain_text||t.text?.content||"").join("").trim();
+        // 모든 속성에서 게임명 후보 탐색 (relation 포함)
+        // 게임명: "게임" relation 속성에서 직접 추출 (게임 목록 DB)
+        let relPageId=null;
+        const gameProp=props["게임"]||{};
+        const gameRelIds=(gameProp.relation||[]).map(r=>r.id);
+        if(gameRelIds.length>0){
+          relPageId=gameRelIds[0];
+        }
+        // rawTitle이 유효하면 그대로, 아니면 relation 대기 상태로
+        const genericTitles=["방송","특별 방송","업데이트","픽업","영상","방송일정"];
+        const isGenericTitle=!rawTitle||genericTitles.includes(rawTitle);
+        const title=(!isGenericTitle?rawTitle:(relPageId?"[관계:"+relPageId.slice(0,8)+"]":rawTitle))||"(방송)";
+        // 컨텐츠 종류 태그에서 방송 여부 판단 (제목 기반 필터 X)
+        const typeProp=props["컨텐츠 종류"]||{};
+        const tags=(typeProp.multi_select||[]).map(t=>t.name);
+        // 업데이트/픽업 태그 있으면 게임이벤트 - 방송일정에서 제외
+        if(tags.some(t=>t==="업데이트"||t==="픽업")) return null;
+        // 방송 관련 태그 없으면 제외
+        if(!tags.some(t=>t.startsWith("방송")||t==="합방"||t==="특별 방송")) return null;
+        const isCollab=tags.some(t=>t.includes("합방"));
+        const evType=tags.includes("특별 방송")?"특별 방송":"방송";
+        // 회차
+        const epProp=props["컨텐츠 회차"]||props["회차"]||{};
+        const episode=epProp.number||null;
+        return{
+          id:"bc_"+page.id,
+          title,
+          _rawTitle:rawTitle,      // 원본 제목 보존
+          gameRelIds,              // relation IDs (resolve용)
+          gameNames:[],            // resolve 후 채워짐
+          date:dateStr,
+          endDate:dateStr,
+          timeStr,
+          type:evType,
+          tags,
+          isCollab,
+          episode,
+          gameId:"bc_"+page.id,
+          gameName:"",gameColor:"#FFB432",
+          isBroadcast:true,
+          notionPageId:page.id,
+          notionUrl:`https://notion.so/${page.id.replace(/-/g,"")}`
+        };
+      }).filter(Boolean)
+        .sort((a,b)=>a.date===b.date?(a.timeStr>b.timeStr?1:-1):0);
+      // 게임 목록 relation 일괄 resolve
+      const allRelIds=[...new Set(parsed.flatMap(e=>e.gameRelIds))];
+      if(allRelIds.length>0&&notionTok){
+        try{
+          setDebugLog(p=>({...p,"방송":"[relation] resolve: "+allRelIds.length+"개"}));
+          const rr=await fetch(`${API}/api/notion-pages?ids=${allRelIds.join(",")}`,{
+            headers:{"Authorization":"Bearer "+notionTok,"Notion-Version":"2022-06-28"}
+          });
+          const raw=await rr.text();
+          setDebugLog(p=>({...p,"방송":(p["방송"]||"")+"\n[relation] HTTP "+rr.status}));
+          if(rr.ok){
+            const titleMap=JSON.parse(raw);
+            parsed.forEach(e=>{
+              e.gameNames=e.gameRelIds.map(id=>titleMap[id]||"").filter(Boolean);
+              // 제목이 generic이면 첫번째 게임명으로 대체
+              const genericTitlesCheck=["방송","특별 방송","업데이트","픽업","영상","방송일정"];
+              if((!e._rawTitle||genericTitlesCheck.includes(e._rawTitle))&&e.gameNames.length>0){
+                e.title=e.gameNames[0];
+              }
+            });
+          }
+        }catch(err){
+          setDebugLog(p=>({...p,"방송":(p["방송"]||"")+"\n[relation] 오류: "+err.message}));
+        }
+      }
+      setBroadcastEvs([...parsed]);
+      // 첫 번째 항목의 속성 → 전체 로그에 출력 (alert 없음)
+      if(data.results?.length>0){
+        const firstProps=data.results[0].properties;
+        const propLines=Object.entries(firstProps).map(([k,v])=>{
+          let val="";
+          if(v.type==="title") val=v.title?.map(t=>t.plain_text).join("")||"(빈값)";
+          else if(v.type==="rich_text") val=v.rich_text?.map(t=>t.plain_text).join("")||"(빈값)";
+          else if(v.type==="multi_select") val=v.multi_select?.map(t=>t.name).join(",")||"(없음)";
+          else if(v.type==="date") val=v.date?.start||"(없음)";
+          else if(v.type==="number") val=String(v.number??"-");
+          else if(v.type==="relation") val="[relation:"+v.relation?.map(r=>r.id.slice(0,8)).join(",")+"]";
+          else if(v.type==="rollup") val="[rollup]";
+          else if(v.type==="formula") val="[formula]";
+          else val="("+v.type+")";
+          return `[${v.type}] ${k}: ${val}`;
+        });
+        setDebugLog(p=>({...p,"방송":(p["방송"]||"")+"\n=== 첫번째 항목 속성 ===\n"+propLines.join("\n")+"\n==="}));
+      }
+      console.log("방송일정 raw",data.results?.length,"→ 필터후",parsed.length,"개");
+      if(parsed.length===0&&(data.results||[]).length>0)
+        showToast("방송일정: "+data.results.length+"개 중 방송 태그 있는 항목 0개 (태그 확인 필요)");
+      else if(parsed.length>0){
+        showToast("방송일정 "+parsed.length+"개 로드됨");
+        // DB 목록 자동 조회 (노트 DB ID 찾기용)
+        if(!noteDbId) searchNotionDbs();
+      }
+    }catch(e){console.warn("fetchBroadcast",e);}
+  }
+
+  // 방송 DB + 노트 DB 자동 로드
+  React.useEffect(()=>{
+    if(notionTok&&(broadcastDbId||notionDbId)) fetchBroadcast();
+    if(notionTok&&noteDbId) fetchNotes();
+  },[notionTok,broadcastDbId]);
+
+  // 노트 목록 읽기
+  async function fetchNotes(){
+    if(!notionTok||!noteDbId) return;
+    setNoteLoading(true);
+    try{
+      const r=await fetch(`${API}/api/notion?path=databases/${noteDbId}/query`,{
+        method:"POST",
+        headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+        body:JSON.stringify({sorts:[{timestamp:"created_time",direction:"descending"}],page_size:100})
+      });
+      if(!r.ok){showToast("노트 읽기 실패 "+r.status);setNoteLoading(false);return;}
+      const data=await r.json();
+      const notes=(data.results||[]).map(page=>{
+        const props=page.properties||{};
+        const tProp=props["문서명"]||props["이름"]||props["제목"]||props["Name"]||{};
+        const name=(tProp.title||tProp.rich_text||[]).map(t=>t.plain_text||"").join("").trim()||"(제목없음)";
+        const createdTimeProp=props["생성 일시"]||{};
+        const createdAt=(createdTimeProp.type==="created_time"?createdTimeProp.created_time:null)||page.created_time||"";
+        const dateStr=createdAt.slice(0,10);
+        if(!dateStr) return null;
+        const catProp=props["분류"]||{};
+        const category=catProp.select?.name||catProp.multi_select?.[0]?.name||"";
+        // 게임 목록 relation IDs 수집 (resolve 후 게임명 표시)
+        const gameProp=props["게임 목록"]||{};
+        const gameRelIds=(gameProp.relation||[]).map(r=>r.id);
+        // 산출물 (URL)
+        const outProp=props["산출물"]||props["링크"]||{};
+        const outputUrl=outProp.url||outProp.rich_text?.[0]?.plain_text||"";
+        return{
+          id:"note_"+page.id,
+          pageId:page.id,
+          notionPageId:page.id,
+          title:name,
+          date:dateStr,
+          endDate:dateStr,
+          category,
+          gameRelIds,
+          gameNames:[], // resolve 후 채워짐
+          outputUrl,
+          isNote:true,
+          notionUrl:`https://notion.so/${page.id.replace(/-/g,"")}`
+        };
+      }).filter(Boolean);
+      // 게임명 resolve
+      const allRelIds=[...new Set(notes.flatMap(n=>n.gameRelIds))];
+      if(allRelIds.length>0&&notionTok){
+        try{
+          const rr=await fetch(`${API}/api/notion-pages?ids=${allRelIds.join(",")}`,{
+            headers:{"Authorization":"Bearer "+notionTok,"Notion-Version":"2022-06-28"}
+          });
+          if(rr.ok){
+            const titleMap=await rr.json();
+            notes.forEach(n=>{
+              n.gameNames=n.gameRelIds.map(id=>titleMap[id]||"").filter(Boolean);
+            });
+          }
+        }catch(e){console.warn("노트 게임명 resolve 실패",e);}
+      }
+      setNoteEvs(notes);
+      showToast("노트 "+notes.length+"개 로드됨");
+    }catch(e){showToast("노트 읽기 실패: "+e.message);}finally{setNoteLoading(false);}
+  }
+
+  // Notion DB 목록 조회
+  async function searchNotionDbs(){
+    if(!notionTok){showToast("Token을 먼저 입력해주세요.");return;}
+    try{
+      const r=await fetch(`${API}/api/notion?path=search`,{
+        headers:{"Authorization":"Bearer "+notionTok,"Notion-Version":"2022-06-28"}
+      });
+      if(!r.ok){showToast("DB 조회 실패 "+r.status);return;}
+      const d=await r.json();
+      const dbs=(d.results||[]).map(db=>{
+        const n=db.title?.[0]?.plain_text||"(제목없음)";
+        return `[${db.id}] ${n}`;
+      });
+      setDebugLog(p=>({...p,"방송":(p["방송"]||"")+"\n=== Notion DB 목록 ===\n"+dbs.join("\n")+"\n==="}));
+      showToast(dbs.length+"개 DB 발견 → 전체 로그 확인");
+    }catch(e){showToast("DB 조회 실패: "+e.message);}
+  }
+
+  const active=new Set(games.filter(g=>g.on).map(g=>g.id));
+  const filt=ev=>!hiddenTypes.has(ev.type);
+  const TYPE_ORDER={"픽업":0,"업데이트":1,"특별 방송":2,"영상":3};
+  const cellEvs=cell=>{
+    // 게임 이벤트 (모든 소식은 게시일 기준)
+    const gameRaw=events.filter(e=>{
+      if(!active.has(e.gameId)||!filt(e)) return false;
+      // 모든 타입: 게시일 하루만 표시
+      return e.date===cell.ds;
+    });
+    // 업데이트 "적용일" 마커: applyDate가 이 셀과 일치하는 업데이트
+    const applyMarkers=events.filter(e=>{
+      if(!active.has(e.gameId)||e.type!=="업데이트"||!e.applyDate) return false;
+      if(!filt(e)) return false;
+      return e.applyDate===cell.ds && e.applyDate!==e.date; // 게시일과 다를 때만
+    }).map(e=>({...e,_isApplyMarker:true}));
+    gameRaw.push(...applyMarkers);
+    // 방송 일정 (날짜 정확히 일치)
+    const bcRaw=broadcastEvs.filter(e=>e.date===cell.ds);
+    const raw=[...bcRaw,...gameRaw];
+    // 같은 게임+타입: 첫 번째 항목 대표로, 나머지 count만 +1
+    const seen=new Map();
+    raw.forEach(e=>{
+      const key=e.gameId+"|"+e.type;
+      if(!seen.has(key)) seen.set(key,{...e,_count:1});
+      else seen.get(key)._count++;
+    });
+    return [...seen.values()].sort((a,b)=>(TYPE_ORDER[a.type]??9)-(TYPE_ORDER[b.type]??9));
+  };
+  // HOYO_CFGS getter가 localStorage 저장 후 사라지므로 실시간 주입
+  const HOYO_MAP_=React.useMemo(()=>Object.fromEntries(HOYO_CFGS.map(c=>[c.id,c])),[]);
+  const gOf=id=>{
+    const g=games.find(g=>g.id===id);
+    if(!g) return null;
+    if(!g.icon){const def=HOYO_MAP_[id];if(def?.icon) return {...g,icon:def.icon};}
+    return g;
+  };
+  // 게임명 → Notion relation page ID 매핑 (broadcastEvs·noteEvs에서 수집)
+  const gameIndex=React.useMemo(()=>{
+    const idx=new Map();
+    broadcastEvs.forEach(ev=>{
+      (ev.gameRelIds||[]).forEach((rid,i)=>{if(ev.gameNames?.[i]) idx.set(ev.gameNames[i],rid);});
+    });
+    noteEvs.forEach(n=>{
+      (n.gameRelIds||[]).forEach((rid,i)=>{if(n.gameNames?.[i]) idx.set(n.gameNames[i],rid);});
+    });
+    return idx;
+  },[broadcastEvs,noteEvs]);
+  const gameNames=React.useMemo(()=>[...new Set([...gameIndex.keys()])].sort(),[gameIndex]);
+  const selYtId=sel&&getYtId(sel.youtubeUrl);
+
+  const allLogsText = Object.entries(debugLog).map(([gid,log])=>{
+    const g=games.find(x=>x.id===gid);
+    return "═══ "+(g?g.name:gid)+" ═══\n"+log;
+  }).join("\n\n");
+
+  return (
+    <div className={dark?"":"lm"} style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"var(--bp)"}}>
+
+      {/* Toast */}
+      {toast&&<div key={toast.id} className="toast toast-in">{toast.msg}</div>}
+
+      {/* 전체 로그 모달 */}
+      {showAllLogs&&(
+        <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,.65)",zIndex:999,display:"flex",alignItems:"center",justifyContent:"center"}} onClick={()=>setShowAllLogs(false)}>
+          <div style={{width:660,maxHeight:"82vh",borderRadius:12,background:"var(--bc)",border:".5px solid var(--br)",display:"flex",flexDirection:"column",overflow:"hidden"}} onClick={e=>e.stopPropagation()}>
+            <div style={{padding:"11px 16px",borderBottom:".5px solid var(--br)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:8}}>
+              <span style={{fontWeight:600,fontSize:13}}>전체 수집 로그</span>
+              <div style={{display:"flex",gap:6}}>
+                <button onClick={()=>navigator.clipboard?.writeText(allLogsText).then(()=>showToast("클립보드에 복사됐습니다 ✓"))} style={{fontSize:11,padding:"3px 12px",borderRadius:4,border:".5px solid #5090D3",background:"rgba(55,138,221,.12)",color:"#6cb4f8",cursor:"pointer",fontFamily:"inherit"}}>📋 전체 복사</button>
+                <button onClick={()=>setShowAllLogs(false)} style={{fontSize:11,padding:"3px 10px",borderRadius:4,border:".5px solid var(--br)",background:"var(--bi)",color:"var(--ts)",cursor:"pointer",fontFamily:"inherit"}}>닫기</button>
+              </div>
+            </div>
+            <div style={{flex:1,overflow:"auto",padding:"12px 16px"}}>
+              {games.length===0||!allLogsText
+                ? <p style={{color:"var(--tm)",fontSize:12,textAlign:"center",padding:24}}>아직 수집 로그가 없습니다. 재수집 후 다시 열어주세요.</p>
+                : games.map(g=>{
+                    const log=debugLog[g.id];
+                    if(!log) return null;
+                    return(
+                      <div key={g.id} style={{marginBottom:14}}>
+                        <div style={{fontSize:11,fontWeight:600,marginBottom:4,display:"flex",alignItems:"center",gap:5,color:g.color||"var(--tp)"}}>
+                          <span style={{width:8,height:8,borderRadius:"50%",background:g.color||"var(--tm)",flexShrink:0,display:"inline-block"}}/>
+                          {g.name}
+                        </div>
+                        <pre style={{fontSize:10,color:"var(--ts)",background:"var(--bi)",borderRadius:6,padding:"8px 10px",overflow:"auto",whiteSpace:"pre-wrap",wordBreak:"break-all",lineHeight:1.65,margin:0}}>{log}</pre>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Compiler banner */}
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0}}>
+        <span onClick={()=>window.location.reload()} title="새로고침"
+          style={{fontSize:11,fontWeight:800,letterSpacing:"-0.3px",color:"var(--tp)",marginRight:4,cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
+          컴파일러의 서브컬처 캘린더
+        </span>
+        {COMPILER.map((ch,ci)=>{
+          const icon=ci===0?chIcon0:ci===1?chIcon1:ci===2?chIcon2:"";
+          return(
+          <a key={ch.url} href={ch.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:6,padding:"3px 12px 3px 4px",borderRadius:20,background:ch.color+"18",border:`.5px solid ${ch.color}55`}}
+            onMouseEnter={e=>e.currentTarget.style.opacity=".7"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
+            <div style={{width:22,height:22,borderRadius:"50%",background:ch.color+"22",border:`1.5px solid ${ch.color}88`,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0}}>
+              {icon?<img src={icon} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>:ch.emoji}
+            </div>
+            <span style={{fontSize:11,color:ch.color,fontWeight:600,whiteSpace:"nowrap"}}>{ch.label}</span>
+          </a>
+          );
+        })}
+      </div>
+
+      {/* Top bar */}
+      <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,flexWrap:"wrap",rowGap:4}}>
+        <button className="ib" onClick={()=>goMonth(-1)} style={{fontSize:16}}>{"<"}</button>
+        <span style={{fontSize:14,fontWeight:500,color:"var(--tp)",minWidth:92,textAlign:"center"}}>{yr}년 {MONTHS[mo]}</span>
+        <button className="ib" onClick={()=>goMonth(1)} style={{fontSize:16}}>{">"}</button>
+        <button className="ib" style={{fontSize:11,padding:"3px 8px"}} onClick={()=>{setYr(now.getFullYear());setMo(now.getMonth());setTimeout(()=>smoothScrollToRow(todayRowIdx),100);}}>오늘</button>
+        <div style={{width:1,height:14,background:"var(--br)",margin:"0 2px"}} />
+        {Object.keys(TC).map(t=>{
+          const hidden=hiddenTypes.has(t);
+          return(
+            <button key={t} onClick={()=>setHiddenTypes(p=>{const s=new Set(p);s.has(t)?s.delete(t):s.add(t);return s;})}
+              style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
+                background:hidden?"transparent":(dark?TC[t]?.bg:TC[t]?.lbg),
+                color:hidden?"var(--tm)":(dark?TC[t]?.t:TC[t]?.lt),
+                borderColor:hidden?"var(--br)":TC[t]?.b,
+                textDecoration:hidden?"line-through":"none",
+                opacity:hidden?.6:1}}>
+              {t}
+            </button>
+          );
+        })}
+        <div style={{marginLeft:"auto",display:"flex",gap:5}}>
+          <button className="pill" onClick={()=>setDark(d=>!d)}>{dark?"라이트":"다크"}</button>
+          <button className="pill" onClick={()=>setWeekStart(w=>w===0?1:0)}
+            style={{background:"rgba(55,138,221,.15)",color:"#378ADD",border:".5px solid rgba(55,138,221,.4)"}}>
+            {weekStart===1?"🗓 월 시작":"🗓 일 시작"}
+          </button>
+          <button className="pill" onClick={()=>setView(v=>v==="settings"?"cal":"settings")}>{view==="settings"?"캘린더":"설정"}</button>
+        </div>
+      </div>
+
+      <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+        {/* Sidebar */}
+        <div style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",background:"var(--bc)",borderRight:".5px solid var(--br)",overflow:"hidden"}}>
+          <div style={{padding:"8px 7px 6px",borderBottom:".5px solid var(--br)"}}>
+            {/* 통합 필터 패널 */}
+            {(()=>{
+              const allOn=games.every(g=>g.on);
+              const saveFilters=(notes,bcast)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast}));}catch{}};
+              return(
+              <div style={{marginBottom:5}}>
+                <div style={{fontSize:9,color:"var(--tm)",marginBottom:3,fontWeight:600,letterSpacing:".3px"}}>캘린더 표시</div>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>
+                  {/* 게임 토글 */}
+                  <button onClick={()=>setGames(p=>p.map(g=>({...g,on:!allOn})))}
+                    style={{fontSize:9,padding:"4px 3px",borderRadius:5,cursor:"pointer",fontFamily:"inherit",
+                      background:allOn?"rgba(55,138,221,.12)":"var(--bi)",
+                      color:allOn?"#378ADD":"var(--tm)",
+                      border:".5px solid "+(allOn?"rgba(55,138,221,.35)":"var(--br)"),textAlign:"center"}}>
+                    🎮 {allOn?"게임 ✓":"게임"}
+                  </button>
+                  {/* 방송일정 토글 */}
+                  <button onClick={()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);}}
+                    style={{fontSize:9,padding:"4px 3px",borderRadius:5,cursor:"pointer",fontFamily:"inherit",
+                      background:showBcastInCal?"rgba(255,180,50,.12)":"var(--bi)",
+                      color:showBcastInCal?"#c07000":"var(--tm)",
+                      border:".5px solid "+(showBcastInCal?"rgba(255,180,50,.35)":"var(--br)"),textAlign:"center"}}>
+                    📺 {showBcastInCal?"일정 ✓":"일정"}
+                  </button>
+                  {/* 문서 토글 */}
+                  <button onClick={()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);}}
+                    style={{fontSize:9,padding:"4px 3px",borderRadius:5,cursor:"pointer",fontFamily:"inherit",
+                      background:showNotesInCal?"rgba(120,80,255,.12)":"var(--bi)",
+                      color:showNotesInCal?"#9B60FF":"var(--tm)",
+                      border:".5px solid "+(showNotesInCal?"rgba(120,80,255,.35)":"var(--br)"),textAlign:"center"}}>
+                    📝 {showNotesInCal?"문서 ✓":"문서"}
+                  </button>
+                  {/* 게임 이벤트 필터 유형 토글은 상단 필터 버튼에서 별도 관리 */}
+                </div>
+              </div>
+              );
+            })()}
+            <button onClick={async()=>{if(location.protocol==="file:"){setShowGuide(true);return;}for(let i=0;i<games.length;i++){await doFetch(games[i]);if(i<games.length-1)await new Promise(r=>setTimeout(r,400));}}}
+              style={{width:"100%",fontSize:10,padding:"5px 0",cursor:"pointer",fontFamily:"inherit",borderRadius:5,border:".5px solid var(--br)",background:"var(--bh)",color:"var(--ts)",marginBottom:4}}>
+              전체 재수집 (HoYoverse API)
+            </button>
+            <div style={{fontSize:9,color:"var(--tm)",textAlign:"center",lineHeight:1.5}}>
+              {IS_LOCAL && location.protocol==="file:" ? <span style={{color:"#f0b24c",cursor:"pointer"}} onClick={()=>setShowGuide(true)}>⚠️ file:// — 실행 안내 보기</span> : IS_LOCAL ? "로컬 프록시 · 6시간 캐시" : "☁️ 웹 배포 · 공개 API"}
+            </div>
+            <button onClick={()=>setShowAllLogs(true)} style={{width:"100%",marginTop:4,fontSize:9,padding:"3px 0",cursor:"pointer",fontFamily:"inherit",borderRadius:4,border:".5px solid var(--br)",background:"var(--bi)",color:"var(--tm)"}}>
+              📋 전체 로그 보기 / 복사
+            </button>
+          </div>
+          <div style={{flex:1,overflow:"auto",padding:5}}>
+            {games.map(g=>{
+              const st=fetchSt[g.id],isFetch=!!(st&&st.state==="fetching");
+              const initial=(g.name.trim()[0]||"?").toUpperCase();
+              const stMsg=st?st.msg:(g.fetched?g.fetched:"미수집");
+              const stCol=st?stColor(st.state):"var(--tm)";
+              const isOpen=showDbg===g.id;
+              return(
+                <div key={g.id} style={{marginBottom:4,borderRadius:6,overflow:"hidden",border:`.5px solid ${isFetch?"rgba(55,138,221,.4)":"transparent"}`,background:isFetch?"rgba(55,138,221,.07)":"var(--bh)"}}>
+                  {isFetch&&<div style={{height:2,background:"rgba(55,138,221,.15)",overflow:"hidden"}}><div className="fetchbar"/></div>}
+                  {(()=>{
+                    const ver=(()=>{
+                      // 업데이트 이벤트 중 숫자 버전(X.X)만, 오늘 이전 것만
+                      const upEvs=events.filter(e=>e.gameId===g.id&&e.type==="업데이트"&&e.date<=todayStr&&e.version&&/^[\d.]+$/.test(e.version));
+                      return upEvs.sort((a,b)=>b.date.localeCompare(a.date))[0]?.version||null;
+                    })();
+                    return(
+                    <div style={{display:"flex",alignItems:"center",gap:5,padding:"6px 6px 5px"}}>
+                      {/* 아이콘 */}
+                      {isFetch
+                        ?<div className="spin" style={{width:28,height:28,borderRadius:7,background:"rgba(55,138,221,.2)",flexShrink:0,display:"flex",alignItems:"center",justifyContent:"center",color:"#378ADD",fontSize:16}}>↻</div>
+                        :<div style={{width:28,height:28,borderRadius:7,background:g.color,flexShrink:0,position:"relative",overflow:"hidden",opacity:g.on?1:.4,cursor:"pointer"}} onClick={()=>setGames(p=>p.map(x=>x.id===g.id?{...x,on:!x.on}:x))}>
+                            <span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:12,fontWeight:700,color:"#fff"}}>{initial}</span>
+                            {(()=>{
+                              // g.icon(정적 URL) 우선, 없으면 미리 로드한 YouTube 채널 아이콘
+                              const iconSrc=g.icon||null;
+                              return iconSrc?<img src={iconSrc} alt=""
+                                onError={e=>{e.target.onerror=null;e.target.style.display="none";}}
+                                style={{position:"absolute",inset:0,width:28,height:28,objectFit:"cover",borderRadius:6}}/>:
+                                <span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,fontWeight:700,color:g.color,background:g.color+"22",borderRadius:6}}>{g.name[0]}</span>;
+                            })()}
+                          </div>}
+                      {/* 버전(위) + 게임명(아래) */}
+                      <div style={{flex:1,minWidth:0,cursor:"pointer"}} onClick={()=>setGames(p=>p.map(x=>x.id===g.id?{...x,on:!x.on}:x))}>
+                        {ver&&<div style={{fontSize:8,padding:"1px 5px",borderRadius:5,background:g.color+"22",color:g.color,border:`.5px solid ${g.color}44`,display:"inline-block",marginBottom:2,whiteSpace:"nowrap"}}>{ver}</div>}
+                        <div style={{fontSize:12,color:g.on?"var(--tp)":"var(--tm)",lineHeight:1.3,wordBreak:"keep-all"}}>{g.name}</div>
+                      </div>
+                      {/* 버튼 */}
+                      <button disabled={isFetch} onClick={()=>doFetch(g)} title="재수집"
+                        style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:isFetch?"#378ADD":"var(--tp)",fontSize:14,padding:"1px 5px",cursor:isFetch?"not-allowed":"pointer",flexShrink:0,lineHeight:1,opacity:isFetch?.5:1}}>
+                        {isFetch?"⟳":"↻"}
+                      </button>
+                      <button onClick={()=>setGDetail(g)} title="설정"
+                        style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:13,padding:"1px 5px",cursor:"pointer",flexShrink:0,lineHeight:1}}>⚙</button>
+                    </div>);
+                  })()}
+                  {(()=>{
+                    // 최신 업데이트
+                    // 오늘 이전 업데이트 중 정식 버전 업데이트만 선별
+                    const latestUp=events.filter(e=>{
+                      if(e.gameId!==g.id||e.type!=="업데이트"||e.date>todayStr) return false;
+                      const t=e.title;
+                      // 원신: "~업데이트 안내"로 끝나는 게 정식 버전 업데이트
+                      // 점검 예고/미리보기/웹페이지 등은 제외
+                      if(/미리보기|예고|웹\s*페이지|상점|가이드/.test(t)) return false;
+                      // 버전 번호가 있고 "업데이트" 포함
+                      return e.version&&/^[\d.]+$/.test(e.version);
+                    }).sort((a,b)=>b.date.localeCompare(a.date))[0];
+                    // 현재 픽업: 날짜 기준 최신 1개만
+                    const latestPick=events.filter(e=>e.gameId===g.id&&e.type==="픽업"&&e.date<=todayStr).sort((a,b)=>b.date.localeCompare(a.date))[0];
+                    if(!latestUp&&!latestPick) return null;
+                    // 표시명: character > extractPickupChar > fallback
+                    const dispChar=p=>p&&(p.character||extractPickupChar(p.title,"")||"픽업");
+                    return(
+                      <div style={{padding:"1px 6px 4px",display:"flex",flexDirection:"column",gap:2}}>
+                        {latestUp&&<div onClick={()=>setSel(latestUp)} style={{fontSize:8,color:"#64b5f6",cursor:"pointer",
+                          background:"rgba(55,138,221,.08)",border:".5px solid rgba(55,138,221,.2)",borderRadius:3,padding:"2px 5px",
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          🔄 {latestUp.version||"최신"} 업데이트{"  "}{latestUp.date&&<span style={{opacity:.6,fontSize:7}}>{latestUp.date.slice(5).replace("-","/")}~</span>}
+                        </div>}
+                        {latestPick&&<div onClick={()=>setSel(latestPick)} style={{fontSize:8,color:"#f48fb1",cursor:"pointer",
+                          background:"rgba(233,30,140,.08)",border:".5px solid rgba(233,30,140,.2)",borderRadius:3,padding:"2px 5px",
+                          overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+                          ✦ {dispChar(latestPick)}
+                        </div>}
+                      </div>
+                    );
+                  })()}
+                  <div style={{padding:"1px 6px 4px",display:"flex",alignItems:"center",gap:4}}>
+                    <span className={isFetch?"pulse":""} style={{fontSize:9,color:stCol,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{stMsg}</span>
+                    <button onClick={()=>setShowDbg(p=>p===g.id?null:g.id)} style={{background:"none",border:".5px solid var(--br)",borderRadius:3,color:"var(--tm)",fontSize:8,padding:"1px 5px",cursor:"pointer",fontFamily:"inherit"}}>{isOpen?"닫기":"로그"}</button>
+                  </div>
+                  {isOpen&&<pre style={{fontSize:8,color:"var(--ts)",background:"var(--bi)",margin:"0 5px 5px",borderRadius:4,padding:"5px 7px",overflow:"auto",maxHeight:150,whiteSpace:"pre-wrap",wordBreak:"break-all",lineHeight:1.5}}>{debugLog[g.id]||"(로그 없음)"}</pre>}
+                  {/* 최근 소식 목록 - 별도 컴포넌트 (Rules of Hooks) */}
+                  <GameNewsList events={events} gameId={g.id} onSel={setSel}/>
+                </div>
+              );
+            })}
+
+            {/* 문서 섹션 - 게임 목록 바로 아래 */}
+            <div style={{borderTop:".5px solid var(--br)",marginTop:2}}>
+              <div style={{display:"flex",alignItems:"center",padding:"6px 3px 3px",gap:4}}>
+                <span style={{fontSize:11,fontWeight:700,color:"var(--tp)",flex:1}}>📝 문서 목록{noteLoading&&<span className="pulse" style={{fontSize:9,color:"#9B60FF",marginLeft:5,fontWeight:500}}>● 수집 중…</span>}</span>
+                {notionTok&&<button onClick={()=>setQuickAdd({date:todayStr,docMode:true})}
+                  style={{background:"rgba(120,80,255,.1)",border:".5px solid rgba(120,80,255,.3)",borderRadius:5,color:"#9B60FF",fontSize:12,padding:"2px 8px",cursor:"pointer",fontWeight:700}}>+</button>}
+                <button onClick={fetchNotes}
+                  style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:5,color:"var(--ts)",fontSize:11,padding:"2px 6px",cursor:"pointer"}}>↻</button>
+              </div>
+              <div>
+                {noteEvs.length===0
+                  ?<div style={{fontSize:10,color:"var(--tm)",padding:"4px 3px",textAlign:"center"}}>문서 없음</div>
+                  :noteEvs.map(n=>(
+                    <div key={n.id} onClick={()=>setSelNote(n)}
+                      style={{padding:"5px 3px 4px",cursor:"pointer",borderBottom:".5px solid var(--br)"}}
+                      onMouseEnter={e=>e.currentTarget.style.background="var(--bh)"}
+                      onMouseLeave={e=>e.currentTarget.style.background=""}>
+                      <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
+                        {n.category&&<span style={{fontSize:8,padding:"0 4px",borderRadius:4,...catStyle(n.category),flexShrink:0}}>{n.category}</span>}
+                        <span style={{fontSize:11,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
+                      </div>
+                      {n.gameNames?.length>0&&<div style={{fontSize:9,color:"var(--ts)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.gameNames.join(" · ")}</div>}
+                      <div style={{fontSize:8,color:"var(--tm)",marginTop:1}}>{n.date}</div>
+                    </div>
+                  ))
+                }
+              </div>
+            </div>
+
+          </div>
+
+        </div>{/* /Sidebar */}
+
+        {/* Main */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",minWidth:0}}>
+          {view==="settings"
+            ?<SettingsPanel token={notionTok} setToken={setNotionTok}
+              dbId={notionDbId} setDbId={setNotionDbId}
+              broadcastDbId={broadcastDbId} setBroadcastDbId={setBroadcastDbId}
+              noteDbId={noteDbId} setNoteDbId={setNoteDbId}
+              onSave={()=>{store.set("v146_t",notionTok);store.set("v60_dbid",notionDbId);store.set("v60_bcid",broadcastDbId);store.set("v60_nid",noteDbId);showToast("저장됐습니다.");}}
+              onBulkSync={bulkSyncNotion}
+              onFetchBroadcast={fetchBroadcast}
+              onFetchNotes={fetchNotes}
+              onSearchDbs={searchNotionDbs}
+              onSetup={async()=>{
+                if(!notionTok){showToast("Integration Token을 먼저 입력해주세요.");return;}
+                showToast("Notion 구조 생성 중...");
+                try{
+                  const r=await fetch(`${API}/api/notion-setup`,{
+                    method:"POST",
+                    headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"}
+                  });
+                  const d=await r.json();
+                  if(!r.ok) throw new Error(d.error||"setup failed");
+                  setNotionDbId(d.calendarDbId.replace(/-/g,""));
+                  setBroadcastDbId(d.calendarDbId.replace(/-/g,""));
+                  const docId=d.documentDbId.replace(/-/g,"");
+                  setNoteDbId(docId);
+                  // calendarDbId stored via setNotionDbId
+                  store.set("v60_bcid",d.calendarDbId.replace(/-/g,""));
+                  store.set("v60_nid",docId);
+                  showToast("✓ Notion 구조 생성 완료! 스트리밍 달력·문서 목록·게임 목록 DB가 만들어졌습니다.");
+                }catch(e){showToast("초기 설정 실패: "+e.message);}
+              }}
+              onFetchSchema={async()=>{
+                const dbId=broadcastDbId||notionDbId;
+                if(!notionTok||!dbId){showToast("Token과 DB ID를 먼저 입력해주세요.");return;}
+                try{
+                  const r=await fetch(`${API}/api/notion?path=databases/${encodeURIComponent(dbId)}`,{headers:{"Authorization":"Bearer "+notionTok,"Notion-Version":"2022-06-28"}});
+                  const d=await r.json();
+                  if(d.message) throw new Error(d.message);
+                  const props=Object.entries(d.properties||{}).map(([n,p])=>"["+p.type+"] "+n).join("\n");
+                  setFullLog(p=>[...p,"=== DB 속성 ===",props,"==="]);
+                  showToast("DB 속성 → 전체 로그 확인");
+                }catch(e){showToast("읽기 실패: "+e.message);}
+              }}/>
+            :<div style={{flex:1,overflow:"hidden",display:"flex",position:"relative"}}>
+              <div ref={calRef} style={{flex:1,overflow:"auto",padding:"5px 6px"}}>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
+                  {(weekStart===1?["월","화","수","목","금","토","일"]:["일","월","화","수","목","금","토"]).map((d,i)=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:600,padding:"3px 0",color:d==="일"?"#E24B4A":d==="토"?"#5090D3":"var(--ts)"}}>{d}</div>)}
+                </div>
+                {weekRows.map((week,rowIdx)=>{
+                  const isHov=rowIdx===focusWeek; // 호버 강조 (크기 변화 없음)
+                  const containsToday=week.some(c=>c.ds===todayStr);
+                  return(
+                    <div key={rowIdx} ref={el=>{if(el)weekRefs.current[rowIdx]=el;}}
+                      onMouseEnter={()=>setFocusWeek(rowIdx)}
+                      className={`${isHov?"week-row-hov":""} ${rowIdx===expandedWeek?"week-row-expanded":""}`}
+                      style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2,borderRadius:8,padding:"2px",transition:"outline .2s,background .2s"}}>
+                      {week.map((cell,ci)=>{
+                        const isToday=cell.ds===todayStr,isSelDay=cell.cur&&cell.day===selDay&&isHov;
+                        const allCellEvs=cellEvs(cell);
+                        const bcEvs=allCellEvs.filter(e=>e.isBroadcast);
+                        const noteEvsCel=noteEvs.filter(e=>e.date===cell.ds);
+                        const gameEvs=allCellEvs.filter(e=>!e.isBroadcast);
+                        const isExpanded=(rowIdx===expandedWeek);
+                        const maxGameEvs=isExpanded?9999:Math.max(0,6-bcEvs.length);
+                        return(
+                          <div key={cell.ds}
+                            onMouseEnter={()=>cell.cur&&setHoverDs(cell.ds)}
+                            onMouseLeave={()=>setHoverDs(null)}
+                            onClick={()=>{if(!cell.cur){setScrollToDate(cell.ds);setYr(cell.yr);setMo(cell.mo);return;}setFocusWeek(rowIdx);setSelDay(cell.day);smoothScrollToRow(rowIdx);setExpandedWeek(p=>p===rowIdx?null:rowIdx);}}
+                            className="week-cell"
+                            style={{minHeight:180,background:isSelDay?"rgba(55,138,221,.12)":"var(--bc)",borderRadius:6,outline:isToday?"2px solid #00C9A7":".5px solid var(--br)",padding:"5px 4px 3px",cursor:"pointer",overflow:"hidden",opacity:cell.cur?1:isHov?.7:.35,position:"relative"}}>
+                            {/* 일정 추가 버튼 */}
+                            {hoverDs===cell.ds&&notionTok&&(
+                              <button onClick={e=>{e.stopPropagation();setQuickAdd({date:cell.ds});}}
+                                style={{position:"absolute",top:4,right:4,zIndex:10,width:24,height:24,borderRadius:"50%",background:"#378ADD",color:"#fff",border:"none",cursor:"pointer",fontSize:16,lineHeight:"24px",textAlign:"center",fontWeight:700,padding:0,boxShadow:"0 2px 6px rgba(55,138,221,.5)"}}>
+                                +
+                              </button>
+                            )}
+                            <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:4,fontSize:12,fontWeight:isToday?700:500,paddingRight:hoverDs===cell.ds&&notionTok?26:0,
+                                color:isToday?"#00C9A7":((ci+weekStart)%7===0)?"#E24B4A":((ci+weekStart)%7===6)?"#5090D3":"var(--ts)"}}>
+                              <span style={{fontSize:9,color:"var(--tm)"}}>{(weekStart===1?["월","화","수","목","금","토","일"]:["일","월","화","수","목","금","토"])[ci]}</span>
+                              <span>{cell.day}</span>
+                              {!cell.cur&&<span style={{fontSize:8,color:"var(--tm)"}}>{cell.mo+1}월</span>}
+                              {isToday&&<span style={{fontSize:8,padding:"1px 4px",borderRadius:20,background:"#00C9A7",color:"#fff",fontWeight:700,marginLeft:1}}>TODAY</span>}
+                            </div>
+                            {/* 방송 일정 */}
+                            {showBcastInCal&&bcEvs.map(ev=>(
+                              <BroadcastCard key={ev.id} ev={ev} dark={dark} onClick={e=>{e.stopPropagation();setSel(ev);}}/>
+                            ))}
+                            {/* 노트 (showNotesInCal이 true일 때만 표시) */}
+                            {showNotesInCal&&noteEvsCel.map(note=>(
+                              <div key={note.id} onClick={e=>{e.stopPropagation();setSelNote(note);}}
+                                style={{background:dark?"rgba(120,80,255,.08)":"#f0ebff",border:dark?".5px solid rgba(120,80,255,.25)":".5px solid #8060cc",borderRadius:4,padding:"3px 6px",marginBottom:2,cursor:"pointer"}}>
+                                <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:1}}>
+                                  <span style={{fontSize:9}}>📝</span>
+                                  {note.category&&<span style={{fontSize:8,padding:"0 3px",borderRadius:3,...catStyle(note.category)}}>{note.category}</span>}
+                                </div>
+                                <div style={{fontSize:10,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:500}}>{note.title}</div>
+                                {note.gameNames?.length>0&&<div style={{fontSize:8,color:dark?"rgba(120,80,255,.7)":"#6040aa",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{note.gameNames.join(" · ")}</div>}
+                              </div>
+                            ))}
+                            {/* 게임 이벤트 */}
+                            {gameEvs.slice(0,maxGameEvs).map((ev,evIdx)=>(
+                              <ExpandedCard key={ev.id} ev={ev} game={gOf(ev.gameId)} cellDs={cell.ds} dark={dark}
+                                className={isExpanded&&evIdx>=Math.max(0,6-bcEvs.length)?"evt-appear":""}
+                                style={{animationDelay:isExpanded&&evIdx>=Math.max(0,6-bcEvs.length)?`${(evIdx-Math.max(0,6-bcEvs.length))*0.04}s`:undefined}}
+                                onClick={e=>{e.stopPropagation();setSel(ev);}}/>
+                            ))}
+                            {!isExpanded&&gameEvs.length>maxGameEvs&&(
+                              <div onClick={e=>{e.stopPropagation();setExpandedWeek(rowIdx);smoothScrollToRow(rowIdx);}}
+                                style={{fontSize:9,color:"#378ADD",paddingLeft:2,cursor:"pointer",padding:"2px 5px",borderRadius:4,background:"rgba(55,138,221,.1)"}}>
+                                +{gameEvs.length-maxGameEvs} 더보기
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+              {/* QuickAdd 모달 */}
+              {quickAdd&&<QuickAddModal
+                date={quickAdd.date}
+                editEv={quickAdd.editEv||null}
+                docMode={quickAdd.docMode||false}
+                broadcastEvs={broadcastEvs}
+                noteEvs={noteEvs}
+                gameIndex={gameIndex}
+                gameNames={gameNames}
+                events={events}
+                games={games}
+                notionTok={notionTok}
+                broadcastDbId={notionDbId}
+                noteDbId={noteDbId}
+                showToast={showToast}
+                onClose={()=>setQuickAdd(null)}
+                onSuccess={(type,isEdit)=>{showToast(isEdit?"수정 완료":(type==="방송"?"방송 일정 추가됨":"노트 추가됨"));setQuickAdd(null);if(type==="방송")fetchBroadcast();else fetchNotes();}}
+              />}
+              {/* NoteDetailModal */}
+              {selNote&&<NoteDetailModal note={selNote} gameIndex={gameIndex} gameNames={gameNames} notionTok={notionTok}
+              onClose={()=>setSelNote(null)}
+              onSaved={()=>{setSelNote(null);showToast("저장됐습니다.");fetchNotes();}}
+              onDeleted={()=>{setSelNote(null);showToast("삭제됐습니다.");fetchNotes();}}/>}
+              {sel&&(
+                <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.55)",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setSel(null)}>
+                  <div style={{width:400,maxHeight:"82vh",borderRadius:14,background:"var(--bc)",border:".5px solid var(--br)",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 8px 40px rgba(0,0,0,.5)"}} onClick={e=>e.stopPropagation()}>
+                    {/* 배너 이미지 — 클릭 시 링크 이동 */}
+                    {(sel.characterImg||getYtId(sel.youtubeUrl))&&(()=>{
+                      const ytid=getYtId(sel.youtubeUrl);
+                      const imgSrc=ytid?`https://img.youtube.com/vi/${ytid}/maxresdefault.jpg`:sel.characterImg;
+                      const linkUrl=sel.youtubeUrl||sel.detail;
+                      return(
+                        <div style={{position:"relative",height:180,overflow:"hidden",background:"#000",flexShrink:0,cursor:linkUrl?"pointer":"default"}}
+                          onClick={()=>linkUrl&&window.open(linkUrl,"_blank")}>
+                          <img src={imgSrc} alt="" onError={e=>{if(ytid&&imgSrc.includes("maxresdefault"))e.target.src=`https://img.youtube.com/vi/${ytid}/mqdefault.jpg`;else e.target.parentElement.style.display="none";}} style={{width:"100%",height:"100%",objectFit:"cover",objectPosition:"center top"}}/>
+                          <div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 40%,rgba(0,0,0,.7))"}}/>
+                          {ytid&&<span style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.8)",borderRadius:6,padding:"2px 8px",fontSize:10,color:"#ff5555",fontWeight:600}}>▶ YouTube</span>}
+                          {linkUrl&&!ytid&&<span style={{position:"absolute",top:8,right:8,background:"rgba(0,0,0,.6)",borderRadius:6,padding:"2px 8px",fontSize:9,color:"#fff"}}>클릭하여 이동 ↗</span>}
+                      <div style={{position:"absolute",top:8,left:8,width:22,height:22,borderRadius:5,background:sel.gameColor||"#333",overflow:"hidden",boxShadow:"0 1px 6px rgba(0,0,0,.5)"}}>
+                        {gOf(sel.gameId)?.icon&&<img src={gOf(sel.gameId).icon} alt="" onError={e=>e.target.style.display="none"} style={{width:22,height:22,objectFit:"cover"}}/>}
+                      </div>
+                          <div style={{position:"absolute",bottom:8,left:10,right:10}}>
+                            <span style={{fontSize:12,color:"#fff",fontWeight:600,lineHeight:1.3,display:"block",textShadow:"0 1px 4px rgba(0,0,0,.8)"}}>{(sel.type==="픽업"&&sel.character)?sel.character:sel.title}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                    {/* 헤더 */}
+                    <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px 8px",borderBottom:".5px solid var(--br)",flexShrink:0}}>
+                      <div style={{display:"flex",alignItems:"center",gap:6}}>
+                        {gOf(sel.gameId)?.icon&&<img src={gOf(sel.gameId).icon} alt="" onError={e=>e.target.style.display="none"} style={{width:18,height:18,borderRadius:4,objectFit:"cover",flexShrink:0}}/>}
+                        <span style={{fontSize:11,color:"var(--ts)"}}>{sel.gameName}</span>
+                        {sel.type&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:tb(sel.type,dark),color:tc(sel.type,dark)}}>{sel.type}</span>}
+                      </div>
+                      <button className="ib" onClick={()=>setSel(null)} style={{fontSize:18}}>×</button>
+                    </div>
+                    {/* 본문 */}
+                    <div style={{flex:1,overflow:"auto",padding:"12px 16px"}}>
+                      {!sel.characterImg&&!getYtId(sel.youtubeUrl)&&<p style={{fontSize:14,fontWeight:600,marginBottom:10,color:"var(--tp)",lineHeight:1.4}}>{(sel.type==="픽업"&&sel.character)?sel.character:sel.title}</p>}
+                      <div style={{display:"flex",flexDirection:"column",gap:6,marginBottom:12}}>
+                        {[["기간",sel.date+(sel.endDate&&sel.endDate!==sel.date?" ~ "+sel.endDate:"")],["버전",sel.version],["픽업 캐릭터",(sel.type==="픽업")?null:sel.character]].filter(kv=>kv[1]).map(kv=>(
+                          <div key={kv[0]} style={{display:"flex",justifyContent:"space-between",gap:8,padding:"5px 8px",background:"var(--bh)",borderRadius:6}}>
+                            <span style={{fontSize:11,color:"var(--tm)",flexShrink:0}}>{kv[0]}</span>
+                            <span style={{fontSize:11,color:"var(--tp)",textAlign:"right"}}>{kv[1]}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {sel.youtubeUrl&&!getYtId(sel.youtubeUrl)&&<a href={sel.youtubeUrl} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",borderRadius:8,background:"rgba(229,57,53,.1)",color:"#e53935",fontSize:11,marginBottom:12,border:".5px solid rgba(229,57,53,.3)"}}>▶ 영상 보기 ↗</a>}
+                      {sel.detail&&<a href={sel.detail} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:5,padding:"8px 12px",borderRadius:8,background:"var(--bh)",color:"#378ADD",fontSize:11,marginBottom:12,border:".5px solid rgba(55,138,221,.25)"}}>🔗 공식 페이지 ↗</a>}
+                      {sel.isBroadcast&&sel.notionPageId&&<BroadcastInlineEdit
+                        ev={sel} gameIndex={gameIndex} gameNames={gameNames}
+                        events={events} games={games} notionTok={notionTok}
+                        onClose={()=>setSel(null)}
+                        onSaved={()=>{setSel(null);showToast("저장됐습니다.");fetchBroadcast();}}
+                        onDeleted={()=>{setSel(null);showToast("삭제됐습니다.");fetchBroadcast();}}
+                      />}
+                      {(sel.type==="업데이트"||sel.type==="특별 방송")&&!sel.isBroadcast&&
+                      <button onClick={()=>!sel.synced&&syncing[sel.id]!=="pending"&&syncNotion(sel)} disabled={sel.synced||syncing[sel.id]==="pending"}
+                        style={{width:"100%",padding:"9px",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6,borderRadius:8,cursor:sel.synced?"default":"pointer",fontFamily:"inherit",background:sel.synced?"rgba(15,157,117,.12)":"var(--bh)",color:sel.synced?"#0F9D75":"var(--ts)",border:sel.synced?".5px solid rgba(15,157,117,.35)":".5px solid var(--br)"}}>
+                        {sel.synced?"✓ 노션 등록됨":syncing[sel.id]==="pending"?"동기화 중...":"📤 노션에 등록"}
+                      </button>}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          }
+        </div>
+      </div>
+
+      {showGuide&&<ProtocolGuide onClose={()=>setShowGuide(false)}/>}
+
+      {gDetail&&<GameDetailModal
+        game={games.find(g=>g.id===gDetail.id)||gDetail}
+        fetchSt={fetchSt} debugLog={debugLog}
+        evCount={events.filter(e=>e.gameId===gDetail.id).length}
+        onRefetch={()=>{const g=games.find(x=>x.id===gDetail.id);if(g)doFetch(g);}}
+        onSave={upd=>{setGames(p=>p.map(g=>g.id===gDetail.id?{...g,...upd}:g));setGDetail(null);}}
+        onDelete={()=>{if(window.confirm(gDetail.name+"을(를) 삭제할까요?")){setGames(p=>p.filter(g=>g.id!==gDetail.id));setEvents(p=>p.filter(e=>e.gameId!==gDetail.id));if(sel?.gameId===gDetail.id)setSel(null);setGDetail(null);}}}
+        onClose={()=>setGDetail(null)}/>}
+    </div>
+  );
+}
+
+// 방송 일정 카드 (노션 캘린더 연동)
+function QuickAddModal({date,editEv,docMode,broadcastEvs,noteEvs,gameIndex,gameNames,events,games,notionTok,broadcastDbId,noteDbId,showToast,onClose,onSuccess}){
+  const isEdit=!!editEv;
+  const isNote=isEdit&&editEv.isNote;
+  // docMode=true이면 노트 전용 (사이드바 + 버튼)
+  React.useEffect(()=>{if(docMode&&!isEdit) setType("노트");},[docMode]);
+  const [type,setType]=React.useState(isEdit?(isNote?"노트":"방송"):"방송");
+  // 방송 필드 초기값
+  const initTime=()=>{if(editEv?.timeStr){const m=editEv.timeStr.match(/(\d+)(?::(\d+))?시/);if(m){const h=Number(m[1])+(editEv.timeStr.includes("오후")&&Number(m[1])<12?12:0);return `${String(h).padStart(2,"0")}:${m[2]||"00"}`;}};return"19:00";};
+  const [bcTitle,setBcTitle]=React.useState(editEv&&!isNote?editEv._rawTitle||editEv.title:"방송");
+  const [bcTime,setBcTime]=React.useState(initTime());
+  const [bcTags,setBcTags]=React.useState(editEv&&!isNote?(editEv.tags||["방송"]):["방송"]);
+  const [bcEp,setBcEp]=React.useState(editEv?.episode||"");
+  const [bcGame,setBcGame]=React.useState(editEv&&!isNote?(editEv.gameNames?.[0]||""):"");
+  const [bcVer,setBcVer]=React.useState(editEv?.version||"");
+  // 노트 필드
+  const [noteTitle,setNoteTitle]=React.useState(editEv?.title||"");
+  const [noteCat,setNoteCat]=React.useState(editEv?.category||"메모");
+  const [noteGame,setNoteGame]=React.useState(editEv?.gameNames?.[0]||"");
+  const [saving,setSaving]=React.useState(false);
+
+  // 스마트 기본값: 해당 날짜 방송의 게임 자동 선택
+  React.useEffect(()=>{
+    if(isEdit) return;
+    const bc=broadcastEvs.find(e=>e.date===date&&e.gameNames?.length>0);
+    if(bc){const g=bc.gameNames[0];setBcGame(g);setNoteGame(g);}
+  },[date]);
+
+  // 버전 자동 감지: 선택한 게임의 최신 업데이트 버전
+  React.useEffect(()=>{
+    if(!bcGame||bcVer) return;
+    const game=(games||[]).find(g=>g.name===bcGame);
+    if(!game) return;
+    const latest=(events||[]).filter(e=>e.gameId===game.id&&e.version&&e.type==="업데이트").sort((a,b)=>b.date.localeCompare(a.date))[0];
+    if(latest?.version) setBcVer(String(latest.version));
+  },[bcGame]);
+
+  // 최근 노트 (게임 기준)
+  const recentNotes=React.useMemo(()=>{
+    const rid=gameIndex?.get(noteGame); if(!rid) return [];
+    return noteEvs.filter(n=>(n.gameRelIds||[]).includes(rid)).slice(0,6);
+  },[noteGame,noteEvs,gameIndex]);
+
+  const TAG_LIST=["방송","합방","메인 스토리","원스동","개처망한세계","서브스토리","특별 방송"];
+
+  async function submit(){
+    if(saving) return; setSaving(true);
+    try{
+      let props={};
+      if(type==="방송"){
+        if(!bcTitle.trim()){showToast("컨텐츠명을 입력해주세요.");setSaving(false);return;}
+        const dateTime=`${date}T${bcTime}:00.000+09:00`;
+        props={
+          "컨텐츠":{title:[{text:{content:bcTitle.trim()}}]},
+          "날짜":{date:{start:dateTime}},
+          "컨텐츠 종류":{multi_select:bcTags.map(t=>({name:t}))},
+        };
+        if(bcEp) props["컨텐츠 회차"]={number:Number(bcEp)};
+        if(bcVer) props["버전"]={rich_text:[{text:{content:bcVer}}]};
+        const rid=gameIndex?.get(bcGame); if(rid) props["게임"]={relation:[{id:rid}]};
+      }else{
+        if(!noteTitle.trim()){showToast("제목을 입력해주세요.");setSaving(false);return;}
+        props={"문서명":{title:[{text:{content:noteTitle.trim()}}]},"분류":{select:{name:noteCat}}};
+        const rid=gameIndex?.get(noteGame); if(rid) props["게임 목록"]={relation:[{id:rid}]};
+      }
+      let r;
+      if(isEdit&&editEv.notionPageId){
+        r=await fetch(`${API}/api/notion?path=pages/${editEv.notionPageId}`,{
+          method:"PATCH",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+          body:JSON.stringify({properties:props})
+        });
+      }else{
+        const dbId=type==="방송"?(broadcastDbId||"1de66cc1-f1b5-81c7-a69c-c00da09d16c4"):(noteDbId||"20466cc1-f1b5-8060-b379-eb16721bd1e4");
+        r=await fetch(`${API}/api/notion?path=pages`,{
+          method:"POST",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+          body:JSON.stringify({parent:{database_id:dbId},properties:props})
+        });
+      }
+      if(r.ok) onSuccess(type,isEdit);
+      else{const je=await r.json().catch(()=>({}));showToast((isEdit?"수정":"추가")+" 실패: "+(je.message||r.status));}
+    }catch(e){showToast("오류: "+e.message);}
+    setSaving(false);
+  }
+
+  const S={label:{fontSize:11,color:"var(--ts)",display:"block",marginBottom:3,fontWeight:500}};
+  return(<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"var(--bc)",borderRadius:12,padding:20,width:380,maxWidth:"100%",border:".5px solid var(--br)",boxShadow:"0 8px 40px rgba(0,0,0,.5)",maxHeight:"85vh",overflowY:"auto"}}>
+      <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
+        <div>
+          <div style={{fontSize:13,fontWeight:700,color:"var(--tp)"}}>{isEdit?"수정":"추가"}: {date}</div>
+          {!isEdit&&type==="노트"&&<div style={{fontSize:9,color:"var(--tm)",marginTop:1}}>📌 노트는 오늘 날짜로 생성됩니다 (Notion 제약)</div>}
+        </div>
+        <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",color:"var(--ts)",fontSize:16,cursor:"pointer"}}>✕</button>
+      </div>
+      {!isEdit&&type==="방송"&&<div style={{fontSize:10,color:"var(--ts)",marginBottom:10,padding:"6px 8px",borderRadius:6,background:"var(--bi)"}}>
+        📺 방송 일정 추가 — 문서는 사이드바 "문서 목록"에서 추가하세요
+      </div>}
+      {type==="방송"?(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div><label style={S.label}>컨텐츠명</label>
+            <input value={bcTitle} onChange={e=>setBcTitle(e.target.value)} className="inp" placeholder="방송, 소울마스크, EP5 등"/></div>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}><label style={S.label}>시간</label>
+              <input type="time" value={bcTime} onChange={e=>setBcTime(e.target.value)} className="inp"/></div>
+            <div style={{flex:1}}><label style={S.label}>회차</label>
+              <input type="number" value={bcEp} onChange={e=>setBcEp(e.target.value)} className="inp" placeholder="숫자"/></div>
+          </div>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:2}}><label style={S.label}>게임</label>
+              <select value={bcGame} onChange={e=>setBcGame(e.target.value)} className="inp">
+                <option value="">선택 안함</option>
+                {gameNames.map(g=><option key={g} value={g}>{g}</option>)}
+              </select></div>
+            <div style={{flex:1}}><label style={S.label}>버전 {!bcVer&&<span style={{opacity:.6,fontSize:9}}>(자동감지)</span>}</label>
+              <input value={bcVer} onChange={e=>setBcVer(e.target.value)} className="inp" placeholder="4.3"/></div>
+          </div>
+          <div><label style={S.label}>태그</label>
+            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+              {TAG_LIST.map(t=>{const on=bcTags.includes(t);return(
+                <button key={t} onClick={()=>setBcTags(p=>on?p.filter(x=>x!==t):[...p,t])}
+                  style={{fontSize:10,padding:"3px 9px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
+                    background:on?"rgba(255,180,50,.15)":"var(--bi)",color:on?"#c07000":"var(--ts)",borderColor:on?"#FFB432":"var(--br)"}}>
+                  {t}</button>);})}
+            </div></div>
+        </div>
+      ):(
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div><label style={S.label}>제목</label>
+            <input value={noteTitle} onChange={e=>setNoteTitle(e.target.value)} className="inp" placeholder="문서 제목"/></div>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}><label style={S.label}>분류</label>
+              <select value={noteCat} onChange={e=>setNoteCat(e.target.value)} className="inp">
+                {["메모","대본","정리"].map(c=><option key={c} value={c}>{c}</option>)}
+              </select></div>
+            <div style={{flex:1}}><label style={S.label}>게임</label>
+              <select value={noteGame} onChange={e=>setNoteGame(e.target.value)} className="inp">
+                <option value="">선택 안함</option>
+                {gameNames.map(g=><option key={g} value={g}>{g}</option>)}
+              </select></div>
+          </div>
+          {recentNotes.length>0&&<div>
+            <label style={S.label}>📝 최근 노트 (클릭 → Notion)</label>
+            <div style={{display:"flex",flexDirection:"column",gap:4,maxHeight:130,overflowY:"auto"}}>
+              {recentNotes.map(n=>(
+                <div key={n.id} onClick={()=>window.open(n.notionUrl,"_blank")}
+                  style={{padding:"5px 9px",borderRadius:6,background:"var(--bi)",border:".5px solid var(--br)",cursor:"pointer",fontSize:11,color:"var(--tp)"}}>
+                  <span style={{opacity:.6,fontSize:9,marginRight:4}}>[{n.category||"메모"}]</span>{n.title}
+                  <span style={{float:"right",opacity:.5,fontSize:9}}>{n.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>}
+        </div>
+      )}
+      <button onClick={submit} disabled={saving}
+        style={{width:"100%",marginTop:14,padding:"10px 0",borderRadius:8,cursor:saving?"not-allowed":"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600,
+          background:saving?"var(--bi)":(type==="방송"?"rgba(255,180,50,.2)":"rgba(120,80,255,.15)"),
+          color:saving?"var(--ts)":(type==="방송"?"#c07000":"#7b35cc"),
+          border:".5px solid "+(type==="방송"?"#FFB432":"#9B60FF")}}>
+        {saving?"저장 중...":(isEdit?"수정 저장":(type==="방송"?"📺 방송 일정 추가":"📝 노트 추가"))}
+      </button>
+    </div>
+  </div>);
+}
+
+function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onClose,onSaved,onDeleted}){
+  const initTime=()=>{if(ev.timeStr){const m=ev.timeStr.match(/(\d+)(?::(\d+))?시/);if(m){const h=Number(m[1])+(ev.timeStr.includes("오후")&&Number(m[1])<12?12:0);return`${String(h).padStart(2,"0")}:${m[2]||"00"}`;}}return"19:00";};
+  const [title,setTitle]=React.useState(ev._rawTitle||ev.title||"방송");
+  const [time,setTime]=React.useState(initTime());
+  const [bcGame,setBcGame]=React.useState(ev.gameNames?.[0]||"");
+  const [ver,setVer]=React.useState(ev.version||"");
+  const [ep,setEp]=React.useState(ev.episode||"");
+  const [tags,setTags]=React.useState(ev.tags||["방송"]);
+  const [saving,setSaving]=React.useState(false);
+  const TAG_LIST=["방송","합방","메인 스토리","원스동","개처망한세계","서브스토리","특별 방송"];
+  // 버전 자동 감지
+  React.useEffect(()=>{
+    if(!bcGame||ver) return;
+    const g=(games||[]).find(x=>x.name===bcGame);if(!g) return;
+    const v=(events||[]).filter(e=>e.gameId===g.id&&e.version&&e.type==="업데이트").sort((a,b)=>b.date.localeCompare(a.date))[0];
+    if(v?.version) setVer(String(v.version));
+  },[bcGame]);
+  async function save(){
+    setSaving(true);
+    const dateTime=`${ev.date}T${time}:00.000+09:00`;
+    const props={
+      "컨텐츠":{title:[{text:{content:title.trim()}}]},
+      "날짜":{date:{start:dateTime}},
+      "컨텐츠 종류":{multi_select:tags.map(t=>({name:t}))},
+    };
+    if(ep) props["컨텐츠 회차"]={number:Number(ep)};
+    if(ver) props["버전"]={rich_text:[{text:{content:ver}}]};
+    const rid=gameIndex?.get(bcGame); if(rid) props["게임"]={relation:[{id:rid}]};
+    const r=await fetch(`${API}/api/notion?path=pages/${ev.notionPageId}`,{
+      method:"PATCH",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+      body:JSON.stringify({properties:props})
+    });
+    setSaving(false); if(r.ok) onSaved();
+  }
+  const [confirmDel,setConfirmDel]=React.useState(false);
+  async function doDelete(){
+    setSaving(true);
+    try{
+      const r=await fetch(`${API}/api/notion?path=pages/${ev.notionPageId}`,{
+        method:"PATCH",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+        body:JSON.stringify({archived:true})
+      });
+      if(r.ok) onDeleted(); else{const e=await r.json().catch(()=>({}));setSaving(false);alert("삭제 실패: "+(e.message||r.status));}
+    }catch(e){setSaving(false);alert("오류: "+e.message);}
+  }
+  const L={fontSize:10,color:"var(--ts)",display:"block",marginBottom:3,fontWeight:500};
+  return(
+    <div style={{borderTop:".5px solid var(--br)",paddingTop:12,marginTop:4}}>
+      <div style={{fontSize:11,fontWeight:600,color:"#FFB432",marginBottom:10}}>✏️ 방송 일정 편집</div>
+      <div style={{display:"flex",flexDirection:"column",gap:8}}>
+        <div><label style={L}>컨텐츠명</label>
+          <input value={title} onChange={e=>setTitle(e.target.value)} className="inp"/></div>
+        <div style={{display:"flex",gap:8}}>
+          <div style={{flex:1}}><label style={L}>시간</label>
+            <input type="time" value={time} onChange={e=>setTime(e.target.value)} className="inp"/></div>
+          <div style={{flex:1}}><label style={L}>회차</label>
+            <input type="number" value={ep} onChange={e=>setEp(e.target.value)} className="inp"/></div>
+        </div>
+        <div style={{display:"flex",gap:8}}>
+          <div style={{flex:2}}><label style={L}>게임</label>
+            <select value={bcGame} onChange={e=>setBcGame(e.target.value)} className="inp">
+              <option value="">선택 안함</option>
+              {(gameNames||[]).map(g=><option key={g}>{g}</option>)}
+            </select></div>
+          <div style={{flex:1}}><label style={L}>버전</label>
+            <input value={ver} onChange={e=>setVer(e.target.value)} className="inp" placeholder="자동감지"/></div>
+        </div>
+        <div><label style={L}>태그</label>
+          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
+            {TAG_LIST.map(t=>{const on=tags.includes(t);return(
+              <button key={t} onClick={()=>setTags(p=>on?p.filter(x=>x!==t):[...p,t])}
+                style={{fontSize:9,padding:"2px 7px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
+                  background:on?"rgba(255,180,50,.15)":"var(--bi)",color:on?"#c07000":"var(--ts)",borderColor:on?"#FFB432":"var(--br)"}}>{t}</button>
+            );})}
+          </div></div>
+      </div>
+      <div style={{display:"flex",gap:6,marginTop:10}}>
+        {confirmDel
+          ?<div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(230,50,50,.08)",borderRadius:8,padding:"6px 10px",border:".5px solid rgba(230,50,50,.3)"}}>
+            <span style={{fontSize:10,color:"#e64444",flex:1}}>정말 삭제할까요?</span>
+            <button onClick={doDelete} disabled={saving} style={{padding:"4px 10px",borderRadius:6,background:"#e64444",color:"#fff",border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:600}}>{saving?"삭제 중...":"삭제"}</button>
+            <button onClick={()=>setConfirmDel(false)} style={{padding:"4px 8px",borderRadius:6,background:"var(--bi)",color:"var(--ts)",border:".5px solid var(--br)",cursor:"pointer",fontFamily:"inherit",fontSize:11}}>취소</button>
+          </div>
+          :<button onClick={()=>setConfirmDel(true)}
+            style={{padding:"8px 12px",borderRadius:8,background:"rgba(230,50,50,.1)",color:"#e64444",border:".5px solid rgba(230,50,50,.3)",cursor:"pointer",fontFamily:"inherit",fontSize:11}}>
+            🗑 삭제
+          </button>}
+        <button onClick={save} disabled={saving}
+          style={{flex:1,padding:"8px 0",borderRadius:8,background:"rgba(255,180,50,.15)",color:"#c07000",border:".5px solid #FFB432",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600}}>
+          {saving?"저장 중...":"💾 저장"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function NoteDetailModal({note,gameIndex,gameNames,notionTok,onClose,onSaved,onDeleted}){
+  const [title,setTitle]=React.useState(note.title||"");
+  const [cat,setCat]=React.useState(note.category||"메모");
+  const [game,setGame]=React.useState(note.gameNames?.[0]||"");
+  const [outputUrl,setOutputUrl]=React.useState(note.outputUrl||"");
+  const [saving,setSaving]=React.useState(false);
+  if(!note) return null;
+  async function save(){
+    if(!notionTok||!note.notionPageId) return;
+    setSaving(true);
+    const props={"문서명":{title:[{text:{content:title.trim()||note.title}}]},"분류":{select:{name:cat}}};
+    const rid=gameIndex?.get(game); if(rid) props["게임 목록"]={relation:[{id:rid}]};
+    if(outputUrl) props["산출물"]={url:outputUrl};
+    const r=await fetch(`${API}/api/notion?path=pages/${note.notionPageId}`,{
+      method:"PATCH",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+      body:JSON.stringify({properties:props})
+    });
+    setSaving(false);
+    if(r.ok) onSaved();
+  }
+  const [confirmDel,setConfirmDel]=React.useState(false);
+  async function doDelete(){
+    setSaving(true);
+    try{
+      const r=await fetch(`${API}/api/notion?path=pages/${note.notionPageId}`,{
+        method:"PATCH",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+        body:JSON.stringify({archived:true})
+      });
+      if(r.ok) onDeleted(); else{const e=await r.json().catch(()=>({}));setSaving(false);}
+    }catch(e){setSaving(false);}
+  }
+  const L={fontSize:10,color:"var(--ts)",display:"block",marginBottom:3,fontWeight:500};
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bc)",borderRadius:12,padding:20,width:380,maxWidth:"100%",border:".5px solid var(--br)",boxShadow:"0 8px 40px rgba(0,0,0,.5)",maxHeight:"85vh",overflowY:"auto"}}>
+        <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
+          <span style={{fontSize:13,fontWeight:700,color:"var(--tp)"}}>📝 문서</span>
+          <span style={{fontSize:10,color:"var(--tm)",marginLeft:8}}>{note.date}</span>
+          <button onClick={onClose} style={{marginLeft:"auto",background:"none",border:"none",color:"var(--ts)",fontSize:16,cursor:"pointer"}}>✕</button>
+        </div>
+        <div style={{display:"flex",flexDirection:"column",gap:10}}>
+          <div><label style={L}>제목</label>
+            <input value={title} onChange={e=>setTitle(e.target.value)} className="inp"/></div>
+          <div style={{display:"flex",gap:8}}>
+            <div style={{flex:1}}><label style={L}>분류</label>
+              <select value={cat} onChange={e=>setCat(e.target.value)} className="inp">
+                {["메모","대본","정리"].map(c=><option key={c}>{c}</option>)}
+              </select></div>
+            <div style={{flex:1}}><label style={L}>게임</label>
+              <select value={game} onChange={e=>setGame(e.target.value)} className="inp">
+                <option value="">선택 안함</option>
+                {(gameNames||[]).map(g=><option key={g}>{g}</option>)}
+              </select></div>
+          </div>
+          <div><label style={L}>산출물 URL</label>
+            <input value={outputUrl} onChange={e=>setOutputUrl(e.target.value)} className="inp" placeholder="https://..."/></div>
+        </div>
+        <div style={{display:"flex",gap:6,marginTop:14}}>
+          <button onClick={()=>window.open(note.notionUrl,"_blank")}
+            style={{padding:"8px 12px",borderRadius:8,background:"var(--bi)",color:"var(--ts)",border:".5px solid var(--br)",cursor:"pointer",fontFamily:"inherit",fontSize:11}}>
+            Notion↗
+          </button>
+          {confirmDel
+            ?<div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(230,50,50,.08)",borderRadius:8,padding:"5px 8px",border:".5px solid rgba(230,50,50,.3)"}}>
+              <span style={{fontSize:10,color:"#e64444",flex:1}}>정말 삭제할까요?</span>
+              <button onClick={doDelete} disabled={saving} style={{padding:"4px 8px",borderRadius:6,background:"#e64444",color:"#fff",border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:11,fontWeight:600}}>{saving?"삭제 중...":"확인"}</button>
+              <button onClick={()=>setConfirmDel(false)} style={{padding:"4px 8px",borderRadius:6,background:"var(--bi)",color:"var(--ts)",border:".5px solid var(--br)",cursor:"pointer",fontFamily:"inherit",fontSize:11}}>취소</button>
+            </div>
+            :<button onClick={()=>setConfirmDel(true)}
+              style={{padding:"8px 12px",borderRadius:8,background:"rgba(230,50,50,.1)",color:"#e64444",border:".5px solid rgba(230,50,50,.3)",cursor:"pointer",fontFamily:"inherit",fontSize:11}}>
+              🗑 삭제
+            </button>}
+          <button onClick={save} disabled={saving}
+            style={{flex:1,padding:"8px 0",borderRadius:8,background:"rgba(120,80,255,.15)",color:"#7b35cc",border:".5px solid rgba(120,80,255,.35)",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600}}>
+            {saving?"저장 중...":"💾 저장"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function GameNewsList({events, gameId, onSel}) {
+  const [open, setOpen] = React.useState(false);
+  const TYPE_ICON={"업데이트":"🔄","픽업":"✦","특별 방송":"📡","영상":"▶","이벤트":"📌"};
+  const TYPE_CLR={"업데이트":"#64b5f6","픽업":"#f48fb1","특별 방송":"#ffb74d","영상":"#ff5252","이벤트":"#a5d6a7"};
+  const news = React.useMemo(()=>
+    events.filter(e=>e.gameId===gameId&&e.type!=="영상")
+      .sort((a,b)=>b.date.localeCompare(a.date)).slice(0,10)
+  ,[events,gameId]);
+  if(!news.length) return null;
+  return(
+    <div style={{borderTop:".5px solid var(--br)",marginTop:1}}>
+      <button onClick={()=>setOpen(p=>!p)}
+        style={{width:"100%",textAlign:"left",background:"none",border:"none",padding:"4px 7px",
+          fontSize:9,color:"var(--tm)",cursor:"pointer",fontFamily:"inherit",
+          display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+        <span>📋 최근 소식 ({news.length})</span>
+        <span style={{fontSize:8}}>{open?"▲":"▼"}</span>
+      </button>
+      {open&&<div style={{maxHeight:200,overflow:"auto",padding:"0 5px 4px"}}>
+        {news.map((ev,ni)=>(
+          <div key={ni} onClick={()=>onSel(ev)}
+            style={{display:"flex",alignItems:"flex-start",gap:4,padding:"3px 4px",
+              marginBottom:1,borderRadius:4,cursor:"pointer",background:"var(--bi)"}}
+            onMouseEnter={e=>e.currentTarget.style.background="var(--bh)"}
+            onMouseLeave={e=>e.currentTarget.style.background="var(--bi)"}>
+            <span style={{fontSize:9,color:TYPE_CLR[ev.type]||"#888",flexShrink:0,marginTop:1}}>
+              {TYPE_ICON[ev.type]||"•"}
+            </span>
+            <div style={{flex:1,minWidth:0}}>
+              <div style={{fontSize:8,color:"var(--tp)",overflow:"hidden",
+                textOverflow:"ellipsis",whiteSpace:"nowrap",lineHeight:1.4}}>{ev.title}</div>
+              <div style={{fontSize:7,color:"var(--tm)",opacity:.7}}>{ev.date}</div>
+            </div>
+          </div>
+        ))}
+      </div>}
+    </div>
+  );
+}
+
+function BroadcastCard({ev,onClick,dark=true}){
+  const isCollab=ev.isCollab||ev.tags?.includes("합방");
+  const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!=="합방");
+  return(
+    <div onClick={onClick} style={{background:dark?"rgba(255,180,50,.1)":"#fff8e8",border:dark?".5px solid rgba(255,180,50,.35)":".5px solid #e6a800",borderRadius:5,padding:"4px 6px 3px",marginBottom:3,cursor:"pointer",transition:"background .1s"}}
+      onMouseEnter={e=>e.currentTarget.style.background="rgba(255,180,50,.18)"}
+      onMouseLeave={e=>e.currentTarget.style.background="rgba(255,180,50,.1)"}>
+      {/* 시간 + 합방 뱃지 */}
+      <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
+        <span style={{fontSize:9,color:dark?"#FFB432":"#a06000",fontWeight:700,letterSpacing:"-.3px"}}>{ev.timeStr||"오후 7:00시"}</span>
+        {isCollab&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:"rgba(255,80,80,.2)",color:"#FF7070",fontWeight:600,lineHeight:"14px"}}>합방</span>}
+        {ev.episode>0&&<span style={{fontSize:8,color:"rgba(255,180,50,.7)",marginLeft:"auto"}}>#{ev.episode}</span>}
+      </div>
+      {/* 컨텐츠명 (게임명) */}
+      <div style={{fontSize:11,fontWeight:600,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{ev.title}</div>
+      {/* 게임 목록 (여러 게임인 경우) */}
+      {ev.gameNames?.length>1&&<div style={{fontSize:8,color:"rgba(255,180,50,.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{ev.gameNames.join(" · ")}</div>}
+      {/* 기타 태그 */}
+      {otherTags.length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
+        {otherTags.slice(0,3).map(t=><span key={t} style={{fontSize:8,color:dark?"rgba(255,180,50,.7)":"#8a5200",background:dark?"rgba(255,180,50,.08)":"rgba(255,180,50,.15)",padding:"0 4px",borderRadius:3,lineHeight:"14px"}}>{t}</span>)}
+      </div>}
+    </div>
+  );
+}
+
+function CompactChip({ev,game,onClick}){
+  return(<div onClick={onClick} className="chip" style={{background:tb(ev.type),color:tc(ev.type),borderLeft:`2px solid ${tbr(ev.type)}`,fontSize:11,padding:"3px 5px",marginBottom:2}}>
+    {/* 게임 아이콘: 컬러 배경 항상 표시 + 아이콘 오버레이 */}
+    <div style={{width:14,height:14,borderRadius:3,background:ev.gameColor||"#666",flexShrink:0,position:"relative",overflow:"hidden"}}>
+      {game?.icon&&<img src={game.icon} alt="" onError={e=>e.target.style.display="none"} style={{position:"absolute",inset:0,width:14,height:14,objectFit:"cover"}}/>}
+    </div>
+    <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
+      {(()=>{
+        const char=ev.type==="픽업"?extractPickupChar(ev.title):null;
+        return char
+          ?<><span style={{opacity:.75,fontSize:9}}>{ev.title.replace(char,'').replace(/「」/,'').trim().slice(0,15)||ev.type}</span><span style={{fontWeight:700,color:tc(ev.type)}}> {char}</span></>
+          :<>{ev.title}</>;
+      })()}
+    </span>
+    {ev._count>1&&<span style={{fontSize:8,padding:"0 3px",borderRadius:8,background:"rgba(0,0,0,.25)",flexShrink:0}}>+{ev._count-1}</span>}
+    {ev.youtubeUrl&&<span style={{fontSize:8,color:ev.isShort?"#ff9800":"#ff5555",flexShrink:0}}>{ev.isShort?'Short':'YT'}</span>}
+  </div>);
+}
+
+function ExpandedCard({ev,game,cellDs,onClick,dark=true,className,style:extraStyle}){
+  // ★ 업데이트 적용일 마커: 간결한 "업데이트 적용" 표시
+  if(ev._isApplyMarker){
+    return(<div onClick={onClick} className={`ecard${className?" "+className:""}`}
+      style={{border:`1px solid ${tbr("업데이트")}${dark?"66":"99"}`,background:tbr("업데이트")+(dark?"22":"15"),...(extraStyle||{})}}>
+      <div style={{padding:"5px 7px",display:"flex",alignItems:"center",gap:5}}>
+        <div style={{width:16,height:16,borderRadius:3,background:ev.gameColor||"#666",flexShrink:0,position:"relative",overflow:"hidden"}}>
+          {game?.icon&&<img src={game.icon} alt="" onError={e=>e.target.style.display="none"} style={{position:"absolute",inset:0,width:16,height:16,objectFit:"cover"}}/>}
+        </div>
+        <span style={{fontSize:10,flex:1,color:tc("업데이트",dark),fontWeight:700}}>
+          🔄 {ev.version?ev.version+" ":""}업데이트 적용
+        </span>
+      </div>
+    </div>);
+  }
+  // 픽업 이벤트는 캐릭터명만 표시 (전체 제목 대신)
+  const displayTitle = (ev.type==="픽업" && ev.character) ? ev.character : ev.title;
+  // 배너 이미지는 이벤트 시작일에만 표시
+  const showImg = !cellDs || ev.date === cellDs;
+  const ytid=getYtId(ev.youtubeUrl),thumb=ytid?`https://img.youtube.com/vi/${ytid}/mqdefault.jpg`:null;
+  return(<div onClick={onClick} className={`ecard${className?" "+className:""}`} style={{border:`.5px solid ${tbr(ev.type)}${dark?"44":"99"}`,...(extraStyle||{})}}>
+    {showImg&&thumb&&<div style={{position:"relative",height:68,overflow:"hidden",background:"#000"}}><img src={thumb} alt="" style={{width:"100%",height:68,objectFit:"cover",opacity:.9}} onError={e=>e.target.parentElement.style.display="none"}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.6))"}}/><span style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,.7)",borderRadius:4,padding:"1px 5px",fontSize:8,color:"#ff5555"}}>YT</span></div>}
+    {showImg&&!thumb&&ev.characterImg&&<div style={{maxHeight:80,overflow:"hidden",display:"flex",justifyContent:"center",background:ev.gameColor+"18"}}><img src={ev.characterImg} alt="" onError={e=>e.target.parentElement.style.display="none"} style={{width:"100%",objectFit:"cover",objectPosition:"top"}}/></div>}
+    {showImg&&!thumb&&!ev.characterImg&&game?.icon&&null}
+    <div style={{padding:"4px 6px 5px",display:"flex",alignItems:"center",gap:4,background:tb(ev.type,dark)}}>
+      <div style={{width:16,height:16,borderRadius:3,background:ev.gameColor||"#666",flexShrink:0,position:"relative",overflow:"hidden"}}>
+        {game?.icon&&<img src={game.icon} alt="" onError={e=>e.target.style.display="none"} style={{position:"absolute",inset:0,width:16,height:16,objectFit:"cover"}}/>}
+      </div>
+      <span style={{fontSize:10,flex:1,overflow:"hidden",textOverflow:"ellipsis",color:tc(ev.type,dark),fontWeight:500,lineHeight:1.3}}>{displayTitle}{ev.type==="픽업"&&ev.character&&ev.version?` (${ev.version})`:""}</span>
+      {(!showImg||(!thumb&&!ev.characterImg))&&<span style={{fontSize:8,padding:"1px 4px",borderRadius:8,background:dark?"rgba(0,0,0,.18)":"rgba(0,0,0,.08)",color:tc(ev.type,dark),flexShrink:0}}>{ev.type}</span>}
+    </div>
+  </div>);
+}
+
+function GameDetailModal({game,fetchSt,debugLog,evCount,onRefetch,onSave,onDelete,onClose}){
+  const [name,setName]=useState(game.name);
+  const [url,setUrl]=useState(game.url||"");
+  const [qs,setQs]=useState(game.qs||"");
+  const st=fetchSt[game.id],isFetching=!!(st&&st.state==="fetching");
+  return(<div className="overlay" onClick={onClose}><div className="modal" onClick={e=>e.stopPropagation()}>
+    <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:14}}>
+      {game.icon?<img src={game.icon} alt="" onError={e=>e.target.style.display="none"} style={{width:30,height:30,borderRadius:6,objectFit:"cover",border:`2px solid ${game.color}`}}/>:<div style={{width:30,height:30,borderRadius:6,background:game.color,display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,fontWeight:700,color:"#fff"}}>{(game.name[0]||"?").toUpperCase()}</div>}
+      <h3 style={{fontSize:14,color:"var(--tp)",flex:1,fontWeight:600}}>{game.name}</h3>
+      <button className="ib" onClick={onClose} style={{fontSize:16}}>×</button>
+    </div>
+    <div style={{display:"flex",gap:6,marginBottom:12}}>
+      <div style={{flex:1,padding:8,borderRadius:6,background:"var(--bh)",textAlign:"center"}}><div style={{fontSize:22,fontWeight:700,color:"var(--tp)"}}>{evCount}</div><div style={{fontSize:10,color:"var(--tm)"}}>수집된 일정</div></div>
+      <div style={{flex:2,padding:"8px 10px",borderRadius:6,background:"var(--bh)"}}><div style={{fontSize:10,color:"var(--tm)",marginBottom:2}}>마지막 수집</div><div style={{fontSize:11,color:"var(--tp)"}}>{game.fetched||"아직 없음"}</div></div>
+    </div>
+    {st&&<div style={{padding:"7px 10px",borderRadius:6,marginBottom:10,fontSize:11,background:stColor(st.state)+"18",color:stColor(st.state)}}>{st.msg}</div>}
+    <button onClick={onRefetch} disabled={isFetching} style={{width:"100%",padding:8,fontSize:12,cursor:isFetching?"not-allowed":"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6,marginBottom:12,fontFamily:"inherit",opacity:isFetching?.6:1,borderRadius:6,border:".5px solid var(--br)",background:"var(--bh)",color:"var(--tp)"}}>{isFetching?"수집 중...":"재수집"}</button>
+    {(game.ytChannel||game.twitter||game.officialUrl)&&<div style={{display:"flex",gap:6,marginBottom:12,flexWrap:"wrap"}}>
+      {game.ytChannel&&<a href={`https://www.youtube.com/channel/${game.ytChannel}`} target="_blank" rel="noreferrer"
+        style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,background:"rgba(255,0,0,.1)",color:"#ff4040",border:".5px solid rgba(255,0,0,.2)",fontSize:11,textDecoration:"none"}}>
+        ▶ YouTube
+      </a>}
+      {game.twitter&&<a href={game.twitter} target="_blank" rel="noreferrer"
+        style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,background:"rgba(29,161,242,.1)",color:"#1da1f2",border:".5px solid rgba(29,161,242,.2)",fontSize:11,textDecoration:"none"}}>
+        𝕏 Twitter
+      </a>}
+      {game.officialUrl&&<a href={"https://"+game.officialUrl} target="_blank" rel="noreferrer"
+        style={{display:"flex",alignItems:"center",gap:4,padding:"5px 10px",borderRadius:6,background:"rgba(55,138,221,.1)",color:"#378ADD",border:".5px solid rgba(55,138,221,.2)",fontSize:11,textDecoration:"none"}}>
+        🌐 공식사이트
+      </a>}
+    </div>}
+    <div style={{display:"flex",flexDirection:"column",gap:10}}>
+      <div><label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:5,fontWeight:500}}>게임 이름</label><input value={name} onChange={e=>setName(e.target.value)} className="inp"/></div>
+      <div><label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:5,fontWeight:500}}>API URL</label><input value={url} onChange={e=>setUrl(e.target.value)} className="inp" style={{fontSize:10}}/></div>
+      <div><label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:5,fontWeight:500}}>Query String</label><input value={qs} onChange={e=>setQs(e.target.value)} className="inp" style={{fontSize:10}}/></div>
+      {debugLog[game.id]&&<div><label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:5,fontWeight:500}}>수집 로그</label><pre style={{fontSize:9,color:"var(--ts)",background:"var(--bi)",borderRadius:6,padding:"6px 8px",overflow:"auto",maxHeight:140,whiteSpace:"pre-wrap",wordBreak:"break-all",lineHeight:1.5}}>{debugLog[game.id]}</pre></div>}
+    </div>
+    <div style={{display:"flex",gap:6,marginTop:16}}>
+      <button onClick={onDelete} style={{padding:"8px 12px",fontSize:11,cursor:"pointer",fontFamily:"inherit",color:"#f17172",background:"rgba(241,113,114,.1)",border:".5px solid rgba(241,113,114,.3)",borderRadius:6}}>삭제</button>
+      <div style={{flex:1}}/>
+      <button onClick={onClose} style={{padding:"8px 14px",fontSize:12,cursor:"pointer",fontFamily:"inherit",borderRadius:6,border:".5px solid var(--br)",background:"var(--bh)",color:"var(--ts)"}}>취소</button>
+      <button onClick={()=>onSave({name,url,qs})} style={{padding:"8px 14px",fontSize:12,cursor:"pointer",fontFamily:"inherit",background:"#378ADD",color:"#fff",border:"none",borderRadius:6}}>저장</button>
+    </div>
+  </div></div>);
+}
+
+function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup}){
+  const [show,setShow]=useState(false);
+  return(<div style={{flex:1,overflow:"auto",padding:18}}>
+    <p style={{marginBottom:14,fontSize:14,fontWeight:600,color:"var(--tp)"}}>설정</p>
+    <div style={{maxWidth:460,display:"flex",flexDirection:"column",gap:12}}>
+      <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
+        <p style={{marginBottom:6,fontSize:13,fontWeight:500,color:"var(--tp)"}}>Notion 연동</p>
+        <p style={{marginBottom:10,fontSize:11,color:"var(--ts)",lineHeight:1.6}}>
+          1. <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" style={{color:"#378ADD"}}>notion.so/my-integrations</a>에서 Internal Integration 생성<br/>
+          2. Integration Token 복사 후 아래 입력<br/>
+          3. 노션 캘린더 DB → ··· → 연결 → Integration 선택<br/>
+          4. DB URL에서 ID 복사 (32자리 hex)
+        </p>
+        <label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:4}}>Integration Token</label>
+        <div style={{display:"flex",gap:6,marginBottom:10}}>
+          <input type={show?"text":"password"} value={token} onChange={e=>setToken(e.target.value)} placeholder="ntn_..." className="inp" style={{flex:1}}/>
+          <button className="ib" onClick={()=>setShow(s=>!s)} style={{padding:"6px 10px"}}>{show?"숨김":"표시"}</button>
+        </div>
+        <label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:4}}>Database ID</label>
+        <input value={dbId} onChange={e=>setDbId(e.target.value)} placeholder="32자리 hex (DB URL에서 복사)" className="inp" style={{marginBottom:10}}/>
+        <label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:4}}>방송 캘린더 DB ID <span style={{opacity:.6}}>(비워두면 위 DB와 동일)</span></label>
+        <input value={broadcastDbId} onChange={e=>setBroadcastDbId(e.target.value)} placeholder="방송 일정 DB ID (선택)" className="inp" style={{marginBottom:8}}/>
+        <label style={{fontSize:11,color:"var(--ts)",display:"block",marginBottom:4}}>노트/문서 목록 DB ID</label>
+        <input value={noteDbId} onChange={e=>setNoteDbId(e.target.value)} placeholder="문서 목록 DB ID (전체 로그 → DB 목록 조회로 확인)" className="inp" style={{marginBottom:10}}/>
+        <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+          <button onClick={onSave} style={{flex:1,minWidth:70,padding:"7px 0",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"#378ADD",color:"#fff",border:"none"}}>저장</button>
+          <button onClick={onSetup} style={{flex:2,minWidth:120,padding:"7px 0",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"rgba(15,157,117,.15)",color:"#0F9D75",border:".5px solid rgba(15,157,117,.3)"}}>🚀 Notion 초기 설정 (DB 자동 생성)</button>
+          <button onClick={onSearchDbs} style={{flex:1,minWidth:70,padding:"7px 0",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"rgba(55,138,221,.08)",color:"#378ADD",border:".5px solid rgba(55,138,221,.25)"}}>🗄 DB 목록 조회</button>
+          <button onClick={onFetchSchema} style={{flex:1,minWidth:70,padding:"7px 0",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"rgba(55,138,221,.08)",color:"#378ADD",border:".5px solid rgba(55,138,221,.25)"}}>🔍 DB 속성 확인</button>
+          <button onClick={onFetchBroadcast} style={{flex:1,minWidth:70,padding:"7px 0",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"rgba(255,180,50,.1)",color:"#FFB432",border:".5px solid rgba(255,180,50,.25)"}}>📅 방송일정</button>
+          <button onClick={onFetchNotes} style={{flex:1,minWidth:70,padding:"7px 0",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"rgba(120,80,255,.1)",color:"#9B60FF",border:".5px solid rgba(120,80,255,.25)"}}>📝 노트 불러오기</button>
+          <button onClick={onBulkSync} style={{flex:1,minWidth:70,padding:"7px 0",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,background:"rgba(15,157,117,.12)",color:"#0F9D75",border:".5px solid rgba(15,157,117,.25)"}}>📤 노션 일괄 등록</button>
+        </div>
+      </div>
+    </div>
+  </div>);
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

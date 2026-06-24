@@ -1,0 +1,41 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/api/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/public/index.html"
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,POST,PATCH,DELETE,OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Authorization,Content-Type,Notion-Version"
+        }
+      ]
+    }
+  ],
+  "functions": {
+    "api/notion.js": {
+      "memory": 256
+    },
+    "api/notion-setup.js": {
+      "memory": 256,
+      "maxDuration": 30
+    }
+  }
+}
