@@ -12,14 +12,19 @@ for /f "tokens=5" %%a in ('netstat -aon 2^>nul ^| findstr ":8080 "') do (
 cd /d "%~dp0"
 
 set PYTHON_CMD=
+rem 1순위: 실제 설치 경로 (시스템 python 런처가 깨져 있어도 동작)
+set "PY_LOCAL=%LOCALAPPDATA%\Programs\Python\Python313\python.exe"
+if exist "%PY_LOCAL%" set PYTHON_CMD="%PY_LOCAL%"
+if defined PYTHON_CMD goto found
+rem 2순위 이하: PATH 상의 런처로 폴백
 python --version > nul 2>&1
 if %errorlevel% == 0 set PYTHON_CMD=python
 if defined PYTHON_CMD goto found
-python3 --version > nul 2>&1
-if %errorlevel% == 0 set PYTHON_CMD=python3
-if defined PYTHON_CMD goto found
 py --version > nul 2>&1
 if %errorlevel% == 0 set PYTHON_CMD=py
+if defined PYTHON_CMD goto found
+python3 --version > nul 2>&1
+if %errorlevel% == 0 set PYTHON_CMD=python3
 if defined PYTHON_CMD goto found
 
 echo  [ERROR] Python not found.
