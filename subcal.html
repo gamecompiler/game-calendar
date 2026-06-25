@@ -3,7 +3,17 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>라이브 서비스 게임 캘린더</title>
+<title>컴파일러의 서브컬쳐 캘린더</title>
+<meta name="description" content="컴파일러의 서브컬쳐 캘린더 — HoYoverse·명조 게임 이벤트와 방송 일정을 한눈에.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="컴파일러의 서브컬쳐 캘린더">
+<meta property="og:title" content="컴파일러의 서브컬쳐 캘린더">
+<meta property="og:description" content="HoYoverse·명조 게임 이벤트와 방송 일정을 한눈에.">
+<meta property="og:url" content="https://sub-cal.vercel.app/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="컴파일러의 서브컬쳐 캘린더">
+<meta name="twitter:description" content="HoYoverse·명조 게임 이벤트와 방송 일정을 한눈에.">
+<link rel="canonical" href="https://sub-cal.vercel.app/">
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
 <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
@@ -699,8 +709,8 @@ function ProtocolGuide({onClose}) {
           </div>
           <p style={{fontSize:11,color:"var(--ts)"}}>
             그 다음 →{" "}
-            <a href="http://localhost:8080/game-calendar-standalone.html" style={{color:"#6cb4f8"}}>
-              localhost:8080/game-calendar-standalone.html
+            <a href="http://localhost:8080/subcal.html" style={{color:"#6cb4f8"}}>
+              localhost:8080/subcal.html
             </a>
           </p>
         </div>
@@ -1365,7 +1375,7 @@ function App() {
       <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0}}>
         <span onClick={()=>window.location.reload()} title="새로고침"
           style={{fontSize:11,fontWeight:800,letterSpacing:"-0.3px",color:"var(--tp)",marginRight:4,cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
-          컴파일러의 서브컬처 캘린더
+          컴파일러의 서브컬쳐 캘린더
         </span>
         {COMPILER.map((ch,ci)=>{
           const icon=ci===0?chIcon0:ci===1?chIcon1:ci===2?chIcon2:"";

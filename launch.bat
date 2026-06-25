@@ -51,7 +51,7 @@ echo.
 
 start "" /B %PYTHON_CMD% "%~dp0proxy.py"
 timeout /t 2 /nobreak > nul
-start "" "http://localhost:8080/game-calendar-standalone.html"
+start "" "http://localhost:8080/subcal.html"
 echo   Browser opened.
 echo.
 

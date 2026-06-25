@@ -1,10 +1,10 @@
-# 컴파일러의 서브컬처 캘린더 — 실행 가이드
+# 컴파일러의 서브컬쳐 캘린더 — 실행 가이드
 
 ## 📁 파일 구성
 
 ```
 로컬 실행 (3개 파일)
-├── game-calendar-standalone.html   ← 메인 앱
+├── subcal.html   ← 메인 앱
 ├── proxy.py                        ← 로컬 CORS 프록시 서버
 └── launch.bat                      ← 원클릭 실행 (Windows)
 
@@ -34,16 +34,16 @@
   - 미설치 시: https://www.python.org/downloads/
 
 ### 실행 방법
-1. `game-calendar-standalone.html`, `proxy.py`, `launch.bat`을 **같은 폴더**에 놓기
+1. `subcal.html`, `proxy.py`, `launch.bat`을 **같은 폴더**에 놓기
 2. **`launch.bat` 더블클릭**
-3. 브라우저 자동 실행 → `http://localhost:8080/game-calendar-standalone.html`
+3. 브라우저 자동 실행 → `http://localhost:8080/subcal.html`
 
 ### 수동 실행 (선택)
 ```batch
 # 명령 프롬프트에서
 cd C:\Users\...\calendar-folder
 python proxy.py
-# 브라우저에서 http://localhost:8080/game-calendar-standalone.html 열기
+# 브라우저에서 http://localhost:8080/subcal.html 열기
 ```
 
 ### 처음 실행 시 설정
@@ -136,7 +136,7 @@ vercel deploy
 
 | 증상 | 해결 |
 |---|---|
-| 브라우저가 안 열림 | 수동으로 `http://localhost:8080/game-calendar-standalone.html` 접속 |
+| 브라우저가 안 열림 | 수동으로 `http://localhost:8080/subcal.html` 접속 |
 | "Script error." | Ctrl+F5 (강제 새로고침) |
 | 이벤트 수집 안 됨 | 로그 버튼 클릭으로 오류 확인 |
 | Notion 연동 안 됨 | Token 재입력, 통합이 페이지에 공유됐는지 확인 |

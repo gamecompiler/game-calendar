@@ -4,7 +4,7 @@
 
 ## 구조
 
-- `game-calendar-standalone.html` — React(Babel standalone, CDN) 단일 파일 SPA. 캘린더 UI 전체.
+- `subcal.html` — React(Babel standalone, CDN) 단일 파일 SPA. 캘린더 UI 전체.
 - `proxy.py` — 포트 8080 로컬 CORS 프록시. HoYoLAB / Kuro CDN / YouTube RSS / Notion API를 서버사이드로 중계. **로컬 실행의 기준 구현.**
 - `api/*.js` — Vercel 배포용 서버리스 함수. proxy.py의 각 엔드포인트를 이식한 버전.
   - `api/notion.js` — 관리자 쓰기용(호출자 토큰 중계). `api/notion-public.js` — 팬 공개 읽기 전용(환경변수 토큰, GET·화이트리스트 DB만).

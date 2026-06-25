@@ -1069,7 +1069,7 @@ if __name__ == "__main__":
     os.chdir(os.path.dirname(os.path.abspath(sys.argv[0])))
     print("\n" + "="*50)
     print("  게임 캘린더 로컬 서버")
-    print("  http://localhost:8080/game-calendar-standalone.html")
+    print("  http://localhost:8080/subcal.html")
     print("  종료: Ctrl+C")
     print("="*50 + "\n")
     HTTPServer(("", 8080), Handler).serve_forever()
