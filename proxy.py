@@ -6,6 +6,28 @@ ctx = ssl.create_default_context()
 ctx.check_hostname = False
 ctx.verify_mode = ssl.CERT_NONE
 
+def _load_dotenv():
+    """프로젝트 루트의 .env(untracked)에서 환경변수 로드 (이미 설정된 값은 보존).
+    로컬에서 NOTION_READONLY_TOKEN / NOTION_MEMBERS_DB 등을 배포와 동일하게 다루기 위함.
+    토큰을 코드에 하드코딩하지 않음."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    if not os.path.exists(path):
+        return
+    try:
+        with open(path, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                k, v = line.split("=", 1)
+                k = k.strip(); v = v.strip().strip('"').strip("'")
+                if k and k not in os.environ:
+                    os.environ[k] = v
+    except Exception:
+        pass
+
+_load_dotenv()
+
 def make_headers(url):
     """요청 대상에 따라 적절한 헤더 반환"""
     h = {
@@ -144,6 +166,8 @@ class Handler(SimpleHTTPRequestHandler):
                 self.wfile.write(str(e).encode())
         elif self.path.startswith("/api/wuwa"):
             self._handle_wuwa_news()
+        elif self.path.startswith("/api/members"):
+            self._handle_members()
         # ── 기존 경로 (하위 호환) ───────────────────────────────────────────────
         elif self.path.startswith("/api-proxy?"):
             qs = urllib.parse.parse_qs(self.path.split("?", 1)[1])
@@ -799,6 +823,63 @@ class Handler(SimpleHTTPRequestHandler):
                 self.end_headers()
                 self.wfile.write(str(e).encode())
             except: pass
+
+    def _handle_members(self):
+        """원스동 멤버 명단 (팬 공개, 안전 필드만). api/members.js 와 동일 출력.
+        - 토큰은 환경변수 NOTION_READONLY_TOKEN 에서만 사용 (응답에 미포함)
+        - 승인=true 멤버만 (이름 없는 빈 행 제거)
+        - 노션토큰/일정DB/문서DB 칸은 응답에 절대 담지 않음"""
+        import json as _j
+        token = os.environ.get("NOTION_READONLY_TOKEN", "")
+        db = (os.environ.get("NOTION_MEMBERS_DB") or "3b756ebfd5754e1f8308310b50330806").replace("-", "")
+
+        def send(obj, code=200):
+            body = _j.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+
+        if not token:
+            send({"error": "NOTION_READONLY_TOKEN not configured on server"}, 503); return
+        try:
+            url = f"https://api.notion.com/v1/databases/{db}/query"
+            body = _j.dumps({"filter": {"property": "승인", "checkbox": {"equals": True}}, "page_size": 100}).encode()
+            req = urllib.request.Request(url, data=body, method="POST",
+                headers={"Authorization": "Bearer " + token, "Notion-Version": "2022-06-28", "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+                data = _j.loads(r.read().decode("utf-8"))
+        except urllib.error.HTTPError as e:
+            try: msg = _j.loads(e.read()).get("message", "")
+            except Exception: msg = ""
+            send({"error": msg or ("HTTP %d" % e.code)}, e.code); return
+        except Exception as e:
+            send({"error": str(e)}, 502); return
+
+        def txt(p):
+            if not p: return ""
+            t = p.get("type")
+            if t == "title": return "".join(x.get("plain_text", "") for x in p.get("title", [])).strip()
+            if t == "rich_text": return "".join(x.get("plain_text", "") for x in p.get("rich_text", [])).strip()
+            return ""
+
+        out = []
+        for page in data.get("results", []):
+            p = page.get("properties", {})
+            name = txt(p.get("이름"))
+            if not name:
+                continue
+            out.append({
+                "id": page.get("id"),
+                "name": name,
+                "chzzk": txt(p.get("치지직")),
+                "youtube": [v for v in [txt(p.get("유튜브1")), txt(p.get("유튜브2")), txt(p.get("유튜브3"))] if v],
+                "birthday": ((p.get("생일") or {}).get("date") or {}).get("start", ""),
+                "classes": [o["name"] for o in ((p.get("소속반") or {}).get("multi_select") or [])],
+                "color": txt(p.get("멤버색상")),
+            })
+        send(out)
 
     def do_PATCH(self):
         """Notion 페이지 업데이트 (PATCH) — /notion-patch?id=X 또는 /api/notion?path=pages/X"""

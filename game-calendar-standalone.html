@@ -753,6 +753,7 @@ function App() {
   const [noteLoading, setNoteLoading] = useState(false); // 노션 문서 수집 중 // 노션 방송 일정
   const [noteDbId,    setNoteDbId]    = useState("20466cc1-f1b5-8060-b379-eb16721bd1e4"); // 문서 목록 DB
   const [noteEvs,     setNoteEvs]     = useState([]); // 노션 노트 목록
+  const [members,     setMembers]     = useState([]); // 원스동 멤버 명단 (서버에서 안전 필드만)
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
   const [syncing,     setSyncing]     = useState({});
   const [focusWeek,   setFocusWeek]   = useState(0);
@@ -842,6 +843,9 @@ function App() {
         .then(r=>r.json()).then(d=>{if(d.url)setChIcon1(d.url);}).catch(()=>{});
       fetch(`${API}/api/yt?type=icon&channel=UCPH5K7VjB2__o60u1bMpZnw`)
         .then(r=>r.json()).then(d=>{if(d.url)setChIcon2(d.url);}).catch(()=>{});
+      // 원스동 멤버 명단 (서버가 안전 필드만 반환; 토큰 미설정 시 503 → 빈 배열)
+      fetch(`${API}/api/members`)
+        .then(r=>r.ok?r.json():[]).then(d=>{if(Array.isArray(d))setMembers(d);}).catch(()=>{});
     }
   },[ready]);
   // 게임 아이콘: 정적 icon 없는 게임(붕3rd, 명조)은 YouTube 채널 아이콘으로 로드
@@ -1376,6 +1380,26 @@ function App() {
           );
         })}
       </div>
+
+      {/* 원스동 멤버 바 (서버가 안전 필드만 내려줌 — 토큰/일정DB/문서DB 없음) */}
+      {members.length>0 && (
+        <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,overflowX:"auto"}}>
+          <span style={{fontSize:10,fontWeight:700,color:"var(--tm)",whiteSpace:"nowrap",marginRight:2,flexShrink:0}}>원스동</span>
+          {members.map(m=>{
+            const col=m.color||"#888888";
+            return(
+              <div key={m.id} title={[m.name,(m.classes||[]).join("·"),m.birthday&&("생일 "+m.birthday)].filter(Boolean).join(" / ")}
+                style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:col+"1A",border:`.5px solid ${col}66`,whiteSpace:"nowrap",flexShrink:0}}>
+                <span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}} />
+                <span style={{fontSize:11,fontWeight:600,color:"var(--tp)"}}>{m.name}</span>
+                {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
+                {m.chzzk&&<a href={`https://chzzk.naver.com/${m.chzzk}`} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#00C73C",fontWeight:600}}>치지직</a>}
+                {(m.youtube||[]).map((u,i)=><a key={i} href={u.startsWith("UC")?`https://youtube.com/channel/${u}`:`https://youtube.com/${u}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#FF0000"}}>▶</a>)}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/* Top bar */}
       <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,flexWrap:"wrap",rowGap:4}}>
