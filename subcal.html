@@ -19,7 +19,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
 <style>
 :root{--bp:#161621;--bc:#1e1e2e;--bi:#22222e;--bh:#26263a;--tp:#cdd6f4;--ts:#a6adc8;--tm:#585b70;--br:rgba(205,214,244,.09)}
-.lm{--bp:#e8e8f2;--bc:#f8f8fc;--bi:#e0e0ea;--bh:#e4e4ee;--tp:#0d0d12;--ts:#44444c;--tm:#777780;--br:rgba(0,0,0,.15)}
+
 *{box-sizing:border-box;margin:0}body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}a{text-decoration:none}
 .chip{display:flex;align-items:center;gap:3px;border-radius:4px;cursor:pointer;overflow:hidden;white-space:nowrap;line-height:1.4;transition:opacity .1s}.chip:hover{opacity:.72}
 .ecard{border-radius:6px;overflow:hidden;cursor:pointer;margin-bottom:4px;transition:opacity .12s;background:var(--bi)}.ecard:hover{opacity:.8}
@@ -92,10 +92,10 @@ const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","
 const DOW = ["일","월","화","수","목","금","토"];
 const FTYPES = ["전체","업데이트","특별 방송","픽업","영상"];
 const TC = {
-  "업데이트":{bg:"rgba(92,107,192,.22)",  t:"#9fa8da",  b:"#5C6BC0", lbg:"#dfe3f9", lt:"#2d43b5"},
-  "특별 방송":{bg:"rgba(239,140,0,.22)",   t:"#ffb74d",  b:"#EF8C00", lbg:"#fdefd4", lt:"#9b4500"},
-  "픽업":    {bg:"rgba(233,30,140,.22)",  t:"#f48fb1",  b:"#E91E8C", lbg:"#fde0ee", lt:"#9d0047"},
-  "영상":    {bg:"rgba(123,31,162,.22)",  t:"#ce93d8",  b:"#7B1FA2", lbg:"#f0e0fc", lt:"#5e0099"},
+  "업데이트":{bg:"rgba(92,107,192,.22)",  t:"#9fa8da",  b:"#5C6BC0"},
+  "특별 방송":{bg:"rgba(239,140,0,.22)",   t:"#ffb74d",  b:"#EF8C00"},
+  "픽업":    {bg:"rgba(233,30,140,.22)",  t:"#f48fb1",  b:"#E91E8C"},
+  "영상":    {bg:"rgba(123,31,162,.22)",  t:"#ce93d8",  b:"#7B1FA2"},
 };
 // 문서 카테고리 색상
 const CAT_COLOR={
@@ -105,8 +105,8 @@ const CAT_COLOR={
 };
 function catStyle(cat){const s=CAT_COLOR[cat]||CAT_COLOR["메모"];return{background:s.bg,color:s.c,border:`0.5px solid ${s.b}`};}
 
-const tb  = (t,dk=true)=>(dk?(TC[t]||TC["업데이트"]).bg  :(TC[t]||TC["업데이트"]).lbg);
-const tc  = (t,dk=true)=>(dk?(TC[t]||TC["업데이트"]).t   :(TC[t]||TC["업데이트"]).lt);
+const tb  = (t)=>(TC[t]||TC["업데이트"]).bg;
+const tc  = (t)=>(TC[t]||TC["업데이트"]).t;
 const tbr = (t)=>(TC[t]||TC["업데이트"]).b;
 
 // 게임별 픽업 캐릭터명 추출
@@ -737,7 +737,7 @@ function ProtocolGuide({onClose}) {
 function App() {
   const now=new Date(), todayStr=lDS(now);
 
-  const [dark,        setDark]        = useState(true);
+
   const [weekStart,   setWeekStart]   = useState(1); // 0=일요일 시작, 1=월요일 시작
   const [chIcon0,     setChIcon0]     = useState(""); // 치지직 아이콘
   const [chIcon1,     setChIcon1]     = useState(""); // 컴파일러 유튜브 아이콘
@@ -924,7 +924,7 @@ function App() {
       try{const r=await store.get("v146_e");setEvents(JSON.parse(r.value));}catch{}
       try{const r=await store.get("v146_t");if(r?.value)setNotionTok(r.value);}catch{}
       try{const r=await store.get("v45_dbid");if(r?.value)setNotionDbId(r.value);}catch{}
-      try{const r=await store.get("v146_dk");setDark(r.value!=="0");}catch{}
+
       try{const r=await store.get("v67_ws");if(r?.value)setWeekStart(Number(r.value));}catch{}
       try{const r=await store.get("cal_filters");if(r?.value){const f=JSON.parse(r.value);if(f.showNotes!=null)setShowNotesInCal(f.showNotes);if(f.showBcast!=null)setShowBcastInCal(f.showBcast);}}catch{}
       setGames(ig);
@@ -941,7 +941,7 @@ function App() {
 
   useEffect(()=>{if(ready)store.set("v146_g",JSON.stringify(games));},[games,ready]);
   useEffect(()=>{if(ready)store.set("v146_e",JSON.stringify(events));},[events,ready]);
-  useEffect(()=>{if(ready)store.set("v146_dk",dark?"1":"0");},[dark,ready]);
+
   useEffect(()=>{if(ready)store.set("v67_ws",String(weekStart));},[weekStart,ready]);
 
   const setSt=(gid,state,msg)=>setFetchSt(p=>({...p,[gid]:{state,msg}}));
@@ -1333,7 +1333,7 @@ function App() {
   }).join("\n\n");
 
   return (
-    <div className={dark?"":"lm"} style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"var(--bp)"}}>
+    <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"var(--bp)"}}>
 
       {/* Toast */}
       {toast&&<div key={toast.id} className="toast toast-in">{toast.msg}</div>}
@@ -1423,8 +1423,8 @@ function App() {
           return(
             <button key={t} onClick={()=>setHiddenTypes(p=>{const s=new Set(p);s.has(t)?s.delete(t):s.add(t);return s;})}
               style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
-                background:hidden?"transparent":(dark?TC[t]?.bg:TC[t]?.lbg),
-                color:hidden?"var(--tm)":(dark?TC[t]?.t:TC[t]?.lt),
+                background:hidden?"transparent":TC[t]?.bg,
+                color:hidden?"var(--tm)":TC[t]?.t,
                 borderColor:hidden?"var(--br)":TC[t]?.b,
                 textDecoration:hidden?"line-through":"none",
                 opacity:hidden?.6:1}}>
@@ -1433,7 +1433,7 @@ function App() {
           );
         })}
         <div style={{marginLeft:"auto",display:"flex",gap:5}}>
-          <button className="pill" onClick={()=>setDark(d=>!d)}>{dark?"라이트":"다크"}</button>
+
           <button className="pill" onClick={()=>setWeekStart(w=>w===0?1:0)}
             style={{background:"rgba(55,138,221,.15)",color:"#378ADD",border:".5px solid rgba(55,138,221,.4)"}}>
             {weekStart===1?"🗓 월 시작":"🗓 일 시작"}
@@ -1704,23 +1704,23 @@ function App() {
                             </div>
                             {/* 방송 일정 */}
                             {showBcastInCal&&bcEvs.map(ev=>(
-                              <BroadcastCard key={ev.id} ev={ev} dark={dark} onClick={e=>{e.stopPropagation();setSel(ev);}}/>
+                              <BroadcastCard key={ev.id} ev={ev} onClick={e=>{e.stopPropagation();setSel(ev);}}/>
                             ))}
                             {/* 노트 (showNotesInCal이 true일 때만 표시) */}
                             {showNotesInCal&&noteEvsCel.map(note=>(
                               <div key={note.id} onClick={e=>{e.stopPropagation();setSelNote(note);}}
-                                style={{background:dark?"rgba(120,80,255,.08)":"#f0ebff",border:dark?".5px solid rgba(120,80,255,.25)":".5px solid #8060cc",borderRadius:4,padding:"3px 6px",marginBottom:2,cursor:"pointer"}}>
+                                style={{background:"rgba(120,80,255,.08)",border:".5px solid rgba(120,80,255,.25)",borderRadius:4,padding:"3px 6px",marginBottom:2,cursor:"pointer"}}>
                                 <div style={{display:"flex",alignItems:"center",gap:3,marginBottom:1}}>
                                   <span style={{fontSize:9}}>📝</span>
                                   {note.category&&<span style={{fontSize:8,padding:"0 3px",borderRadius:3,...catStyle(note.category)}}>{note.category}</span>}
                                 </div>
                                 <div style={{fontSize:10,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontWeight:500}}>{note.title}</div>
-                                {note.gameNames?.length>0&&<div style={{fontSize:8,color:dark?"rgba(120,80,255,.7)":"#6040aa",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{note.gameNames.join(" · ")}</div>}
+                                {note.gameNames?.length>0&&<div style={{fontSize:8,color:"rgba(120,80,255,.7)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{note.gameNames.join(" · ")}</div>}
                               </div>
                             ))}
                             {/* 게임 이벤트 */}
                             {gameEvs.slice(0,maxGameEvs).map((ev,evIdx)=>(
-                              <ExpandedCard key={ev.id} ev={ev} game={gOf(ev.gameId)} cellDs={cell.ds} dark={dark}
+                              <ExpandedCard key={ev.id} ev={ev} game={gOf(ev.gameId)} cellDs={cell.ds}
                                 className={isExpanded&&evIdx>=Math.max(0,6-bcEvs.length)?"evt-appear":""}
                                 style={{animationDelay:isExpanded&&evIdx>=Math.max(0,6-bcEvs.length)?`${(evIdx-Math.max(0,6-bcEvs.length))*0.04}s`:undefined}}
                                 onClick={e=>{e.stopPropagation();setSel(ev);}}/>
@@ -1790,7 +1790,7 @@ function App() {
                       <div style={{display:"flex",alignItems:"center",gap:6}}>
                         {gOf(sel.gameId)?.icon&&<img src={gOf(sel.gameId).icon} alt="" onError={e=>e.target.style.display="none"} style={{width:18,height:18,borderRadius:4,objectFit:"cover",flexShrink:0}}/>}
                         <span style={{fontSize:11,color:"var(--ts)"}}>{sel.gameName}</span>
-                        {sel.type&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:tb(sel.type,dark),color:tc(sel.type,dark)}}>{sel.type}</span>}
+                        {sel.type&&<span style={{fontSize:10,padding:"2px 8px",borderRadius:20,background:tb(sel.type),color:tc(sel.type)}}>{sel.type}</span>}
                       </div>
                       <button className="ib" onClick={()=>setSel(null)} style={{fontSize:18}}>×</button>
                     </div>
@@ -2225,16 +2225,16 @@ function GameNewsList({events, gameId, onSel}) {
   );
 }
 
-function BroadcastCard({ev,onClick,dark=true}){
+function BroadcastCard({ev,onClick}){
   const isCollab=ev.isCollab||ev.tags?.includes("합방");
   const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!=="합방");
   return(
-    <div onClick={onClick} style={{background:dark?"rgba(255,180,50,.1)":"#fff8e8",border:dark?".5px solid rgba(255,180,50,.35)":".5px solid #e6a800",borderRadius:5,padding:"4px 6px 3px",marginBottom:3,cursor:"pointer",transition:"background .1s"}}
+    <div onClick={onClick} style={{background:"rgba(255,180,50,.1)",border:".5px solid rgba(255,180,50,.35)",borderRadius:5,padding:"4px 6px 3px",marginBottom:3,cursor:"pointer",transition:"background .1s"}}
       onMouseEnter={e=>e.currentTarget.style.background="rgba(255,180,50,.18)"}
       onMouseLeave={e=>e.currentTarget.style.background="rgba(255,180,50,.1)"}>
       {/* 시간 + 합방 뱃지 */}
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
-        <span style={{fontSize:9,color:dark?"#FFB432":"#a06000",fontWeight:700,letterSpacing:"-.3px"}}>{ev.timeStr||"오후 7:00시"}</span>
+        <span style={{fontSize:9,color:"#FFB432",fontWeight:700,letterSpacing:"-.3px"}}>{ev.timeStr||"오후 7:00시"}</span>
         {isCollab&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:"rgba(255,80,80,.2)",color:"#FF7070",fontWeight:600,lineHeight:"14px"}}>합방</span>}
         {ev.episode>0&&<span style={{fontSize:8,color:"rgba(255,180,50,.7)",marginLeft:"auto"}}>#{ev.episode}</span>}
       </div>
@@ -2244,7 +2244,7 @@ function BroadcastCard({ev,onClick,dark=true}){
       {ev.gameNames?.length>1&&<div style={{fontSize:8,color:"rgba(255,180,50,.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{ev.gameNames.join(" · ")}</div>}
       {/* 기타 태그 */}
       {otherTags.length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-        {otherTags.slice(0,3).map(t=><span key={t} style={{fontSize:8,color:dark?"rgba(255,180,50,.7)":"#8a5200",background:dark?"rgba(255,180,50,.08)":"rgba(255,180,50,.15)",padding:"0 4px",borderRadius:3,lineHeight:"14px"}}>{t}</span>)}
+        {otherTags.slice(0,3).map(t=><span key={t} style={{fontSize:8,color:"rgba(255,180,50,.7)",background:"rgba(255,180,50,.08)",padding:"0 4px",borderRadius:3,lineHeight:"14px"}}>{t}</span>)}
       </div>}
     </div>
   );
@@ -2269,16 +2269,16 @@ function CompactChip({ev,game,onClick}){
   </div>);
 }
 
-function ExpandedCard({ev,game,cellDs,onClick,dark=true,className,style:extraStyle}){
+function ExpandedCard({ev,game,cellDs,onClick,className,style:extraStyle}){
   // ★ 업데이트 적용일 마커: 간결한 "업데이트 적용" 표시
   if(ev._isApplyMarker){
     return(<div onClick={onClick} className={`ecard${className?" "+className:""}`}
-      style={{border:`1px solid ${tbr("업데이트")}${dark?"66":"99"}`,background:tbr("업데이트")+(dark?"22":"15"),...(extraStyle||{})}}>
+      style={{border:`1px solid ${tbr("업데이트")}66`,background:tbr("업데이트")+"22",...(extraStyle||{})}}>
       <div style={{padding:"5px 7px",display:"flex",alignItems:"center",gap:5}}>
         <div style={{width:16,height:16,borderRadius:3,background:ev.gameColor||"#666",flexShrink:0,position:"relative",overflow:"hidden"}}>
           {game?.icon&&<img src={game.icon} alt="" onError={e=>e.target.style.display="none"} style={{position:"absolute",inset:0,width:16,height:16,objectFit:"cover"}}/>}
         </div>
-        <span style={{fontSize:10,flex:1,color:tc("업데이트",dark),fontWeight:700}}>
+        <span style={{fontSize:10,flex:1,color:tc("업데이트"),fontWeight:700}}>
           🔄 {ev.version?ev.version+" ":""}업데이트 적용
         </span>
       </div>
@@ -2289,16 +2289,16 @@ function ExpandedCard({ev,game,cellDs,onClick,dark=true,className,style:extraSty
   // 배너 이미지는 이벤트 시작일에만 표시
   const showImg = !cellDs || ev.date === cellDs;
   const ytid=getYtId(ev.youtubeUrl),thumb=ytid?`https://img.youtube.com/vi/${ytid}/mqdefault.jpg`:null;
-  return(<div onClick={onClick} className={`ecard${className?" "+className:""}`} style={{border:`.5px solid ${tbr(ev.type)}${dark?"44":"99"}`,...(extraStyle||{})}}>
+  return(<div onClick={onClick} className={`ecard${className?" "+className:""}`} style={{border:`.5px solid ${tbr(ev.type)}44`,...(extraStyle||{})}}>
     {showImg&&thumb&&<div style={{position:"relative",height:68,overflow:"hidden",background:"#000"}}><img src={thumb} alt="" style={{width:"100%",height:68,objectFit:"cover",opacity:.9}} onError={e=>e.target.parentElement.style.display="none"}/><div style={{position:"absolute",inset:0,background:"linear-gradient(to bottom,transparent 50%,rgba(0,0,0,.6))"}}/><span style={{position:"absolute",top:4,right:4,background:"rgba(0,0,0,.7)",borderRadius:4,padding:"1px 5px",fontSize:8,color:"#ff5555"}}>YT</span></div>}
     {showImg&&!thumb&&ev.characterImg&&<div style={{maxHeight:80,overflow:"hidden",display:"flex",justifyContent:"center",background:ev.gameColor+"18"}}><img src={ev.characterImg} alt="" onError={e=>e.target.parentElement.style.display="none"} style={{width:"100%",objectFit:"cover",objectPosition:"top"}}/></div>}
     {showImg&&!thumb&&!ev.characterImg&&game?.icon&&null}
-    <div style={{padding:"4px 6px 5px",display:"flex",alignItems:"center",gap:4,background:tb(ev.type,dark)}}>
+    <div style={{padding:"4px 6px 5px",display:"flex",alignItems:"center",gap:4,background:tb(ev.type)}}>
       <div style={{width:16,height:16,borderRadius:3,background:ev.gameColor||"#666",flexShrink:0,position:"relative",overflow:"hidden"}}>
         {game?.icon&&<img src={game.icon} alt="" onError={e=>e.target.style.display="none"} style={{position:"absolute",inset:0,width:16,height:16,objectFit:"cover"}}/>}
       </div>
-      <span style={{fontSize:10,flex:1,overflow:"hidden",textOverflow:"ellipsis",color:tc(ev.type,dark),fontWeight:500,lineHeight:1.3}}>{displayTitle}{ev.type==="픽업"&&ev.character&&ev.version?` (${ev.version})`:""}</span>
-      {(!showImg||(!thumb&&!ev.characterImg))&&<span style={{fontSize:8,padding:"1px 4px",borderRadius:8,background:dark?"rgba(0,0,0,.18)":"rgba(0,0,0,.08)",color:tc(ev.type,dark),flexShrink:0}}>{ev.type}</span>}
+      <span style={{fontSize:10,flex:1,overflow:"hidden",textOverflow:"ellipsis",color:tc(ev.type),fontWeight:500,lineHeight:1.3}}>{displayTitle}{ev.type==="픽업"&&ev.character&&ev.version?` (${ev.version})`:""}</span>
+      {(!showImg||(!thumb&&!ev.characterImg))&&<span style={{fontSize:8,padding:"1px 4px",borderRadius:8,background:"rgba(0,0,0,.18)",color:tc(ev.type),flexShrink:0}}>{ev.type}</span>}
     </div>
   </div>);
 }
