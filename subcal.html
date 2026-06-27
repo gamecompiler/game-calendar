@@ -764,6 +764,7 @@ function App() {
   const [noteDbId,    setNoteDbId]    = useState("20466cc1-f1b5-8060-b379-eb16721bd1e4"); // 문서 목록 DB
   const [noteEvs,     setNoteEvs]     = useState([]); // 노션 노트 목록
   const [members,     setMembers]     = useState([]); // 원스동 멤버 명단 (서버에서 안전 필드만)
+  const [selMember,   setSelMember]   = useState(null); // 멤버 바: 선택 시 확장
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
   const [syncing,     setSyncing]     = useState({});
   const [focusWeek,   setFocusWeek]   = useState(0);
@@ -1380,12 +1381,11 @@ function App() {
         {COMPILER.map((ch,ci)=>{
           const icon=ci===0?chIcon0:ci===1?chIcon1:ci===2?chIcon2:"";
           return(
-          <a key={ch.url} href={ch.url} target="_blank" rel="noreferrer" style={{display:"flex",alignItems:"center",gap:6,padding:"3px 12px 3px 4px",borderRadius:20,background:ch.color+"18",border:`.5px solid ${ch.color}55`}}
+          <a key={ch.url} href={ch.url} target="_blank" rel="noreferrer" title={ch.label} style={{display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,textDecoration:"none"}}
             onMouseEnter={e=>e.currentTarget.style.opacity=".7"} onMouseLeave={e=>e.currentTarget.style.opacity="1"}>
-            <div style={{width:22,height:22,borderRadius:"50%",background:ch.color+"22",border:`1.5px solid ${ch.color}88`,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,flexShrink:0}}>
+            <div style={{width:26,height:26,borderRadius:"50%",background:ch.color+"22",border:`2px solid ${ch.color}`,overflow:"hidden",display:"flex",alignItems:"center",justifyContent:"center",fontSize:13,flexShrink:0}}>
               {icon?<img src={icon} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>:ch.emoji}
             </div>
-            <span style={{fontSize:11,color:ch.color,fontWeight:600,whiteSpace:"nowrap"}}>{ch.label}</span>
           </a>
           );
         })}
@@ -1397,14 +1397,18 @@ function App() {
           <span style={{fontSize:10,fontWeight:700,color:"var(--tm)",whiteSpace:"nowrap",marginRight:2,flexShrink:0}}>원스동</span>
           {members.map(m=>{
             const col=m.color||"#888888";
+            const expanded=selMember===m.id;
             return(
-              <div key={m.id} title={[m.name,(m.classes||[]).join("·"),m.birthday&&("생일 "+m.birthday)].filter(Boolean).join(" / ")}
-                style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:col+"1A",border:`.5px solid ${col}66`,whiteSpace:"nowrap",flexShrink:0}}>
+              <div key={m.id} onClick={()=>setSelMember(expanded?null:m.id)} title={m.name}
+                style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:expanded?col+"2A":col+"1A",border:`.5px solid ${expanded?col:col+"66"}`,whiteSpace:"nowrap",flexShrink:0,cursor:"pointer"}}>
                 <span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}} />
                 <span style={{fontSize:11,fontWeight:600,color:"var(--tp)"}}>{m.name}</span>
-                {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
-                {m.chzzk&&<a href={`https://chzzk.naver.com/${m.chzzk}`} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#00C73C",fontWeight:600}}>치지직</a>}
-                {(m.youtube||[]).map((u,i)=><a key={i} href={u.startsWith("UC")?`https://youtube.com/channel/${u}`:`https://youtube.com/${u}`} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#FF0000"}}>▶</a>)}
+                {expanded&&<>
+                  {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
+                  {m.birthday&&<span style={{fontSize:8,color:"var(--tm)"}}>🎂{m.birthday.slice(5)}</span>}
+                  {m.chzzk&&<a href={`https://chzzk.naver.com/${m.chzzk}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#00C73C",fontWeight:600}}>치지직</a>}
+                  {(m.youtube||[]).map((u,i)=><a key={i} href={u.startsWith("UC")?`https://youtube.com/channel/${u}`:`https://youtube.com/${u}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#FF0000"}}>▶</a>)}
+                </>}
               </div>
             );
           })}
