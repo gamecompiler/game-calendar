@@ -1473,6 +1473,23 @@ function App() {
             </button>
           );
         })}
+        <div style={{width:1,height:14,background:"var(--br)",margin:"0 2px"}} />
+        {(()=>{
+          const allOn=games.every(g=>g.on);
+          const saveFilters=(notes,bcast)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast}));}catch{}};
+          const tgl=(on,label,emoji,c,onClick)=>(
+            <button onClick={onClick}
+              style={{fontSize:11,padding:"4px 10px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
+                background:on?c+"22":"transparent",color:on?c:"var(--tm)",borderColor:on?c:"var(--br)",opacity:on?1:.65}}>
+              {emoji} {label}{on?" ✓":""}
+            </button>
+          );
+          return(<>
+            {tgl(allOn,"게임","🎮","#378ADD",()=>setGames(p=>p.map(g=>({...g,on:!allOn}))))}
+            {tgl(showBcastInCal,"일정","📺","#c07000",()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);})}
+            {tgl(showNotesInCal,"문서","📝","#9B60FF",()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);})}
+          </>);
+        })()}
         <div style={{marginLeft:"auto",display:"flex",gap:5}}>
 
           <button className="pill" onClick={()=>setWeekStart(w=>w===0?1:0)}
@@ -1487,43 +1504,7 @@ function App() {
         {/* Sidebar */}
         <div className="sidebar" style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",background:"var(--bc)",borderRight:".5px solid var(--br)",overflow:"hidden"}}>
           <div style={{padding:"8px 7px 6px",borderBottom:".5px solid var(--br)"}}>
-            {/* 통합 필터 패널 */}
-            {(()=>{
-              const allOn=games.every(g=>g.on);
-              const saveFilters=(notes,bcast)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast}));}catch{}};
-              return(
-              <div style={{marginBottom:5}}>
-                <div style={{fontSize:9,color:"var(--tm)",marginBottom:3,fontWeight:600,letterSpacing:".3px"}}>캘린더 표시</div>
-                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3}}>
-                  {/* 게임 토글 */}
-                  <button onClick={()=>setGames(p=>p.map(g=>({...g,on:!allOn})))}
-                    style={{fontSize:9,padding:"4px 3px",borderRadius:5,cursor:"pointer",fontFamily:"inherit",
-                      background:allOn?"rgba(55,138,221,.12)":"var(--bi)",
-                      color:allOn?"#378ADD":"var(--tm)",
-                      border:".5px solid "+(allOn?"rgba(55,138,221,.35)":"var(--br)"),textAlign:"center"}}>
-                    🎮 {allOn?"게임 ✓":"게임"}
-                  </button>
-                  {/* 방송일정 토글 */}
-                  <button onClick={()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);}}
-                    style={{fontSize:9,padding:"4px 3px",borderRadius:5,cursor:"pointer",fontFamily:"inherit",
-                      background:showBcastInCal?"rgba(255,180,50,.12)":"var(--bi)",
-                      color:showBcastInCal?"#c07000":"var(--tm)",
-                      border:".5px solid "+(showBcastInCal?"rgba(255,180,50,.35)":"var(--br)"),textAlign:"center"}}>
-                    📺 {showBcastInCal?"일정 ✓":"일정"}
-                  </button>
-                  {/* 문서 토글 */}
-                  <button onClick={()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);}}
-                    style={{fontSize:9,padding:"4px 3px",borderRadius:5,cursor:"pointer",fontFamily:"inherit",
-                      background:showNotesInCal?"rgba(120,80,255,.12)":"var(--bi)",
-                      color:showNotesInCal?"#9B60FF":"var(--tm)",
-                      border:".5px solid "+(showNotesInCal?"rgba(120,80,255,.35)":"var(--br)"),textAlign:"center"}}>
-                    📝 {showNotesInCal?"문서 ✓":"문서"}
-                  </button>
-                  {/* 게임 이벤트 필터 유형 토글은 상단 필터 버튼에서 별도 관리 */}
-                </div>
-              </div>
-              );
-            })()}
+            {/* 캘린더 표시 토글(게임·일정·문서)은 상단 필터바로 통합 이동됨 */}
             {/* 게임 목록 헤더 (문서 섹션 스타일과 통일) + 전체 새로고침 */}
             <div style={{display:"flex",alignItems:"center",padding:"6px 3px 3px",gap:4}}>
               <span style={{fontSize:11,fontWeight:700,color:"var(--tp)",flex:1}}>🎮 게임 목록</span>
