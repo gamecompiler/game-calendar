@@ -752,6 +752,7 @@ function App() {
   const [chIcon1,     setChIcon1]     = useState(""); // 컴파일러 유튜브 아이콘
   const [chIcon2,     setChIcon2]     = useState(""); // 통파일러 아이콘
   const [gameIcons,   setGameIcons]   = useState({}); // 게임별 YouTube 채널 아이콘 {gameId: url}
+  const [chanIcons,   setChanIcons]   = useState({}); // 멤버 채널 아이콘 {c_<치지직id>|y_<유튜브id>: url}
   const [yr,          setYr]          = useState(now.getFullYear());
   const [mo,          setMo]          = useState(now.getMonth());
   const [games,       setGames]       = useState([]);
@@ -868,6 +869,15 @@ function App() {
         .then(r=>r.ok?r.json():[]).then(d=>{if(Array.isArray(d))setMembers(d);}).catch(()=>{});
     }
   },[ready]);
+  // 멤버 채널 아이콘 로딩 — 헤더 아바타/게임 아이콘과 동일한 /api/yt 방식 재사용
+  useEffect(()=>{
+    members.forEach(m=>{
+      if(m.chzzk) fetch(`${API}/api/yt?type=chzzk&chzzk=${encodeURIComponent(m.chzzk)}`)
+        .then(r=>r.json()).then(d=>{if(d.url)setChanIcons(p=>({...p,["c_"+m.chzzk]:d.url}));}).catch(()=>{});
+      (m.youtube||[]).forEach(u=>{ if(u) fetch(`${API}/api/yt?type=icon&channel=${encodeURIComponent(u)}`)
+        .then(r=>r.json()).then(d=>{if(d.url)setChanIcons(p=>({...p,["y_"+u]:d.url}));}).catch(()=>{}); });
+    });
+  },[members]);
   // 게임 아이콘: 정적 icon 없는 게임(붕3rd, 명조)은 YouTube 채널 아이콘으로 로드
   // 컴파일러/통파일러 채널 아이콘과 100% 동일한 방식
   const [ytGameIcons, setYtGameIcons] = useState({});
@@ -1433,14 +1443,26 @@ function App() {
             return(
               <div key={m.id} onClick={()=>setSelMember(expanded?null:m.id)} title={m.name}
                 style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:expanded?col+"2A":col+"1A",border:`.5px solid ${expanded?col:col+"66"}`,whiteSpace:"nowrap",flexShrink:0,cursor:"pointer"}}>
-                <span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}} />
+                {/* 이름 옆 원: 치지직 프로필(테두리=퍼스널컬러), 클릭 시 치지직 이동. 없으면 퍼스널컬러 원 */}
+                {m.chzzk
+                  ?<a href={`https://chzzk.naver.com/${m.chzzk}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" title="치지직" style={{display:"inline-flex",flexShrink:0}}>
+                    <div style={{width:18,height:18,borderRadius:"50%",overflow:"hidden",border:`2px solid ${col}`,background:col,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                      {chanIcons["c_"+m.chzzk]&&<img src={chanIcons["c_"+m.chzzk]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>}
+                    </div>
+                  </a>
+                  :<span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}} />}
                 <span style={{fontSize:11,fontWeight:600,color:"var(--tp)"}}>{m.name}</span>
                 {m.id===nearestId&&<span title="가장 가까운 생일" style={{fontSize:12,flexShrink:0}}>🎂</span>}
                 {expanded&&<>
                   {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
                   {m.birthday&&<span style={{fontSize:11,fontWeight:600,color:"var(--ts)"}}>🎂 {m.birthday.slice(5).replace("-","/")}</span>}
-                  {m.chzzk&&<a href={`https://chzzk.naver.com/${m.chzzk}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#00C73C",fontWeight:600}}>치지직</a>}
-                  {(m.youtube||[]).map((u,i)=><a key={i} href={u.startsWith("UC")?`https://youtube.com/channel/${u}`:`https://youtube.com/${u}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#FF0000"}}>▶</a>)}
+                  {(m.youtube||[]).map((u,i)=>(
+                    <a key={i} href={u.startsWith("UC")?`https://youtube.com/channel/${u}`:`https://youtube.com/${u}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" title="유튜브" style={{display:"inline-flex",flexShrink:0}}>
+                      <div style={{width:18,height:18,borderRadius:"50%",overflow:"hidden",border:"1.5px solid #FF0000",background:"#FF000022",display:"flex",alignItems:"center",justifyContent:"center",fontSize:9,color:"#FF0000"}}>
+                        {chanIcons["y_"+u]?<img src={chanIcons["y_"+u]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>:"▶"}
+                      </div>
+                    </a>
+                  ))}
                 </>}
               </div>
             );
