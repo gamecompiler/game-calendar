@@ -65,6 +65,15 @@ code{font-family:monospace}
 .evt-appear{
   animation:evtSlideIn 0.22s cubic-bezier(0.4,0,0.2,1) both;
 }
+/* 스켈레톤 로딩 (E) */
+@keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
+.skel{background:linear-gradient(90deg,var(--bi) 25%,var(--bh) 50%,var(--bi) 75%);background-size:800px 100%;animation:shimmer 1.3s infinite linear;border-radius:8px}
+/* 모바일 반응형 (A 1차: 데스크톱 무영향, 768px 이하에서만 세로 스택) */
+@media (max-width:768px){
+  .content-row{flex-direction:column !important;overflow:auto !important;}
+  .sidebar{width:auto !important;border-right:none !important;border-bottom:.5px solid var(--br) !important;max-height:44vh;}
+  .topbar{flex-wrap:wrap;row-gap:4px;}
+}
 </style>
 </head>
 <body>
@@ -1335,6 +1344,15 @@ function App() {
 
   return (
     <div style={{display:"flex",flexDirection:"column",height:"100vh",overflow:"hidden",background:"var(--bp)"}}>
+      {/* 스켈레톤 로딩 (E) — 초기 로드 완료 전까지 */}
+      {!ready&&<div style={{position:"fixed",inset:0,zIndex:300,background:"var(--bp)",display:"flex",flexDirection:"column",gap:12,padding:24}}>
+        <div className="skel" style={{height:30,width:"45%"}}/>
+        <div className="skel" style={{height:44}}/>
+        <div style={{display:"flex",gap:12,flex:1,minHeight:0}}>
+          <div className="skel" style={{width:200,flexShrink:0}}/>
+          <div className="skel" style={{flex:1}}/>
+        </div>
+      </div>}
 
       {/* Toast */}
       {toast&&<div key={toast.id} className="toast toast-in">{toast.msg}</div>}
@@ -1415,6 +1433,9 @@ function App() {
         </div>
       )}
 
+      {/* 광고 배너 자리 (미래) — 구조만 예약, 기본 숨김 */}
+      <div id="ad-slot" style={{display:"none"}} />
+
       {/* Top bar */}
       <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,flexWrap:"wrap",rowGap:4}}>
         <button className="ib" onClick={()=>goMonth(-1)} style={{fontSize:16}}>{"<"}</button>
@@ -1446,9 +1467,9 @@ function App() {
         </div>
       </div>
 
-      <div style={{flex:1,display:"flex",overflow:"hidden"}}>
+      <div className="content-row" style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* Sidebar */}
-        <div style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",background:"var(--bc)",borderRight:".5px solid var(--br)",overflow:"hidden"}}>
+        <div className="sidebar" style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",background:"var(--bc)",borderRight:".5px solid var(--br)",overflow:"hidden"}}>
           <div style={{padding:"8px 7px 6px",borderBottom:".5px solid var(--br)"}}>
             {/* 통합 필터 패널 */}
             {(()=>{
