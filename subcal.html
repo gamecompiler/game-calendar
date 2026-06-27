@@ -855,8 +855,8 @@ function App() {
     if(ready){
       setTimeout(()=>smoothScrollToRow(todayRowIdx),150);
       // 노션 연동 시 자동 방송일정+문서 로드 (관리자=토큰, 또는 배포=팬 공개 읽기)
-      if((notionTok||!IS_LOCAL)&&noteDbId) fetchNotes();
-      if((notionTok||!IS_LOCAL)&&(broadcastDbId||notionDbId)) fetchBroadcast();
+      if((true)&&noteDbId) fetchNotes();
+      if((true)&&(broadcastDbId||notionDbId)) fetchBroadcast();
       // 채널 아이콘 로드 (치지직 + YouTube)
       fetch(`${API}/api/yt?type=chzzk&chzzk=7ad99b46e1c49002efc36263b4c8b075`)
         .then(r=>r.json()).then(d=>{if(d.url)setChIcon0(d.url);}).catch(()=>{});
@@ -1063,8 +1063,8 @@ function App() {
   async function fetchBroadcast(){
     const dbId=broadcastDbId||notionDbId;
     if(!dbId) return;
-    // 로컬에서 토큰 없으면 읽을 게 없음 (공개 엔드포인트는 배포 전용)
-    if(!notionTok&&IS_LOCAL) return;
+    // 토큰 있으면 관리자 읽기, 없으면 공개 읽기(notion-public; 로컬 proxy.py도 지원)
+    if(false) return; /* 로컬도 공개읽기(notion-public) 허용 */
     try{
       // 관리자(토큰): /api/notion. 팬(배포·토큰없음): 읽기 전용 /api/notion-public(GET)
       const r=notionTok
@@ -1205,7 +1205,7 @@ function App() {
 
   // 방송 DB + 노트 DB 자동 로드
   React.useEffect(()=>{
-    const canRead=notionTok||!IS_LOCAL;  // 관리자(토큰) 또는 배포(팬 공개 읽기)
+    const canRead=true;  // 관리자(토큰) 또는 배포(팬 공개 읽기)
     if(canRead&&(broadcastDbId||notionDbId)) fetchBroadcast();
     if(canRead&&noteDbId) fetchNotes();
   },[notionTok,broadcastDbId]);
@@ -1213,7 +1213,7 @@ function App() {
   // 노트 목록 읽기
   async function fetchNotes(){
     if(!noteDbId) return;
-    if(!notionTok&&IS_LOCAL) return;
+    if(false) return; /* 로컬도 공개읽기(notion-public) 허용 */
     setNoteLoading(true);
     try{
       const r=notionTok

@@ -128,6 +128,8 @@ class Handler(SimpleHTTPRequestHandler):
             self.send_response(405)
             self.send_header("Access-Control-Allow-Origin","*")
             self.end_headers()
+        elif self.path.startswith("/api/notion-public"):
+            self._handle_notion_public()
         elif self.path.startswith("/api/notion"):
             # GET /api/notion?path=... → Notion API 프록시
             # /query 경로는 Notion이 POST 필요하므로 자동 변환
@@ -880,6 +882,59 @@ class Handler(SimpleHTTPRequestHandler):
                 "color": txt(p.get("멤버색상")),
             })
         send(out)
+
+    def _handle_notion_public(self):
+        """팬 공개 읽기 전용 (api/notion-public.js 와 동일). GET·환경변수 토큰·화이트리스트 DB만.
+        응답에 토큰 미포함. 쓰기 함수에는 쓰이지 않음."""
+        import json as _j
+        qs = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+        token = os.environ.get("NOTION_READONLY_TOKEN", "")
+        env_db = os.environ.get("NOTION_PUBLIC_DB_IDS")
+        wl_raw = env_db.split(",") if env_db else ["1de66cc1f1b581c7a69cc00da09d16c4", "20466cc1f1b58060b379eb16721bd1e4"]
+        wl = set(x.replace("-", "").lower() for x in wl_raw if x.strip())
+        nv = "2022-06-28"
+
+        def send(obj, code=200):
+            body = _j.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+
+        if not token:
+            send({"error": "NOTION_READONLY_TOKEN not configured on server"}, 503); return
+        H = {"Authorization": "Bearer " + token, "Notion-Version": nv, "Content-Type": "application/json"}
+        action = qs.get("action", ["query"])[0]
+        try:
+            if action == "pages":
+                ids = [i.strip() for i in qs.get("ids", [""])[0].split(",") if i.strip()][:30]
+                out = {}
+                for pid in ids:
+                    try:
+                        req = urllib.request.Request(f"https://api.notion.com/v1/pages/{pid}", headers=H)
+                        with urllib.request.urlopen(req, timeout=10, context=ctx) as r:
+                            page = _j.loads(r.read())
+                        title = ""
+                        for v in (page.get("properties") or {}).values():
+                            if v.get("type") == "title":
+                                title = "".join(t.get("plain_text", "") for t in v.get("title", [])).strip(); break
+                        out[pid] = title or str(pid)[:8]
+                    except Exception:
+                        out[pid] = "?"
+                send(out); return
+            db = qs.get("db", [""])[0] or ""
+            if not db or db.replace("-", "").lower() not in wl:
+                send({"error": "db not allowed (public read is limited to whitelisted DBs)"}, 403); return
+            body = _j.dumps({"page_size": 100}).encode()
+            req = urllib.request.Request(f"https://api.notion.com/v1/databases/{db}/query", data=body, method="POST", headers=H)
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+                send(_j.loads(r.read())); return
+        except urllib.error.HTTPError as e:
+            try: send(_j.loads(e.read()), e.code)
+            except Exception: send({"error": "HTTP %d" % e.code}, e.code)
+        except Exception as e:
+            send({"error": str(e)}, 502)
 
     def do_PATCH(self):
         """Notion 페이지 업데이트 (PATCH) — /notion-patch?id=X 또는 /api/notion?path=pages/X"""
