@@ -1524,16 +1524,13 @@ function App() {
               </div>
               );
             })()}
-            <button onClick={async()=>{if(location.protocol==="file:"){setShowGuide(true);return;}for(let i=0;i<games.length;i++){await doFetch(games[i]);if(i<games.length-1)await new Promise(r=>setTimeout(r,400));}}}
-              style={{width:"100%",fontSize:10,padding:"5px 0",cursor:"pointer",fontFamily:"inherit",borderRadius:5,border:".5px solid var(--br)",background:"var(--bh)",color:"var(--ts)",marginBottom:4}}>
-              전체 재수집 (HoYoverse API)
-            </button>
-            <div style={{fontSize:9,color:"var(--tm)",textAlign:"center",lineHeight:1.5}}>
-              {IS_LOCAL && location.protocol==="file:" ? <span style={{color:"#f0b24c",cursor:"pointer"}} onClick={()=>setShowGuide(true)}>⚠️ file:// — 실행 안내 보기</span> : IS_LOCAL ? "로컬 프록시 · 6시간 캐시" : "☁️ 웹 배포 · 공개 API"}
+            {/* 게임 목록 헤더 (문서 섹션 스타일과 통일) + 전체 새로고침 */}
+            <div style={{display:"flex",alignItems:"center",padding:"6px 3px 3px",gap:4}}>
+              <span style={{fontSize:11,fontWeight:700,color:"var(--tp)",flex:1}}>🎮 게임 목록</span>
+              <button onClick={async()=>{if(location.protocol==="file:"){setShowGuide(true);return;}for(let i=0;i<games.length;i++){await doFetch(games[i]);if(i<games.length-1)await new Promise(r=>setTimeout(r,400));}}}
+                title="전체 새로고침"
+                style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:5,color:"var(--ts)",fontSize:11,padding:"2px 6px",cursor:"pointer"}}>↻</button>
             </div>
-            <button onClick={()=>setShowAllLogs(true)} style={{width:"100%",marginTop:4,fontSize:9,padding:"3px 0",cursor:"pointer",fontFamily:"inherit",borderRadius:4,border:".5px solid var(--br)",background:"var(--bi)",color:"var(--tm)"}}>
-              📋 전체 로그 보기 / 복사
-            </button>
           </div>
           <div style={{flex:1,overflow:"auto",padding:5}}>
             {games.map(g=>{
@@ -1615,9 +1612,7 @@ function App() {
                   })()}
                   <div style={{padding:"1px 6px 4px",display:"flex",alignItems:"center",gap:4}}>
                     <span className={isFetch?"pulse":""} style={{fontSize:9,color:stCol,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{stMsg}</span>
-                    <button onClick={()=>setShowDbg(p=>p===g.id?null:g.id)} style={{background:"none",border:".5px solid var(--br)",borderRadius:3,color:"var(--tm)",fontSize:8,padding:"1px 5px",cursor:"pointer",fontFamily:"inherit"}}>{isOpen?"닫기":"로그"}</button>
                   </div>
-                  {isOpen&&<pre style={{fontSize:8,color:"var(--ts)",background:"var(--bi)",margin:"0 5px 5px",borderRadius:4,padding:"5px 7px",overflow:"auto",maxHeight:150,whiteSpace:"pre-wrap",wordBreak:"break-all",lineHeight:1.5}}>{debugLog[g.id]||"(로그 없음)"}</pre>}
                   {/* 최근 소식 목록 - 별도 컴포넌트 (Rules of Hooks) */}
                   <GameNewsList events={events} gameId={g.id} onSel={setSel}/>
                 </div>
