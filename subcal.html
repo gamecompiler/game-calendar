@@ -1621,8 +1621,10 @@ function App() {
                         {n.category&&<span style={{fontSize:8,padding:"0 4px",borderRadius:4,...catStyle(n.category),flexShrink:0}}>{n.category}</span>}
                         <span style={{fontSize:11,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.title}</span>
                       </div>
-                      {n.gameNames?.length>0&&<div style={{fontSize:9,color:"var(--ts)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{n.gameNames.join(" · ")}</div>}
-                      <div style={{fontSize:8,color:"var(--tm)",marginTop:1}}>{n.date}</div>
+                      <div style={{display:"flex",alignItems:"center",gap:5,marginTop:1}}>
+                        {n.gameNames?.length>0&&<span style={{fontSize:9,color:"var(--ts)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",flex:1,minWidth:0}}>{n.gameNames.join(" · ")}</span>}
+                        <span style={{fontSize:8,color:"var(--tm)",marginLeft:"auto",flexShrink:0}}>{n.date}</span>
+                      </div>
                     </div>
                   ))
                 }
