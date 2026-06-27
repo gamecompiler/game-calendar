@@ -1413,7 +1413,21 @@ function App() {
       {members.length>0 && (
         <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,overflowX:"auto"}}>
           <span style={{fontSize:10,fontWeight:700,color:"var(--tm)",whiteSpace:"nowrap",marginRight:2,flexShrink:0}}>원스동</span>
-          {members.map(m=>{
+          {(()=>{
+            // 가장 가까운(다가오는) 생일 멤버 id 계산
+            const today=new Date(); today.setHours(0,0,0,0);
+            let nearestId=null,best=Infinity;
+            for(const m of members){
+              if(!m.birthday) continue;
+              const p=m.birthday.split("-"); const mo=Number(p[1]),d=Number(p[2]);
+              if(!mo||!d) continue;
+              let bd=new Date(today.getFullYear(),mo-1,d);
+              if(bd<today) bd=new Date(today.getFullYear()+1,mo-1,d);
+              const diff=bd-today;
+              if(diff<best){best=diff;nearestId=m.id;}
+            }
+            // 내 채널(컴파일러)이 맨 앞에 오도록 역순
+            return [...members].reverse().map(m=>{
             const col=m.color||"#888888";
             const expanded=selMember===m.id;
             return(
@@ -1421,15 +1435,17 @@ function App() {
                 style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:expanded?col+"2A":col+"1A",border:`.5px solid ${expanded?col:col+"66"}`,whiteSpace:"nowrap",flexShrink:0,cursor:"pointer"}}>
                 <span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}} />
                 <span style={{fontSize:11,fontWeight:600,color:"var(--tp)"}}>{m.name}</span>
+                {m.id===nearestId&&<span title="가장 가까운 생일" style={{fontSize:12,flexShrink:0}}>🎂</span>}
                 {expanded&&<>
                   {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
-                  {m.birthday&&<span style={{fontSize:8,color:"var(--tm)"}}>🎂{m.birthday.slice(5)}</span>}
+                  {m.birthday&&<span style={{fontSize:11,fontWeight:600,color:"var(--ts)"}}>🎂 {m.birthday.slice(5).replace("-","/")}</span>}
                   {m.chzzk&&<a href={`https://chzzk.naver.com/${m.chzzk}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" style={{fontSize:9,color:"#00C73C",fontWeight:600}}>치지직</a>}
                   {(m.youtube||[]).map((u,i)=><a key={i} href={u.startsWith("UC")?`https://youtube.com/channel/${u}`:`https://youtube.com/${u}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" style={{fontSize:11,color:"#FF0000"}}>▶</a>)}
                 </>}
               </div>
             );
-          })}
+            });
+          })()}
         </div>
       )}
 
