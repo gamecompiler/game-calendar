@@ -1839,7 +1839,7 @@ function App() {
                         onSaved={()=>{setSel(null);showToast("저장됐습니다.");fetchBroadcast();}}
                         onDeleted={()=>{setSel(null);showToast("삭제됐습니다.");fetchBroadcast();}}
                       />}
-                      {(sel.type==="업데이트"||sel.type==="특별 방송")&&!sel.isBroadcast&&
+                      {notionTok&&(sel.type==="업데이트"||sel.type==="특별 방송")&&!sel.isBroadcast&&
                       <button onClick={()=>!sel.synced&&syncing[sel.id]!=="pending"&&syncNotion(sel)} disabled={sel.synced||syncing[sel.id]==="pending"}
                         style={{width:"100%",padding:"9px",fontSize:12,display:"flex",alignItems:"center",justifyContent:"center",gap:6,borderRadius:8,cursor:sel.synced?"default":"pointer",fontFamily:"inherit",background:sel.synced?"rgba(15,157,117,.12)":"var(--bh)",color:sel.synced?"#0F9D75":"var(--ts)",border:sel.synced?".5px solid rgba(15,157,117,.35)":".5px solid var(--br)"}}>
                         {sel.synced?"✓ 노션 등록됨":syncing[sel.id]==="pending"?"동기화 중...":"📤 노션에 등록"}
@@ -1976,7 +1976,7 @@ function QuickAddModal({date,editEv,docMode,broadcastEvs,noteEvs,gameIndex,gameN
           </div>
           <div style={{display:"flex",gap:8}}>
             <div style={{flex:2}}><label style={S.label}>게임</label>
-              <select value={bcGame} onChange={e=>setBcGame(e.target.value)} className="inp">
+              <select value={bcGame} onChange={e=>setBcGame(e.target.value)} disabled={!notionTok} className="inp">
                 <option value="">선택 안함</option>
                 {gameNames.map(g=><option key={g} value={g}>{g}</option>)}
               </select></div>
@@ -2083,32 +2083,32 @@ function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onCl
       <div style={{fontSize:11,fontWeight:600,color:"#FFB432",marginBottom:10}}>✏️ 방송 일정 편집</div>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
         <div><label style={L}>컨텐츠명</label>
-          <input value={title} onChange={e=>setTitle(e.target.value)} className="inp"/></div>
+          <input value={title} onChange={e=>setTitle(e.target.value)} readOnly={!notionTok} className="inp"/></div>
         <div style={{display:"flex",gap:8}}>
           <div style={{flex:1}}><label style={L}>시간</label>
-            <input type="time" value={time} onChange={e=>setTime(e.target.value)} className="inp"/></div>
+            <input type="time" value={time} onChange={e=>setTime(e.target.value)} readOnly={!notionTok} className="inp"/></div>
           <div style={{flex:1}}><label style={L}>회차</label>
-            <input type="number" value={ep} onChange={e=>setEp(e.target.value)} className="inp"/></div>
+            <input type="number" value={ep} onChange={e=>setEp(e.target.value)} readOnly={!notionTok} className="inp"/></div>
         </div>
         <div style={{display:"flex",gap:8}}>
           <div style={{flex:2}}><label style={L}>게임</label>
-            <select value={bcGame} onChange={e=>setBcGame(e.target.value)} className="inp">
+            <select value={bcGame} onChange={e=>setBcGame(e.target.value)} disabled={!notionTok} className="inp">
               <option value="">선택 안함</option>
               {(gameNames||[]).map(g=><option key={g}>{g}</option>)}
             </select></div>
           <div style={{flex:1}}><label style={L}>버전</label>
-            <input value={ver} onChange={e=>setVer(e.target.value)} className="inp" placeholder="자동감지"/></div>
+            <input value={ver} onChange={e=>setVer(e.target.value)} readOnly={!notionTok} className="inp" placeholder="자동감지"/></div>
         </div>
         <div><label style={L}>태그</label>
           <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
             {TAG_LIST.map(t=>{const on=tags.includes(t);return(
-              <button key={t} onClick={()=>setTags(p=>on?p.filter(x=>x!==t):[...p,t])}
+              <button key={t} disabled={!notionTok} onClick={()=>setTags(p=>on?p.filter(x=>x!==t):[...p,t])}
                 style={{fontSize:9,padding:"2px 7px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
                   background:on?"rgba(255,180,50,.15)":"var(--bi)",color:on?"#c07000":"var(--ts)",borderColor:on?"#FFB432":"var(--br)"}}>{t}</button>
             );})}
           </div></div>
       </div>
-      <div style={{display:"flex",gap:6,marginTop:10}}>
+      {notionTok&&<div style={{display:"flex",gap:6,marginTop:10}}>
         {confirmDel
           ?<div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(230,50,50,.08)",borderRadius:8,padding:"6px 10px",border:".5px solid rgba(230,50,50,.3)"}}>
             <span style={{fontSize:10,color:"#e64444",flex:1}}>정말 삭제할까요?</span>
@@ -2123,7 +2123,7 @@ function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onCl
           style={{flex:1,padding:"8px 0",borderRadius:8,background:"rgba(255,180,50,.15)",color:"#c07000",border:".5px solid #FFB432",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600}}>
           {saving?"저장 중...":"💾 저장"}
         </button>
-      </div>
+      </div>}
     </div>
   );
 }
@@ -2170,26 +2170,27 @@ function NoteDetailModal({note,gameIndex,gameNames,notionTok,onClose,onSaved,onD
         </div>
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
           <div><label style={L}>제목</label>
-            <input value={title} onChange={e=>setTitle(e.target.value)} className="inp"/></div>
+            <input value={title} onChange={e=>setTitle(e.target.value)} readOnly={!notionTok} className="inp"/></div>
           <div style={{display:"flex",gap:8}}>
             <div style={{flex:1}}><label style={L}>분류</label>
-              <select value={cat} onChange={e=>setCat(e.target.value)} className="inp">
+              <select value={cat} onChange={e=>setCat(e.target.value)} disabled={!notionTok} className="inp">
                 {["메모","대본","정리"].map(c=><option key={c}>{c}</option>)}
               </select></div>
             <div style={{flex:1}}><label style={L}>게임</label>
-              <select value={game} onChange={e=>setGame(e.target.value)} className="inp">
+              <select value={game} onChange={e=>setGame(e.target.value)} disabled={!notionTok} className="inp">
                 <option value="">선택 안함</option>
                 {(gameNames||[]).map(g=><option key={g}>{g}</option>)}
               </select></div>
           </div>
           <div><label style={L}>산출물 URL</label>
-            <input value={outputUrl} onChange={e=>setOutputUrl(e.target.value)} className="inp" placeholder="https://..."/></div>
+            <input value={outputUrl} onChange={e=>setOutputUrl(e.target.value)} readOnly={!notionTok} className="inp" placeholder="https://..."/></div>
         </div>
         <div style={{display:"flex",gap:6,marginTop:14}}>
           <button onClick={()=>window.open(note.notionUrl,"_blank")}
             style={{padding:"8px 12px",borderRadius:8,background:"var(--bi)",color:"var(--ts)",border:".5px solid var(--br)",cursor:"pointer",fontFamily:"inherit",fontSize:11}}>
             Notion↗
           </button>
+          {notionTok&&<>
           {confirmDel
             ?<div style={{display:"flex",gap:4,alignItems:"center",background:"rgba(230,50,50,.08)",borderRadius:8,padding:"5px 8px",border:".5px solid rgba(230,50,50,.3)"}}>
               <span style={{fontSize:10,color:"#e64444",flex:1}}>정말 삭제할까요?</span>
@@ -2203,7 +2204,7 @@ function NoteDetailModal({note,gameIndex,gameNames,notionTok,onClose,onSaved,onD
           <button onClick={save} disabled={saving}
             style={{flex:1,padding:"8px 0",borderRadius:8,background:"rgba(120,80,255,.15)",color:"#7b35cc",border:".5px solid rgba(120,80,255,.35)",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:600}}>
             {saving?"저장 중...":"💾 저장"}
-          </button>
+          </button></>}
         </div>
       </div>
     </div>
