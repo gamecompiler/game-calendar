@@ -1614,9 +1614,10 @@ function App() {
                       </div>
                     );
                   })()}
-                  <div style={{padding:"1px 6px 4px",display:"flex",alignItems:"center",gap:4}}>
+                  {/* 수집 완료 카운트는 최근 소식(N)과 중복 → done이면 숨김. 수집중/오류/미수집/일정없음일 때만 표시 */}
+                  {(!st||st.state!=="done")&&<div style={{padding:"1px 6px 4px",display:"flex",alignItems:"center",gap:4}}>
                     <span className={isFetch?"pulse":""} style={{fontSize:9,color:stCol,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{stMsg}</span>
-                  </div>
+                  </div>}
                   {/* 최근 소식 목록 - 별도 컴포넌트 (Rules of Hooks) */}
                   <GameNewsList events={events} gameId={g.id} onSel={setSel}/>
                 </div>
@@ -2233,7 +2234,7 @@ function GameNewsList({events, gameId, onSel}) {
   const TYPE_ICON={"업데이트":"🔄","픽업":"✦","특별 방송":"📡","영상":"▶","이벤트":"📌"};
   const TYPE_CLR={"업데이트":"#64b5f6","픽업":"#f48fb1","특별 방송":"#ffb74d","영상":"#ff5252","이벤트":"#a5d6a7"};
   const news = React.useMemo(()=>
-    events.filter(e=>e.gameId===gameId&&e.type!=="영상")
+    events.filter(e=>e.gameId===gameId)
       .sort((a,b)=>b.date.localeCompare(a.date))
   ,[events,gameId]);
   if(!news.length) return null;
