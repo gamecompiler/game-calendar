@@ -140,9 +140,11 @@ function extractPickupChar(title, content) {
     // 2b. 붕3rd 협력 캐릭터: "협력 캐릭터 「세나디아」" → 「」 안이 캐릭터 (#3보다 먼저)
     m = src.match(/협력\s*캐릭터\s*「([^」]{2,12})」/);
     if (m) { var cn=m[1].replace(/\([^)]*\)/g,'').trim(); var cs=cn.split(/[·・]/); cn=cs[cs.length-1].trim(); if(cn.length>=2&&cn.length<=12) return cn; }
-    // 3. 붕3rd 일반 S급 캐릭터 이름 (「무기명」 앞의 이름). 직책어/속성명 제외
-    m = src.match(/[Ss]급\s*(?:발키리|캐릭터)?\s+([가-힣]{2,6})\s+/);
+    // 3. 붕3rd 일반 S급: 이름 + 슈트명(「」). 붕3rd는 새 캐릭터가 아니라 새 슈트 출시가 일반적 → 슈트명도 함께 표시
     var BAD3 = /버전|달|이벤트|배틀|에이전트|요원|캐릭터|공명자|파티|지원|업데이트|강화|일정|캐스|협력/;
+    m = src.match(/[Ss]급\s*(?:발키리|캐릭터)?\s+([가-힣]{2,6})\s*「([^」]{1,14})」/);
+    if (m && !BAD3.test(m[1])) return m[1].trim()+" 「"+m[2].trim()+"」";
+    m = src.match(/[Ss]급\s*(?:발키리|캐릭터)?\s+([가-힣]{2,6})\s+/);
     if (m && !BAD3.test(m[1])) return m[1].trim();
     // 4. ZZZ S/A급 요원 「이름」또는 [이름(속성)]
     m = src.match(/[SsAa]급\s*(?:요원|에이전트)?\s*「([가-힣a-zA-Z]{2,10})」/);
@@ -1132,7 +1134,7 @@ function App() {
         // rawTitle이 유효하면 그대로, 아니면 relation 대기 상태로
         const genericTitles=["방송","특별 방송","업데이트","픽업","영상","방송일정"];
         const isGenericTitle=!rawTitle||genericTitles.includes(rawTitle);
-        const title=(!isGenericTitle?rawTitle:(relPageId?"[관계:"+relPageId.slice(0,8)+"]":rawTitle))||"(방송)";
+        const title=rawTitle||"방송"; // 컨텐츠명 그대로 유지(게임명은 카드에서 별도 표시)
         // 컨텐츠 종류 태그에서 방송 여부 판단 (제목 기반 필터 X)
         const typeProp=props["컨텐츠 종류"]||{};
         const tags=(typeProp.multi_select||[]).map(t=>t.name);
@@ -1182,11 +1184,7 @@ function App() {
             const titleMap=JSON.parse(raw);
             parsed.forEach(e=>{
               e.gameNames=e.gameRelIds.map(id=>titleMap[id]||"").filter(Boolean);
-              // 제목이 generic이면 첫번째 게임명으로 대체
-              const genericTitlesCheck=["방송","특별 방송","업데이트","픽업","영상","방송일정"];
-              if((!e._rawTitle||genericTitlesCheck.includes(e._rawTitle))&&e.gameNames.length>0){
-                e.title=e.gameNames[0];
-              }
+              // 컨텐츠명은 그대로 두고, 게임명은 카드에서 별도로 표시(둘 다 보이게)
             });
           }
         }catch(err){
@@ -2326,7 +2324,7 @@ function BroadcastCard({ev,onClick}){
       {/* 컨텐츠명 (게임명) */}
       <div style={{fontSize:11,fontWeight:600,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{ev.title}</div>
       {/* 게임 목록 (여러 게임인 경우) */}
-      {ev.gameNames?.length>1&&<div style={{fontSize:8,color:"rgba(255,180,50,.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{ev.gameNames.join(" · ")}</div>}
+      {ev.gameNames?.length>0&&<div style={{fontSize:8,color:"rgba(255,180,50,.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>🎮 {ev.gameNames.join(" · ")}</div>}
       {/* 기타 태그 */}
       {otherTags.length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
         {otherTags.slice(0,3).map(t=><span key={t} style={{fontSize:8,color:"rgba(255,180,50,.7)",background:"rgba(255,180,50,.08)",padding:"0 4px",borderRadius:3,lineHeight:"14px"}}>{t}</span>)}
