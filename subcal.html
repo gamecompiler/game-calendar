@@ -1621,7 +1621,7 @@ function App() {
                   {(()=>{
                     // 최신 업데이트
                     // 오늘 이전 업데이트 중 정식 버전 업데이트만 선별
-                    const latestUp=events.filter(e=>{
+                    let latestUp=events.filter(e=>{
                       if(e.gameId!==g.id||e.type!=="업데이트"||e.date>todayStr) return false;
                       const t=e.title;
                       // 원신: "~업데이트 안내"로 끝나는 게 정식 버전 업데이트
@@ -1630,6 +1630,11 @@ function App() {
                       // 버전 번호가 있고 "업데이트" 포함
                       return e.version&&/^[\d.]+$/.test(e.version);
                     }).sort((a,b)=>b.date.localeCompare(a.date))[0];
+                    // 폴백: 업데이트 이벤트가 없는 게임(명조)은 제목에 실린 숫자 버전을 담은 이벤트를 버전 링크로
+                    if(!latestUp){
+                      latestUp=events.filter(e=>e.gameId===g.id&&e.date<=todayStr&&e.version&&/^\d+\.\d+$/.test(e.version))
+                        .sort((a,b)=>{const A=a.version.split(".").map(Number),B=b.version.split(".").map(Number);return (B[0]-A[0])||(B[1]-A[1]);})[0]||null;
+                    }
                     // 픽업: 진행중(기원기간이 오늘 포함) 우선. 없으면 가장 가까운 예정 배너를 '예정' 라벨로.
                     // (현재 배너 공지가 피드에서 밀려난 경우, 다음 예정 배너라도 보여줌)
                     const gPicks=events.filter(e=>e.gameId===g.id&&e.type==="픽업");
@@ -2328,25 +2333,32 @@ function GameNewsList({events, gameId, onSel}) {
 }
 
 function BroadcastCard({ev,onClick}){
+  const isSpecial=ev.type==="특별 방송";           // 게임사 특별방송(내 일정 아님)
   const isCollab=ev.isCollab||ev.tags?.includes("합방");
-  const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!=="합방");
+  const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!=="합방"&&t!=="특별 방송");
+  // 색상: 내 방송=주황, 게임사 특별방송=청록 → 시각적으로 구분
+  const C=isSpecial?{r:"38,198,218",solid:"#26C6DA"}:{r:"255,180,50",solid:"#FFB432"};
+  const hasGame=ev.gameNames?.length>0;
+  const primary=hasGame?ev.gameNames.join(" · "):ev.title;  // 게임명 우선(강조)
+  const secondary=hasGame?ev.title:null;                    // 컨텐츠명은 보조
   return(
-    <div onClick={onClick} style={{background:"rgba(255,180,50,.1)",border:".5px solid rgba(255,180,50,.35)",borderRadius:5,padding:"4px 6px 3px",marginBottom:3,cursor:"pointer",transition:"background .1s"}}
-      onMouseEnter={e=>e.currentTarget.style.background="rgba(255,180,50,.18)"}
-      onMouseLeave={e=>e.currentTarget.style.background="rgba(255,180,50,.1)"}>
-      {/* 시간 + 합방 뱃지 */}
+    <div onClick={onClick} style={{background:`rgba(${C.r},.1)`,border:`.5px solid rgba(${C.r},.35)`,borderRadius:5,padding:"4px 6px 3px",marginBottom:3,cursor:"pointer",transition:"background .1s"}}
+      onMouseEnter={e=>e.currentTarget.style.background=`rgba(${C.r},.18)`}
+      onMouseLeave={e=>e.currentTarget.style.background=`rgba(${C.r},.1)`}>
+      {/* 시간 + 뱃지 */}
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
-        <span style={{fontSize:9,color:"#FFB432",fontWeight:700,letterSpacing:"-.3px"}}>{ev.timeStr||"오후 7:00시"}</span>
+        <span style={{fontSize:9,color:C.solid,fontWeight:700,letterSpacing:"-.3px"}}>{ev.timeStr||"오후 7:00시"}</span>
+        {isSpecial&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:`rgba(${C.r},.22)`,color:C.solid,fontWeight:600,lineHeight:"14px"}}>게임사</span>}
         {isCollab&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:"rgba(255,80,80,.2)",color:"#FF7070",fontWeight:600,lineHeight:"14px"}}>합방</span>}
-        {ev.episode>0&&<span style={{fontSize:8,color:"rgba(255,180,50,.7)",marginLeft:"auto"}}>#{ev.episode}</span>}
+        {ev.episode>0&&<span style={{fontSize:8,color:`rgba(${C.r},.7)`,marginLeft:"auto"}}>#{ev.episode}</span>}
       </div>
-      {/* 컨텐츠명 (게임명) */}
-      <div style={{fontSize:11,fontWeight:600,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{ev.title}</div>
-      {/* 게임 목록 (여러 게임인 경우) */}
-      {ev.gameNames?.length>0&&<div style={{fontSize:8,color:"rgba(255,180,50,.7)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>🎮 {ev.gameNames.join(" · ")}</div>}
+      {/* 게임명 (주) */}
+      <div style={{fontSize:11,fontWeight:600,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:secondary?1:2}}>{primary}</div>
+      {/* 컨텐츠명 (보조) */}
+      {secondary&&<div style={{fontSize:8,color:`rgba(${C.r},.8)`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{secondary}</div>}
       {/* 기타 태그 */}
       {otherTags.length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
-        {otherTags.slice(0,3).map(t=><span key={t} style={{fontSize:8,color:"rgba(255,180,50,.7)",background:"rgba(255,180,50,.08)",padding:"0 4px",borderRadius:3,lineHeight:"14px"}}>{t}</span>)}
+        {otherTags.slice(0,3).map(t=><span key={t} style={{fontSize:8,color:`rgba(${C.r},.7)`,background:`rgba(${C.r},.08)`,padding:"0 4px",borderRadius:3,lineHeight:"14px"}}>{t}</span>)}
       </div>}
     </div>
   );
