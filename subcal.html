@@ -789,6 +789,7 @@ function App() {
   const [noteLoading, setNoteLoading] = useState(false); // 노션 문서 수집 중 // 노션 방송 일정
   const [noteDbId,    setNoteDbId]    = useState("20466cc1-f1b5-8060-b379-eb16721bd1e4"); // 문서 목록 DB
   const [noteEvs,     setNoteEvs]     = useState([]); // 노션 노트 목록
+  const [notePage,    setNotePage]    = useState(0);  // 문서 목록 페이지
   const [members,     setMembers]     = useState([]); // 원스동 멤버 명단 (서버에서 안전 필드만)
   const [selMember,   setSelMember]   = useState(null); // 멤버 바: 선택 시 확장
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
@@ -1663,7 +1664,10 @@ function App() {
               <div>
                 {noteEvs.length===0
                   ?<div style={{fontSize:10,color:"var(--tm)",padding:"4px 3px",textAlign:"center"}}>문서 없음</div>
-                  :noteEvs.map(n=>(
+                  :(()=>{
+                    const NPP=12, total=Math.ceil(noteEvs.length/NPP), page=Math.min(notePage,total-1);
+                    return(<>
+                    {noteEvs.slice(page*NPP,(page+1)*NPP).map(n=>(
                     <div key={n.id} onClick={()=>setSelNote(n)}
                       style={{padding:"5px 3px 4px",cursor:"pointer",borderBottom:".5px solid var(--br)"}}
                       onMouseEnter={e=>e.currentTarget.style.background="var(--bh)"}
@@ -1677,7 +1681,14 @@ function App() {
                         <span style={{fontSize:8,color:"var(--tm)",marginLeft:"auto",flexShrink:0}}>{n.date}</span>
                       </div>
                     </div>
-                  ))
+                    ))}
+                    {total>1&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:"5px 3px 3px",fontSize:9,color:"var(--ts)"}}>
+                      <button onClick={()=>setNotePage(Math.max(0,page-1))} disabled={page<=0} style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:10,padding:"1px 7px",cursor:page<=0?"default":"pointer",opacity:page<=0?.4:1,fontFamily:"inherit"}}>◀</button>
+                      <span>{page+1} / {total}</span>
+                      <button onClick={()=>setNotePage(Math.min(total-1,page+1))} disabled={page>=total-1} style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:10,padding:"1px 7px",cursor:page>=total-1?"default":"pointer",opacity:page>=total-1?.4:1,fontFamily:"inherit"}}>▶</button>
+                    </div>}
+                    </>);
+                  })()
                 }
               </div>
             </div>
