@@ -129,7 +129,8 @@ function extractPickupChar(title, content) {
     // 1. ★/☆5성: ★5 캐릭터 「이름(경로)」
     m = src.match(/[★☆][45]\s*(?:캐릭터|공명자|요원)\s*「([^」]+)」/);
     if (m) {
-      var name = m[1].replace(/\([^)]*\)/g,'').trim();
+      var name = m[1].replace(/\([^)]*\)/g,'').trim();          // (원소) 제거
+      var seg = name.split(/[·・]/); name = seg[seg.length-1].trim(); // 원신 "수식어·이름" → 이름만
       if (name.length >= 2 && name.length <= 16) return name;
     }
     // 2. 원신: 「이름」 이벤트/기원/소원
@@ -516,8 +517,16 @@ async function fetchGame(game, past, future, onApplyDate) {
         // 픽업일 때 캐릭터명 추출 (본문 포함)
         const postContent = post.content || post.structured_content || "";
         const character = (type==="픽업") ? extractPickupChar(title, postContent) : null;
+        // 픽업 배너 기간(본문 "기원기간 START~END") → 현재/예정 판단용. 게시일이 아니라 실제 진행 기간.
+        let pickStart=null, pickEnd=null;
+        if(type==="픽업"){
+          const ptxt=(postContent||"").replace(/<[^>]+>/g,' ').replace(/&[a-z]+;/g,' ').replace(/〓/g,' ').replace(/\s+/g,' ');
+          // 리터럴 정규식 사용(new RegExp 문자열조합은 슬래시 이스케이프 이슈로 실패)
+          const pm=ptxt.match(/(?:기원\s*기간|이벤트\s*기간|모집\s*기간|워프\s*기간|채널\s*기간|소환\s*기간)[^0-9]{0,8}(\d{4})[.\/년]\s*(\d{1,2})[.\/월]\s*(\d{1,2})[^~]{0,20}~[^0-9]{0,8}(\d{4})[.\/년]\s*(\d{1,2})[.\/월]\s*(\d{1,2})/);
+          if(pm){ pickStart=`${pm[1]}-${String(pm[2]).padStart(2,'0')}-${String(pm[3]).padStart(2,'0')}`; pickEnd=`${pm[4]}-${String(pm[5]).padStart(2,'0')}-${String(pm[6]).padStart(2,'0')}`; }
+        }
         if(type==="업데이트") logs.push(`[UP] ${title.slice(0,20)} 게시일=${baseDate} 점검일=${maintDate||"본문조회필요"}`);
-        evs.push({title,date,endDate:date,type,version,character,characterImg:img,detail:detailUrl,youtubeUrl:ytId?"https://youtu.be/"+ytId:null,postId:String(post.post_id||post.postId||""),gids:game.gids||"2",applyDate,needMaintDate:(type==="업데이트"&&!applyDate)});
+        evs.push({title,date,endDate:date,type,version,character,characterImg:img,detail:detailUrl,youtubeUrl:ytId?"https://youtu.be/"+ytId:null,postId:String(post.post_id||post.postId||""),gids:game.gids||"2",applyDate,needMaintDate:(type==="업데이트"&&!applyDate),pickStart,pickEnd});
       });
       return unmatched;
     };
@@ -1594,8 +1603,11 @@ function App() {
                       // 버전 번호가 있고 "업데이트" 포함
                       return e.version&&/^[\d.]+$/.test(e.version);
                     }).sort((a,b)=>b.date.localeCompare(a.date))[0];
-                    // 현재 픽업: 날짜 기준 최신 1개만
-                    const latestPick=events.filter(e=>e.gameId===g.id&&e.type==="픽업"&&e.date<=todayStr).sort((a,b)=>b.date.localeCompare(a.date))[0];
+                    // 현재 픽업: 기원기간이 오늘을 포함하는 것(진행중)만. 예정(미래 시작)은 제외.
+                    // 기간 정보 없는 이벤트는 게시일 폴백(하위호환).
+                    const gPicks=events.filter(e=>e.gameId===g.id&&e.type==="픽업");
+                    const latestPick=gPicks.filter(e=>e.pickStart&&e.pickStart<=todayStr&&(!e.pickEnd||todayStr<=e.pickEnd)).sort((a,b)=>b.pickStart.localeCompare(a.pickStart))[0]
+                      || gPicks.filter(e=>!e.pickStart&&e.date<=todayStr).sort((a,b)=>b.date.localeCompare(a.date))[0];
                     if(!latestUp&&!latestPick) return null;
                     // 표시명: character > extractPickupChar > fallback
                     const dispChar=p=>p&&(p.character||extractPickupChar(p.title,"")||"픽업");
