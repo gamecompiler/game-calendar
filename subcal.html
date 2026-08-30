@@ -799,6 +799,7 @@ function App() {
   const [notePage,    setNotePage]    = useState(0);  // 문서 목록 페이지
   const [members,     setMembers]     = useState([]); // 원스동 멤버 명단 (서버에서 안전 필드만)
   const [selMember,   setSelMember]   = useState(null); // 멤버 바: 선택 시 확장
+  const [hiddenMembers,setHiddenMembers]=useState(()=>new Set()); // 노출 끈 스트리머 id
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
   const [syncing,     setSyncing]     = useState({});
   const [focusWeek,   setFocusWeek]   = useState(0);
@@ -971,6 +972,7 @@ function App() {
 
       try{const r=await store.get("v67_ws");if(r?.value)setWeekStart(Number(r.value));}catch{}
       try{const r=await store.get("cal_filters");if(r?.value){const f=JSON.parse(r.value);if(f.showNotes!=null)setShowNotesInCal(f.showNotes);if(f.showBcast!=null)setShowBcastInCal(f.showBcast);}}catch{}
+      try{const r=await store.get("v_hidden_mem");if(r?.value)setHiddenMembers(new Set(JSON.parse(r.value)));}catch{}
       setGames(ig);
       setReady(true);
       if(location.protocol!=="file:"){
@@ -989,6 +991,7 @@ function App() {
 
   useEffect(()=>{if(ready)store.set("v146_g",JSON.stringify(games));},[games,ready]);
   useEffect(()=>{if(ready)store.set("v146_e",JSON.stringify(events));},[events,ready]);
+  useEffect(()=>{if(ready)store.set("v_hidden_mem",JSON.stringify([...hiddenMembers]));},[hiddenMembers,ready]);
 
   useEffect(()=>{if(ready)store.set("v67_ws",String(weekStart));},[weekStart,ready]);
 
@@ -1464,7 +1467,7 @@ function App() {
               if(diff<best){best=diff;nearestId=m.id;}
             }
             // 내 채널(컴파일러)이 맨 앞에 오도록 역순
-            return [...members].reverse().map(m=>{
+            return [...members].reverse().filter(m=>!hiddenMembers.has(m.id)).map(m=>{
             const col=m.color||"#888888";
             const expanded=selMember===m.id;
             return(
@@ -1747,7 +1750,8 @@ function App() {
                   setFullLog(p=>[...p,"=== DB 속성 ===",props,"==="]);
                   showToast("DB 속성 → 전체 로그 확인");
                 }catch(e){showToast("읽기 실패: "+e.message);}
-              }}/>
+              }}
+              games={games} setGames={setGames} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
             :<div style={{flex:1,overflow:"hidden",display:"flex",position:"relative"}}>
               <div ref={calRef} style={{flex:1,overflow:"auto",padding:"5px 6px"}}>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
@@ -2441,11 +2445,32 @@ function GameDetailModal({game,fetchSt,debugLog,evCount,onRefetch,onSave,onDelet
   </div></div>);
 }
 
-function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup}){
+function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup,games,setGames,members,hiddenMembers,setHiddenMembers}){
   const [show,setShow]=useState(false);
+  const chip=(label,color,on,onClick)=>(
+    <button onClick={onClick}
+      style={{display:"flex",alignItems:"center",gap:5,padding:"4px 11px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",fontSize:11,whiteSpace:"nowrap",
+        border:".5px solid "+(on?color:"var(--br)"),background:on?color+"22":"var(--bi)",color:on?"var(--tp)":"var(--tm)",opacity:on?1:.6}}>
+      <span style={{width:8,height:8,borderRadius:"50%",background:color,flexShrink:0}}/>{label}{on?" ✓":""}
+    </button>
+  );
   return(<div style={{flex:1,overflow:"auto",padding:18}}>
     <p style={{marginBottom:14,fontSize:14,fontWeight:600,color:"var(--tp)"}}>설정</p>
     <div style={{maxWidth:460,display:"flex",flexDirection:"column",gap:12}}>
+      {/* 표시 설정: 게임·스트리머 개별 노출 */}
+      <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
+        <p style={{marginBottom:8,fontSize:13,fontWeight:500,color:"var(--tp)"}}>표시 설정</p>
+        <div style={{fontSize:11,color:"var(--tm)",marginBottom:5}}>게임 노출</div>
+        <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:(members&&members.length)?12:0}}>
+          {(games||[]).map(g=>chip(g.name,g.color||"#888",!!g.on,()=>setGames(p=>p.map(x=>x.id===g.id?{...x,on:!x.on}:x))))}
+        </div>
+        {members&&members.length>0&&<>
+          <div style={{fontSize:11,color:"var(--tm)",marginBottom:5}}>스트리머 노출</div>
+          <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
+            {members.map(m=>chip(m.name,m.color||"#888",!(hiddenMembers&&hiddenMembers.has(m.id)),()=>setHiddenMembers(prev=>{const s=new Set(prev);s.has(m.id)?s.delete(m.id):s.add(m.id);return s;})))}
+          </div>
+        </>}
+      </div>
       <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
         <p style={{marginBottom:6,fontSize:13,fontWeight:500,color:"var(--tp)"}}>Notion 연동</p>
         <p style={{marginBottom:10,fontSize:11,color:"var(--ts)",lineHeight:1.6}}>
