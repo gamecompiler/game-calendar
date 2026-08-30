@@ -1607,11 +1607,16 @@ function App() {
                       // 버전 번호가 있고 "업데이트" 포함
                       return e.version&&/^[\d.]+$/.test(e.version);
                     }).sort((a,b)=>b.date.localeCompare(a.date))[0];
-                    // 현재 픽업: 기원기간이 오늘을 포함하는 것(진행중)만. 예정(미래 시작)은 제외.
-                    // 기간 정보 없는 이벤트는 게시일 폴백(하위호환).
+                    // 픽업: 진행중(기원기간이 오늘 포함) 우선. 없으면 가장 가까운 예정 배너를 '예정' 라벨로.
+                    // (현재 배너 공지가 피드에서 밀려난 경우, 다음 예정 배너라도 보여줌)
                     const gPicks=events.filter(e=>e.gameId===g.id&&e.type==="픽업");
-                    const latestPick=gPicks.filter(e=>e.pickStart&&e.pickStart<=todayStr&&(!e.pickEnd||todayStr<=e.pickEnd)).sort((a,b)=>b.pickStart.localeCompare(a.pickStart))[0]
-                      || gPicks.filter(e=>!e.pickStart&&e.date<=todayStr).sort((a,b)=>b.date.localeCompare(a.date))[0];
+                    let latestPick=gPicks.filter(e=>e.pickStart&&e.pickStart<=todayStr&&(!e.pickEnd||todayStr<=e.pickEnd)).sort((a,b)=>b.pickStart.localeCompare(a.pickStart))[0];
+                    let pickSoon=false;
+                    if(!latestPick){
+                      const up=gPicks.filter(e=>e.pickStart&&e.pickStart>todayStr).sort((a,b)=>a.pickStart.localeCompare(b.pickStart))[0];
+                      if(up){ latestPick=up; pickSoon=true; }
+                    }
+                    if(!latestPick) latestPick=gPicks.filter(e=>!e.pickStart&&e.date<=todayStr).sort((a,b)=>b.date.localeCompare(a.date))[0];
                     if(!latestUp&&!latestPick) return null;
                     // 표시명: character > extractPickupChar > fallback
                     const dispChar=p=>p&&(p.character||extractPickupChar(p.title,"")||"픽업");
@@ -1622,10 +1627,10 @@ function App() {
                           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
                           🔄 {latestUp.version||"최신"} 업데이트{"  "}{latestUp.date&&<span style={{opacity:.6,fontSize:7}}>{latestUp.date.slice(5).replace("-","/")}~</span>}
                         </div>}
-                        {latestPick&&<div onClick={()=>setSel(latestPick)} style={{fontSize:8,color:"#f48fb1",cursor:"pointer",flex:"1 1 0",minWidth:0,
+                        {latestPick&&<div onClick={()=>setSel(latestPick)} style={{fontSize:8,color:"#f48fb1",cursor:"pointer",flex:"1 1 0",minWidth:0,opacity:pickSoon?.75:1,
                           background:"rgba(233,30,140,.08)",border:".5px solid rgba(233,30,140,.2)",borderRadius:3,padding:"2px 5px",
                           overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>
-                          ✦ {dispChar(latestPick)}
+                          ✦ {dispChar(latestPick)}{pickSoon&&latestPick.pickStart?<span style={{opacity:.7,fontSize:7}}>{"  "}{latestPick.pickStart.slice(5).replace("-","/")}~ 예정</span>:""}
                         </div>}
                       </div>
                     );
