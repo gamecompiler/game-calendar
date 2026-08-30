@@ -137,9 +137,12 @@ function extractPickupChar(title, content) {
     // 2. 원신: 「이름」 이벤트/기원/소원
     m = src.match(/「([^」]{1,12})」\s*(?:이벤트|한정|기원|소원)/);
     if (m && !/번째|달|버전|패스/.test(m[1])) return m[1].trim();
-    // 3. 붕3rd S급 캐릭터 이름 (직책어/속성명 제외)
+    // 2b. 붕3rd 협력 캐릭터: "협력 캐릭터 「세나디아」" → 「」 안이 캐릭터 (#3보다 먼저)
+    m = src.match(/협력\s*캐릭터\s*「([^」]{2,12})」/);
+    if (m) { var cn=m[1].replace(/\([^)]*\)/g,'').trim(); var cs=cn.split(/[·・]/); cn=cs[cs.length-1].trim(); if(cn.length>=2&&cn.length<=12) return cn; }
+    // 3. 붕3rd 일반 S급 캐릭터 이름 (「무기명」 앞의 이름). 직책어/속성명 제외
     m = src.match(/[Ss]급\s*(?:발키리|캐릭터)?\s+([가-힣]{2,6})\s+/);
-    var BAD3 = /버전|달|이벤트|배틀|에이전트|요원|캐릭터|공명자|파티|지원|업데이트|강화|일정|캐스/;
+    var BAD3 = /버전|달|이벤트|배틀|에이전트|요원|캐릭터|공명자|파티|지원|업데이트|강화|일정|캐스|협력/;
     if (m && !BAD3.test(m[1])) return m[1].trim();
     // 4. ZZZ S/A급 요원 「이름」또는 [이름(속성)]
     m = src.match(/[SsAa]급\s*(?:요원|에이전트)?\s*「([가-힣a-zA-Z]{2,10})」/);
