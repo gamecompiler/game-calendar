@@ -1318,9 +1318,12 @@ function App() {
     });
     // 업데이트 "적용일" 마커: applyDate가 이 셀과 일치하는 업데이트
     const applyMarkers=events.filter(e=>{
-      if(!active.has(e.gameId)||e.type!=="업데이트"||!e.applyDate) return false;
-      if(!filt(e)) return false;
-      return e.applyDate===cell.ds && e.applyDate!==e.date; // 게시일과 다를 때만
+      if(!active.has(e.gameId)||!filt(e)) return false;
+      // 업데이트: 실제 적용일(applyDate) 셀에 버전명 표시
+      if(e.type==="업데이트"&&e.applyDate) return e.applyDate===cell.ds && e.applyDate!==e.date;
+      // 픽업: 실제 배너 시작일(pickStart) 셀에 캐릭터명 표시 (게시일과 다를 때만)
+      if(e.type==="픽업"&&e.pickStart) return e.pickStart===cell.ds && e.pickStart!==e.date;
+      return false;
     }).map(e=>({...e,_isApplyMarker:true}));
     gameRaw.push(...applyMarkers);
     // 방송 일정 (날짜 정확히 일치)
@@ -2327,17 +2330,20 @@ function CompactChip({ev,game,onClick}){
 }
 
 function ExpandedCard({ev,game,cellDs,onClick,className,style:extraStyle}){
-  // ★ 업데이트 적용일 마커: 간결한 "업데이트 적용" 표시
+  // ★ 적용일 마커: 업데이트=버전명(적용일), 픽업=캐릭터명(배너 시작일)
   if(ev._isApplyMarker){
+    const isPick=ev.type==="픽업";
+    const col=isPick?"픽업":"업데이트";
+    const label=isPick
+      ? `✦ ${ev.character||extractPickupChar(ev.title,"")||"픽업"}${ev.version?" ("+ev.version+")":""}`
+      : `🔄 ${ev.version?ev.version+" ":""}업데이트 적용`;
     return(<div onClick={onClick} className={`ecard${className?" "+className:""}`}
-      style={{border:`1px solid ${tbr("업데이트")}66`,background:tbr("업데이트")+"22",...(extraStyle||{})}}>
+      style={{border:`1px solid ${tbr(col)}66`,background:tbr(col)+"22",...(extraStyle||{})}}>
       <div style={{padding:"5px 7px",display:"flex",alignItems:"center",gap:5}}>
         <div style={{width:16,height:16,borderRadius:3,background:ev.gameColor||"#666",flexShrink:0,position:"relative",overflow:"hidden"}}>
           {game?.icon&&<img src={game.icon} alt="" onError={e=>e.target.style.display="none"} style={{position:"absolute",inset:0,width:16,height:16,objectFit:"cover"}}/>}
         </div>
-        <span style={{fontSize:10,flex:1,color:tc("업데이트"),fontWeight:700}}>
-          🔄 {ev.version?ev.version+" ":""}업데이트 적용
-        </span>
+        <span style={{fontSize:10,flex:1,color:tc(col),fontWeight:700}}>{label}</span>
       </div>
     </div>);
   }
