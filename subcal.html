@@ -200,30 +200,30 @@ const HOYO_CFGS = [
   {id:"def_0",name:"붕괴3rd",color:COLORS[0],kind:"bbs",gids:"1",
    icon:"",
    url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   qs:"gids=1&type=1&page_size=30",
+   qs:"gids=1&type=1&page_size=50",
    extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   extraQs:"gids=1&type=3&page_size=20",
+   extraQs:"gids=1&type=3&page_size=50",
    ytChannel:"UCHnxdu0qphnV3vrERNtCqpw",officialUrl:"https://honkaiimpact3.hoyoverse.com"},
   {id:"def_1",name:"붕괴: 스타레일",color:COLORS[1],kind:"bbs",gids:"6",
    icon:"https://play-lh.googleusercontent.com/aWrGocSA7hEuk1qAPe7L4T57LvLKrwwH26cK2_LOqxRQMQX7j3uHYojC-EKWgYEV2PdrmE0ahqvvhLhXrAGk6Q=s128",
    url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   qs:"gids=6&type=1&page_size=30",
+   qs:"gids=6&type=1&page_size=50",
    extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   extraQs:"gids=6&type=3&page_size=20",
+   extraQs:"gids=6&type=3&page_size=50",
    ytChannel:"UCH33CJMcI0XZUpIhWRHiUuw",twitter:"https://x.com/StarRail_KR",officialUrl:"https://hsr.hoyoverse.com"},
   {id:"def_2",name:"원신",color:COLORS[2],kind:"bbs",gids:"2",
    icon:"https://play-lh.googleusercontent.com/YQqyKaXX-63krqsfIzUEJWUWLINxcb5tbS6QVySdxbS7eZV7YB2dUjUvX27xA0TIGtfxQ5v-tQjwlT5tTB-O=s128",
    url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   qs:"gids=2&type=1&page_size=30",
+   qs:"gids=2&type=1&page_size=50",
    extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   extraQs:"gids=2&type=3&page_size=20",
+   extraQs:"gids=2&type=3&page_size=50",
    ytChannel:"UCcum1rCJ5GJeQ_xv0xrohqg",twitter:"https://x.com/GenshinImpact_KR",officialUrl:"https://genshin.hoyoverse.com"},
   {id:"def_3",name:"젠레스 존 제로",color:COLORS[3],kind:"bbs",gids:"8",
    icon:"https://img.tapimg.net/market/images/b0e43db0909853000f0882eed93aa87b.png",
    url:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   qs:"gids=8&type=1&page_size=30",
+   qs:"gids=8&type=1&page_size=50",
    extraUrl:"https://bbs-api-os.hoyolab.com/community/post/wapi/getNewsList",
-   extraQs:"gids=8&type=3&page_size=20",
+   extraQs:"gids=8&type=3&page_size=50",
    ytChannel:"UCmry1hfaRHI_iTfxUMhC8mA",twitter:"https://x.com/ZZZ_KO",officialUrl:"https://zenless.hoyoverse.com"},
   {id:"def_4",name:"명조",color:COLORS[4],kind:"wuwa",
    icon:"",
@@ -523,8 +523,14 @@ async function fetchGame(game, past, future, onApplyDate) {
         if(type==="픽업"){
           const ptxt=(postContent||"").replace(/<[^>]+>/g,' ').replace(/&[a-z]+;/g,' ').replace(/〓/g,' ').replace(/\s+/g,' ');
           // 리터럴 정규식 사용(new RegExp 문자열조합은 슬래시 이스케이프 이슈로 실패)
+          // 1) START~END 둘 다 날짜 (예: 플린스 9/1~9/22)
           const pm=ptxt.match(/(?:기원\s*기간|이벤트\s*기간|모집\s*기간|워프\s*기간|채널\s*기간|소환\s*기간)[^0-9]{0,8}(\d{4})[.\/년]\s*(\d{1,2})[.\/월]\s*(\d{1,2})[^~]{0,20}~[^0-9]{0,8}(\d{4})[.\/년]\s*(\d{1,2})[.\/월]\s*(\d{1,2})/);
           if(pm){ pickStart=`${pm[1]}-${String(pm[2]).padStart(2,'0')}-${String(pm[3]).padStart(2,'0')}`; pickEnd=`${pm[4]}-${String(pm[5]).padStart(2,'0')}-${String(pm[6]).padStart(2,'0')}`; }
+          else {
+            // 2) 시작이 "버전 업데이트 후" 등(날짜 아님) → 종료일만. 시작=게시일(≈버전 출시일)
+            const pe=ptxt.match(/(?:기원\s*기간|이벤트\s*기간|모집\s*기간|워프\s*기간|채널\s*기간|소환\s*기간)[^~]{0,40}~[^0-9]{0,8}(\d{4})[.\/년]\s*(\d{1,2})[.\/월]\s*(\d{1,2})/);
+            if(pe){ pickStart=baseDate; pickEnd=`${pe[1]}-${String(pe[2]).padStart(2,'0')}-${String(pe[3]).padStart(2,'0')}`; }
+          }
         }
         if(type==="업데이트") logs.push(`[UP] ${title.slice(0,20)} 게시일=${baseDate} 점검일=${maintDate||"본문조회필요"}`);
         evs.push({title,date,endDate:date,type,version,character,characterImg:img,detail:detailUrl,youtubeUrl:ytId?"https://youtu.be/"+ytId:null,postId:String(post.post_id||post.postId||""),gids:game.gids||"2",applyDate,needMaintDate:(type==="업데이트"&&!applyDate),pickStart,pickEnd});
