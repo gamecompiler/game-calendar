@@ -129,8 +129,9 @@ function extractPickupChar(title, content) {
     // 1. ★/☆5성: ★5 캐릭터 「이름(경로)」
     m = src.match(/[★☆][45]\s*(?:캐릭터|공명자|요원)\s*「([^」]+)」/);
     if (m) {
-      var name = m[1].replace(/\([^)]*\)/g,'').trim();          // (원소) 제거
-      var seg = name.split(/[·・]/); name = seg[seg.length-1].trim(); // 원신 "수식어·이름" → 이름만
+      var name = m[1].replace(/\([^)]*\)/g,'').trim();          // (경로·속성) 제거
+      if (name.indexOf('•') >= 0) name = name.split('•')[0].trim();   // 붕스 "이름•별칭" → 이름(앞)
+      else { var seg = name.split(/[·・]/); name = seg[seg.length-1].trim(); } // 원신 "수식어·이름" → 이름(뒤)
       if (name.length >= 2 && name.length <= 16) return name;
     }
     // 2. 원신: 「이름」 이벤트/기원/소원
