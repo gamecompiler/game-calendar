@@ -1581,9 +1581,14 @@ function App() {
                   {isFetch&&<div style={{height:2,background:"rgba(55,138,221,.15)",overflow:"hidden"}}><div className="fetchbar"/></div>}
                   {(()=>{
                     const ver=(()=>{
-                      // 업데이트 이벤트 중 숫자 버전(X.X)만, 오늘 이전 것만
-                      const upEvs=events.filter(e=>e.gameId===g.id&&e.type==="업데이트"&&e.date<=todayStr&&e.version&&/^[\d.]+$/.test(e.version));
-                      return upEvs.sort((a,b)=>b.date.localeCompare(a.date))[0]?.version||null;
+                      const numeric=e=>e.version&&/^\d+\.\d+$/.test(e.version);
+                      // 1순위: 업데이트 이벤트 중 숫자 버전(X.X), 오늘 이전 것만 → 최신 게시일
+                      const upEvs=events.filter(e=>e.gameId===g.id&&e.type==="업데이트"&&e.date<=todayStr&&numeric(e));
+                      if(upEvs.length) return upEvs.sort((a,b)=>b.date.localeCompare(a.date))[0].version;
+                      // 폴백: 업데이트 이벤트가 없는 게임(예: 명조)은 제목에 실린 버전 활용 → 가장 높은 버전
+                      const cmpV=(a,b)=>{const A=a.split(".").map(Number),B=b.split(".").map(Number);return (B[0]-A[0])||(B[1]-A[1]);};
+                      const any=events.filter(e=>e.gameId===g.id&&e.date<=todayStr&&numeric(e));
+                      return any.sort((a,b)=>cmpV(a.version,b.version))[0]?.version||null;
                     })();
                     return(
                     <div style={{display:"flex",alignItems:"center",gap:5,padding:"6px 6px 5px"}}>
@@ -1611,8 +1616,6 @@ function App() {
                         style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:isFetch?"#378ADD":"var(--tp)",fontSize:14,padding:"1px 5px",cursor:isFetch?"not-allowed":"pointer",flexShrink:0,lineHeight:1,opacity:isFetch?.5:1}}>
                         {isFetch?"⟳":"↻"}
                       </button>
-                      <button onClick={()=>setGDetail(g)} title="설정"
-                        style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:13,padding:"1px 5px",cursor:"pointer",flexShrink:0,lineHeight:1}}>⚙</button>
                     </div>);
                   })()}
                   {(()=>{
@@ -1667,8 +1670,17 @@ function App() {
 
             {/* 문서 섹션 - 게임 목록 바로 아래 */}
             <div style={{borderTop:".5px solid var(--br)",marginTop:2}}>
+              {(()=>{
+                const NPP=12, total=Math.max(1,Math.ceil(noteEvs.length/NPP)), page=Math.min(notePage,total-1);
+                return(<>
               <div style={{display:"flex",alignItems:"center",padding:"6px 3px 3px",gap:4}}>
-                <span style={{fontSize:11,fontWeight:700,color:"var(--tp)",flex:1}}>📝 문서 목록{noteLoading&&<span className="pulse" style={{fontSize:9,color:"#9B60FF",marginLeft:5,fontWeight:500}}>● 수집 중…</span>}</span>
+                <span style={{fontSize:11,fontWeight:700,color:"var(--tp)"}}>📝 문서 목록{noteLoading&&<span className="pulse" style={{fontSize:9,color:"#9B60FF",marginLeft:5,fontWeight:500}}>● 수집 중…</span>}</span>
+                {total>1&&<span style={{display:"flex",alignItems:"center",gap:5,marginLeft:6,fontSize:9,color:"var(--ts)"}}>
+                  <button onClick={()=>setNotePage(Math.max(0,page-1))} disabled={page<=0} style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:10,padding:"0 6px",cursor:page<=0?"default":"pointer",opacity:page<=0?.4:1,fontFamily:"inherit"}}>◀</button>
+                  <span>{page+1}/{total}</span>
+                  <button onClick={()=>setNotePage(Math.min(total-1,page+1))} disabled={page>=total-1} style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:10,padding:"0 6px",cursor:page>=total-1?"default":"pointer",opacity:page>=total-1?.4:1,fontFamily:"inherit"}}>▶</button>
+                </span>}
+                <span style={{flex:1}} />
                 {notionTok&&<button onClick={()=>setQuickAdd({date:todayStr,docMode:true})}
                   style={{background:"rgba(120,80,255,.1)",border:".5px solid rgba(120,80,255,.3)",borderRadius:5,color:"#9B60FF",fontSize:12,padding:"2px 8px",cursor:"pointer",fontWeight:700}}>+</button>}
                 <button onClick={fetchNotes}
@@ -1677,9 +1689,7 @@ function App() {
               <div>
                 {noteEvs.length===0
                   ?<div style={{fontSize:10,color:"var(--tm)",padding:"4px 3px",textAlign:"center"}}>문서 없음</div>
-                  :(()=>{
-                    const NPP=12, total=Math.ceil(noteEvs.length/NPP), page=Math.min(notePage,total-1);
-                    return(<>
+                  :<>
                     {noteEvs.slice(page*NPP,(page+1)*NPP).map(n=>(
                     <div key={n.id} onClick={()=>setSelNote(n)}
                       style={{padding:"5px 3px 4px",cursor:"pointer",borderBottom:".5px solid var(--br)"}}
@@ -1695,15 +1705,11 @@ function App() {
                       </div>
                     </div>
                     ))}
-                    {total>1&&<div style={{display:"flex",alignItems:"center",justifyContent:"center",gap:10,padding:"5px 3px 3px",fontSize:9,color:"var(--ts)"}}>
-                      <button onClick={()=>setNotePage(Math.max(0,page-1))} disabled={page<=0} style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:10,padding:"1px 7px",cursor:page<=0?"default":"pointer",opacity:page<=0?.4:1,fontFamily:"inherit"}}>◀</button>
-                      <span>{page+1} / {total}</span>
-                      <button onClick={()=>setNotePage(Math.min(total-1,page+1))} disabled={page>=total-1} style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:10,padding:"1px 7px",cursor:page>=total-1?"default":"pointer",opacity:page>=total-1?.4:1,fontFamily:"inherit"}}>▶</button>
-                    </div>}
-                    </>);
-                  })()
+                  </>
                 }
               </div>
+                </>);
+              })()}
             </div>
 
           </div>
@@ -1754,7 +1760,7 @@ function App() {
                   showToast("DB 속성 → 전체 로그 확인");
                 }catch(e){showToast("읽기 실패: "+e.message);}
               }}
-              games={games} setGames={setGames} hiddenGames={hiddenGames} setHiddenGames={setHiddenGames} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
+              games={games} setGames={setGames} hiddenGames={hiddenGames} setHiddenGames={setHiddenGames} onGameSettings={g=>setGDetail(g)} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
             :<div style={{flex:1,overflow:"hidden",display:"flex",position:"relative"}}>
               <div ref={calRef} style={{flex:1,overflow:"auto",padding:"5px 6px"}}>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
@@ -2448,7 +2454,7 @@ function GameDetailModal({game,fetchSt,debugLog,evCount,onRefetch,onSave,onDelet
   </div></div>);
 }
 
-function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup,games,setGames,hiddenGames,setHiddenGames,members,hiddenMembers,setHiddenMembers}){
+function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup,games,setGames,hiddenGames,setHiddenGames,onGameSettings,members,hiddenMembers,setHiddenMembers}){
   const [show,setShow]=useState(false);
   const chip=(label,color,on,onClick)=>(
     <button onClick={onClick}
@@ -2475,6 +2481,26 @@ function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDb
           </div>
         </>}
       </div>
+      {games&&games.length>0&&onGameSettings&&
+      <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
+        <p style={{marginBottom:3,fontSize:13,fontWeight:500,color:"var(--tp)"}}>게임별 설정</p>
+        <div style={{fontSize:10,color:"var(--tm)",marginBottom:8}}>게임을 눌러 아이콘·색상·재수집·삭제 등 상세 설정을 엽니다.</div>
+        <div style={{display:"flex",flexDirection:"column",gap:4}}>
+          {games.map(g=>(
+            <button key={g.id} onClick={()=>onGameSettings(g)}
+              style={{display:"flex",alignItems:"center",gap:8,padding:"7px 9px",borderRadius:8,cursor:"pointer",fontFamily:"inherit",textAlign:"left",
+                border:".5px solid var(--br)",background:"var(--bi)",color:"var(--tp)"}}
+              onMouseEnter={e=>e.currentTarget.style.background="var(--bh)"}
+              onMouseLeave={e=>e.currentTarget.style.background="var(--bi)"}>
+              <span style={{width:20,height:20,borderRadius:5,flexShrink:0,overflow:"hidden",background:(g.color||"#888")+"22",display:"flex",alignItems:"center",justifyContent:"center",fontSize:10,fontWeight:700,color:g.color||"#888"}}>
+                {g.icon?<img src={g.icon} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>{e.target.style.display="none";}}/>:g.name[0]}
+              </span>
+              <span style={{flex:1,minWidth:0,fontSize:12,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{g.name}</span>
+              <span style={{fontSize:13,color:"var(--ts)",flexShrink:0}}>⚙</span>
+            </button>
+          ))}
+        </div>
+      </div>}
       <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
         <p style={{marginBottom:6,fontSize:13,fontWeight:500,color:"var(--tp)"}}>Notion 연동</p>
         <p style={{marginBottom:10,fontSize:11,color:"var(--ts)",lineHeight:1.6}}>
