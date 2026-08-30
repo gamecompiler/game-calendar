@@ -2074,13 +2074,7 @@ function QuickAddModal({date,editEv,docMode,broadcastEvs,noteEvs,gameIndex,gameN
               <input value={bcVer} onChange={e=>setBcVer(e.target.value)} className="inp" placeholder="4.3"/></div>
           </div>
           <div><label style={S.label}>태그</label>
-            <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
-              {TAG_LIST.map(t=>{const on=bcTags.includes(t);return(
-                <button key={t} onClick={()=>setBcTags(p=>on?p.filter(x=>x!==t):[...p,t])}
-                  style={{fontSize:10,padding:"3px 9px",borderRadius:12,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
-                    background:on?"rgba(255,180,50,.15)":"var(--bi)",color:on?"#c07000":"var(--ts)",borderColor:on?"#FFB432":"var(--br)"}}>
-                  {t}</button>);})}
-            </div></div>
+            <TagSelect tags={bcTags} setTags={setBcTags}/></div>
         </div>
       ):(
         <div style={{display:"flex",flexDirection:"column",gap:10}}>
@@ -2122,6 +2116,34 @@ function QuickAddModal({date,editEv,docMode,broadcastEvs,noteEvs,gameIndex,gameN
   </div>);
 }
 
+// 태그 선택: 접힌 버튼(선택된 태그 요약) → 열면 목록에서 토글
+function TagSelect({tags,setTags,disabled,accent}){
+  const [open,setOpen]=React.useState(false);
+  const TAG_LIST=["방송","합방","메인 스토리","원스동","개처망한세계","서브스토리","특별 방송"];
+  const all=[...new Set([...TAG_LIST,...(tags||[])])];
+  const c=accent||"#FFB432";
+  return(
+    <div>
+      <button type="button" disabled={disabled} onClick={()=>setOpen(o=>!o)}
+        style={{width:"100%",display:"flex",alignItems:"center",gap:6,padding:"7px 10px",borderRadius:8,cursor:disabled?"default":"pointer",fontFamily:"inherit",fontSize:11,textAlign:"left",
+          border:".5px solid var(--br)",background:"var(--bi)",color:(tags&&tags.length)?"var(--tp)":"var(--tm)",opacity:disabled?.6:1}}>
+        <span style={{flex:1,minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{(tags&&tags.length)?tags.join(", "):"태그 선택"}</span>
+        <span style={{fontSize:9,color:"var(--tm)",flexShrink:0}}>{open?"▲":"▼"}</span>
+      </button>
+      {open&&!disabled&&<div style={{marginTop:4,border:".5px solid var(--br)",borderRadius:8,background:"var(--bc)",overflow:"hidden"}}>
+        {all.map(t=>{const on=(tags||[]).includes(t);return(
+          <button type="button" key={t} onClick={()=>setTags(p=>on?(p||[]).filter(x=>x!==t):[...(p||[]),t])}
+            style={{width:"100%",display:"flex",alignItems:"center",gap:8,padding:"6px 10px",cursor:"pointer",fontFamily:"inherit",fontSize:11,textAlign:"left",
+              border:"none",borderBottom:".5px solid var(--br)",background:on?c+"18":"transparent",color:on?"var(--tp)":"var(--ts)"}}>
+            <span style={{width:12,flexShrink:0,color:c,fontWeight:700}}>{on?"✓":""}</span>
+            <span>{t}</span>
+          </button>
+        );})}
+      </div>}
+    </div>
+  );
+}
+
 function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onClose,onSaved,onDeleted}){
   const initTime=()=>{if(ev.timeStr){const m=ev.timeStr.match(/(\d+)(?::(\d+))?시/);if(m){const h=Number(m[1])+(ev.timeStr.includes("오후")&&Number(m[1])<12?12:0);return`${String(h).padStart(2,"0")}:${m[2]||"00"}`;}}return"19:00";};
   const [title,setTitle]=React.useState(ev._rawTitle||ev.title||"방송");
@@ -2140,21 +2162,26 @@ function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onCl
     if(v?.version) setVer(String(v.version));
   },[bcGame]);
   async function save(){
+    if(!notionTok){alert("편집하려면 설정 → Notion 연동에서 토큰을 먼저 입력해야 합니다.");return;}
     setSaving(true);
-    const dateTime=`${ev.date}T${time}:00.000+09:00`;
-    const props={
-      "컨텐츠":{title:[{text:{content:title.trim()}}]},
-      "날짜":{date:{start:dateTime}},
-      "컨텐츠 종류":{multi_select:tags.map(t=>({name:t}))},
-    };
-    if(ep) props["컨텐츠 회차"]={number:Number(ep)};
-    if(ver) props["버전"]={rich_text:[{text:{content:ver}}]};
-    const rid=gameIndex?.get(bcGame); if(rid) props["게임"]={relation:[{id:rid}]};
-    const r=await fetch(`${API}/api/notion?path=pages/${ev.notionPageId}`,{
-      method:"PATCH",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
-      body:JSON.stringify({properties:props})
-    });
-    setSaving(false); if(r.ok) onSaved();
+    try{
+      const dateTime=`${ev.date}T${time}:00.000+09:00`;
+      const props={
+        "컨텐츠":{title:[{text:{content:title.trim()}}]},
+        "날짜":{date:{start:dateTime}},
+        "컨텐츠 종류":{multi_select:tags.map(t=>({name:t}))},
+      };
+      if(ep) props["컨텐츠 회차"]={number:Number(ep)};
+      if(ver) props["버전"]={rich_text:[{text:{content:ver}}]};
+      const rid=gameIndex?.get(bcGame); if(rid) props["게임"]={relation:[{id:rid}]};
+      const r=await fetch(`${API}/api/notion?path=pages/${ev.notionPageId}`,{
+        method:"PATCH",headers:{"Authorization":"Bearer "+notionTok,"Content-Type":"application/json","Notion-Version":"2022-06-28"},
+        body:JSON.stringify({properties:props})
+      });
+      if(r.ok) onSaved();
+      else{const e=await r.json().catch(()=>({}));alert("저장 실패: "+(e.message||e.error||("HTTP "+r.status)));}
+    }catch(e){alert("저장 오류: "+e.message);}
+    finally{setSaving(false);}
   }
   const [confirmDel,setConfirmDel]=React.useState(false);
   async function doDelete(){
@@ -2190,13 +2217,7 @@ function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onCl
             <input value={ver} onChange={e=>setVer(e.target.value)} readOnly={!notionTok} className="inp" placeholder="자동감지"/></div>
         </div>
         <div><label style={L}>태그</label>
-          <div style={{display:"flex",flexWrap:"wrap",gap:4}}>
-            {TAG_LIST.map(t=>{const on=tags.includes(t);return(
-              <button key={t} disabled={!notionTok} onClick={()=>setTags(p=>on?p.filter(x=>x!==t):[...p,t])}
-                style={{fontSize:9,padding:"2px 7px",borderRadius:10,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
-                  background:on?"rgba(255,180,50,.15)":"var(--bi)",color:on?"#c07000":"var(--ts)",borderColor:on?"#FFB432":"var(--br)"}}>{t}</button>
-            );})}
-          </div></div>
+          <TagSelect tags={tags} setTags={setTags} disabled={!notionTok}/></div>
       </div>
       {notionTok&&<div style={{display:"flex",gap:6,marginTop:10}}>
         {confirmDel
