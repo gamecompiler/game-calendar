@@ -799,7 +799,8 @@ function App() {
   const [notePage,    setNotePage]    = useState(0);  // 문서 목록 페이지
   const [members,     setMembers]     = useState([]); // 원스동 멤버 명단 (서버에서 안전 필드만)
   const [selMember,   setSelMember]   = useState(null); // 멤버 바: 선택 시 확장
-  const [hiddenMembers,setHiddenMembers]=useState(()=>new Set()); // 노출 끈 스트리머 id
+  const [hiddenMembers,setHiddenMembers]=useState(()=>new Set()); // 추적 끈 스트리머 id → 페이지에서 완전 제거
+  const [hiddenGames,setHiddenGames]=useState(()=>new Set()); // 추적 끈 게임 id → 사이드바·캘린더·소식 전부 제거
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
   const [syncing,     setSyncing]     = useState({});
   const [focusWeek,   setFocusWeek]   = useState(0);
@@ -973,6 +974,7 @@ function App() {
       try{const r=await store.get("v67_ws");if(r?.value)setWeekStart(Number(r.value));}catch{}
       try{const r=await store.get("cal_filters");if(r?.value){const f=JSON.parse(r.value);if(f.showNotes!=null)setShowNotesInCal(f.showNotes);if(f.showBcast!=null)setShowBcastInCal(f.showBcast);}}catch{}
       try{const r=await store.get("v_hidden_mem");if(r?.value)setHiddenMembers(new Set(JSON.parse(r.value)));}catch{}
+      try{const r=await store.get("v_hidden_game");if(r?.value)setHiddenGames(new Set(JSON.parse(r.value)));}catch{}
       setGames(ig);
       setReady(true);
       if(location.protocol!=="file:"){
@@ -992,6 +994,7 @@ function App() {
   useEffect(()=>{if(ready)store.set("v146_g",JSON.stringify(games));},[games,ready]);
   useEffect(()=>{if(ready)store.set("v146_e",JSON.stringify(events));},[events,ready]);
   useEffect(()=>{if(ready)store.set("v_hidden_mem",JSON.stringify([...hiddenMembers]));},[hiddenMembers,ready]);
+  useEffect(()=>{if(ready)store.set("v_hidden_game",JSON.stringify([...hiddenGames]));},[hiddenGames,ready]);
 
   useEffect(()=>{if(ready)store.set("v67_ws",String(weekStart));},[weekStart,ready]);
 
@@ -1323,7 +1326,7 @@ function App() {
     }catch(e){showToast("DB 조회 실패: "+e.message);}
   }
 
-  const active=new Set(games.filter(g=>g.on).map(g=>g.id));
+  const active=new Set(games.filter(g=>g.on&&!hiddenGames.has(g.id)).map(g=>g.id));
   const filt=ev=>!hiddenTypes.has(ev.type);
   const TYPE_ORDER={"픽업":0,"업데이트":1,"특별 방송":2,"영상":3};
   const cellEvs=cell=>{
@@ -1528,7 +1531,7 @@ function App() {
         })}
         <div style={{width:1,height:14,background:"var(--br)",margin:"0 2px"}} />
         {(()=>{
-          const allOn=games.every(g=>g.on);
+          const allOn=games.filter(g=>!hiddenGames.has(g.id)).every(g=>g.on);
           const saveFilters=(notes,bcast)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast}));}catch{}};
           const tgl=(on,label,emoji,c,onClick)=>(
             <button onClick={onClick}
@@ -1538,7 +1541,7 @@ function App() {
             </button>
           );
           return(<>
-            {tgl(allOn,"게임","🎮","#378ADD",()=>setGames(p=>p.map(g=>({...g,on:!allOn}))))}
+            {tgl(allOn,"게임","🎮","#378ADD",()=>setGames(p=>p.map(g=>hiddenGames.has(g.id)?g:{...g,on:!allOn})))}
             {tgl(showBcastInCal,"일정","📺","#c07000",()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);})}
             {tgl(showNotesInCal,"문서","📝","#9B60FF",()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);})}
           </>);
@@ -1567,7 +1570,7 @@ function App() {
             </div>
           </div>
           <div style={{flex:1,overflow:"auto",padding:5}}>
-            {games.filter(g=>g.on).map(g=>{
+            {games.filter(g=>!hiddenGames.has(g.id)).map(g=>{
               const st=fetchSt[g.id],isFetch=!!(st&&st.state==="fetching");
               const initial=(g.name.trim()[0]||"?").toUpperCase();
               const stMsg=st?st.msg:(g.fetched?g.fetched:"미수집");
@@ -1751,7 +1754,7 @@ function App() {
                   showToast("DB 속성 → 전체 로그 확인");
                 }catch(e){showToast("읽기 실패: "+e.message);}
               }}
-              games={games} setGames={setGames} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
+              games={games} setGames={setGames} hiddenGames={hiddenGames} setHiddenGames={setHiddenGames} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
             :<div style={{flex:1,overflow:"hidden",display:"flex",position:"relative"}}>
               <div ref={calRef} style={{flex:1,overflow:"auto",padding:"5px 6px"}}>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
@@ -2445,7 +2448,7 @@ function GameDetailModal({game,fetchSt,debugLog,evCount,onRefetch,onSave,onDelet
   </div></div>);
 }
 
-function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup,games,setGames,members,hiddenMembers,setHiddenMembers}){
+function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup,games,setGames,hiddenGames,setHiddenGames,members,hiddenMembers,setHiddenMembers}){
   const [show,setShow]=useState(false);
   const chip=(label,color,on,onClick)=>(
     <button onClick={onClick}
@@ -2459,13 +2462,14 @@ function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDb
     <div style={{maxWidth:460,display:"flex",flexDirection:"column",gap:12}}>
       {/* 표시 설정: 게임·스트리머 개별 노출 */}
       <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
-        <p style={{marginBottom:8,fontSize:13,fontWeight:500,color:"var(--tp)"}}>표시 설정</p>
-        <div style={{fontSize:11,color:"var(--tm)",marginBottom:5}}>게임 노출</div>
+        <p style={{marginBottom:3,fontSize:13,fontWeight:500,color:"var(--tp)"}}>추적 설정</p>
+        <div style={{fontSize:10,color:"var(--tm)",marginBottom:8,lineHeight:1.4}}>끄면 해당 게임·스트리머 정보가 페이지 전체(사이드바·캘린더·소식)에서 사라집니다.</div>
+        <div style={{fontSize:11,color:"var(--tm)",marginBottom:5}}>게임 추적</div>
         <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:(members&&members.length)?12:0}}>
-          {(games||[]).map(g=>chip(g.name,g.color||"#888",!!g.on,()=>setGames(p=>p.map(x=>x.id===g.id?{...x,on:!x.on}:x))))}
+          {(games||[]).map(g=>chip(g.name,g.color||"#888",!(hiddenGames&&hiddenGames.has(g.id)),()=>setHiddenGames(prev=>{const s=new Set(prev);s.has(g.id)?s.delete(g.id):s.add(g.id);return s;})))}
         </div>
         {members&&members.length>0&&<>
-          <div style={{fontSize:11,color:"var(--tm)",marginBottom:5}}>스트리머 노출</div>
+          <div style={{fontSize:11,color:"var(--tm)",marginBottom:5}}>스트리머 추적</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
             {[...members].reverse().map(m=>chip(m.name,m.color||"#888",!(hiddenMembers&&hiddenMembers.has(m.id)),()=>setHiddenMembers(prev=>{const s=new Set(prev);s.has(m.id)?s.delete(m.id):s.add(m.id);return s;})))}
           </div>
