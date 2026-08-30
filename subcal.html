@@ -96,6 +96,8 @@ const API = IS_LOCAL ? "http://localhost:8080" : "";
 // 토큰은 코드에 하드코딩하지 않음 — 로컬/배포 모두 설정창에서 입력 후 localStorage(v146_t)에 보관
 const NOTION_TOKEN = "";
 const DB_ID = "1de66cc1f1b581c7a69cc00da09d16c4";
+// 파서(수집/detectType/캐릭터 추출) 로직을 바꿀 때마다 올릴 것 → 다음 로드 시 캐시 자동 무효화(전체 재수집)
+const PARSER_VERSION = "2026-08-31-1";
 const COLORS = ["#5C6BC0","#26A69A","#EF8C00","#E91E8C","#1E88E5","#7B1FA2","#2E7D32","#D32F2F"];
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const DOW = ["일","월","화","수","목","금","토"];
@@ -972,11 +974,15 @@ function App() {
       setGames(ig);
       setReady(true);
       if(location.protocol!=="file:"){
-        const stale=ig.filter(g=>!g.fetchedAt||Date.now()-g.fetchedAt>CACHE_MS);
+        // 파서 버전이 바뀌었으면 캐시 무효화(전체 강제 재수집), 아니면 6시간 지난 것만
+        let parserVer=null; try{const pv=await store.get("parser_ver"); parserVer=pv?.value;}catch{}
+        const parserChanged=(parserVer!==PARSER_VERSION);
+        const stale=parserChanged?ig:ig.filter(g=>!g.fetchedAt||Date.now()-g.fetchedAt>CACHE_MS);
         for(let i=0;i<stale.length;i++){
           await doFetch(stale[i]);
           if(i<stale.length-1) await new Promise(r=>setTimeout(r,400));
         }
+        if(parserChanged){ try{store.set("parser_ver",PARSER_VERSION);}catch{} }
       }
     })();
   },[]);
