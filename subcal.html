@@ -1567,7 +1567,7 @@ function App() {
             </div>
           </div>
           <div style={{flex:1,overflow:"auto",padding:5}}>
-            {games.map(g=>{
+            {games.filter(g=>g.on).map(g=>{
               const st=fetchSt[g.id],isFetch=!!(st&&st.state==="fetching");
               const initial=(g.name.trim()[0]||"?").toUpperCase();
               const stMsg=st?st.msg:(g.fetched?g.fetched:"미수집");
@@ -2467,7 +2467,7 @@ function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDb
         {members&&members.length>0&&<>
           <div style={{fontSize:11,color:"var(--tm)",marginBottom:5}}>스트리머 노출</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>
-            {members.map(m=>chip(m.name,m.color||"#888",!(hiddenMembers&&hiddenMembers.has(m.id)),()=>setHiddenMembers(prev=>{const s=new Set(prev);s.has(m.id)?s.delete(m.id):s.add(m.id);return s;})))}
+            {[...members].reverse().map(m=>chip(m.name,m.color||"#888",!(hiddenMembers&&hiddenMembers.has(m.id)),()=>setHiddenMembers(prev=>{const s=new Set(prev);s.has(m.id)?s.delete(m.id):s.add(m.id);return s;})))}
           </div>
         </>}
       </div>
