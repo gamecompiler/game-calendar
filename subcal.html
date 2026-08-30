@@ -97,7 +97,7 @@ const API = IS_LOCAL ? "http://localhost:8080" : "";
 const NOTION_TOKEN = "";
 const DB_ID = "1de66cc1f1b581c7a69cc00da09d16c4";
 // 파서(수집/detectType/캐릭터 추출) 로직을 바꿀 때마다 올릴 것 → 다음 로드 시 캐시 자동 무효화(전체 재수집)
-const PARSER_VERSION = "2026-08-31-1";
+const PARSER_VERSION = "2026-08-31-2";
 const COLORS = ["#5C6BC0","#26A69A","#EF8C00","#E91E8C","#1E88E5","#7B1FA2","#2E7D32","#D32F2F"];
 const MONTHS = ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"];
 const DOW = ["일","월","화","수","목","금","토"];
@@ -297,7 +297,7 @@ function detectType(title, tag) {
   const SKIP=["월페이퍼","wallpaper","충전","결제 오류","환불","접속 불가","서버 오류",
     "아이쨩의 극비","극비 정보","tips","기능 최적화","steam 사전 테스트",
     "fan art","fanart","survey","설문","discord","| 파일","| 영상","달에서 ",
-    "오류 복구","오류 설명","이벤트 설명","이벤트 소개",
+    "오류 복구","오류 설명",
     "임무 안내","임무 소개","스테이지 안내","스토리 안내","시즌 확장 안내",
     "즐기는 법","활용법","입문","운영 성명","테스트 버전","폼폼과","리두 펀드",
     "300%","3배 드랍",
@@ -315,6 +315,10 @@ function detectType(title, tag) {
   // ── 업데이트 추가 패턴 ────────────────────────────────────────────────
   if(t.includes("패치 노트")||t.includes("patch notes")) return "업데이트";
   if(g.includes("업데이트")||g.includes("update")) return "업데이트";
+
+  // ── 인게임 이벤트(최근 소식 전용, 캘린더 셀엔 표시 안 함) ─────────────
+  // 업데이트/픽업/특별방송/영상 판정을 모두 통과한 뒤 남은 「」 이벤트·콜라보 공지
+  if(t.includes("이벤트")||t.includes("콜라보")||t.includes("collab")) return "이벤트";
 
   return null;
 }
@@ -1333,7 +1337,8 @@ function App() {
     // 게임 이벤트 (모든 소식은 게시일 기준)
     const gameRaw=events.filter(e=>{
       if(!active.has(e.gameId)||!filt(e)) return false;
-      // 모든 타입: 게시일 하루만 표시
+      if(e.type==="이벤트") return false; // 인게임 이벤트는 최근 소식 목록 전용 → 캘린더 셀 제외
+      // 나머지 타입: 게시일 하루만 표시
       return e.date===cell.ds;
     });
     // 업데이트 "적용일" 마커: applyDate가 이 셀과 일치하는 업데이트
