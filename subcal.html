@@ -2342,13 +2342,13 @@ function GameNewsList({events, gameId, onSel}) {
 }
 
 function BroadcastCard({ev,onClick,rules}){
-  const isCollab=ev.isCollab||ev.tags?.includes("합방");
   // 강조 태그 규칙(설정) 매칭: ev.tags 중 규칙 match와 일치하는 첫 규칙 → 카드 색/뱃지
   const rule=(rules||[]).find(r=>r.match&&(ev.tags||[]).includes(r.match));
   // 색상: 매칭 규칙의 rgb, 없으면 내 방송 기본(주황)
   const C=rule&&rule.rgb?{r:rule.rgb,solid:`rgb(${rule.rgb})`}:{r:"255,180,50",solid:"#FFB432"};
   const badge=rule?(rule.label||rule.match):null;
-  const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!=="합방"&&t!==rule?.match);
+  // '방송'과 매칭된 규칙 태그만 제외 → 합방 등은 일반 태그처럼 노출(설정에서 색/뱃지 지정 가능)
+  const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!==rule?.match);
   const hasGame=ev.gameNames?.length>0;
   const primary=hasGame?ev.gameNames.join(" · "):ev.title;  // 게임명 우선(강조)
   const secondary=hasGame?ev.title:null;                    // 컨텐츠명은 보조
@@ -2360,7 +2360,6 @@ function BroadcastCard({ev,onClick,rules}){
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
         <span style={{fontSize:9,color:C.solid,fontWeight:700,letterSpacing:"-.3px"}}>{ev.timeStr||"오후 7:00시"}</span>
         {badge&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:`rgba(${C.r},.22)`,color:C.solid,fontWeight:600,lineHeight:"14px"}}>{badge}</span>}
-        {isCollab&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:"rgba(255,80,80,.2)",color:"#FF7070",fontWeight:600,lineHeight:"14px"}}>합방</span>}
         {ev.episode>0&&<span style={{fontSize:8,color:`rgba(${C.r},.7)`,marginLeft:"auto"}}>#{ev.episode}</span>}
       </div>
       {/* 게임명 (주) */}
