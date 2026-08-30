@@ -805,6 +805,8 @@ function App() {
   const [selMember,   setSelMember]   = useState(null); // 멤버 바: 선택 시 확장
   const [hiddenMembers,setHiddenMembers]=useState(()=>new Set()); // 추적 끈 스트리머 id → 페이지에서 완전 제거
   const [hiddenGames,setHiddenGames]=useState(()=>new Set()); // 추적 끈 게임 id → 사이드바·캘린더·소식 전부 제거
+  // 방송 카드 강조 태그 색상 규칙: match(노션 태그) → label(뱃지 문구) + rgb(카드 색). 기본: 게임사 특별방송=공식/청록
+  const [tagColors,setTagColors]=useState(()=>[{match:"특별 방송",label:"공식",rgb:"38,198,218"}]);
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
   const [syncing,     setSyncing]     = useState({});
   const [focusWeek,   setFocusWeek]   = useState(0);
@@ -979,6 +981,7 @@ function App() {
       try{const r=await store.get("cal_filters");if(r?.value){const f=JSON.parse(r.value);if(f.showNotes!=null)setShowNotesInCal(f.showNotes);if(f.showBcast!=null)setShowBcastInCal(f.showBcast);}}catch{}
       try{const r=await store.get("v_hidden_mem");if(r?.value)setHiddenMembers(new Set(JSON.parse(r.value)));}catch{}
       try{const r=await store.get("v_hidden_game");if(r?.value)setHiddenGames(new Set(JSON.parse(r.value)));}catch{}
+      try{const r=await store.get("v_tag_colors");if(r?.value){const a=JSON.parse(r.value);if(Array.isArray(a))setTagColors(a);}}catch{}
       setGames(ig);
       setReady(true);
       if(location.protocol!=="file:"){
@@ -999,6 +1002,7 @@ function App() {
   useEffect(()=>{if(ready)store.set("v146_e",JSON.stringify(events));},[events,ready]);
   useEffect(()=>{if(ready)store.set("v_hidden_mem",JSON.stringify([...hiddenMembers]));},[hiddenMembers,ready]);
   useEffect(()=>{if(ready)store.set("v_hidden_game",JSON.stringify([...hiddenGames]));},[hiddenGames,ready]);
+  useEffect(()=>{if(ready)store.set("v_tag_colors",JSON.stringify(tagColors));},[tagColors,ready]);
 
   useEffect(()=>{if(ready)store.set("v67_ws",String(weekStart));},[weekStart,ready]);
 
@@ -1770,7 +1774,7 @@ function App() {
                   showToast("DB 속성 → 전체 로그 확인");
                 }catch(e){showToast("읽기 실패: "+e.message);}
               }}
-              games={games} setGames={setGames} hiddenGames={hiddenGames} setHiddenGames={setHiddenGames} onGameSettings={g=>setGDetail(g)} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
+              games={games} setGames={setGames} hiddenGames={hiddenGames} setHiddenGames={setHiddenGames} onGameSettings={g=>setGDetail(g)} tagColors={tagColors} setTagColors={setTagColors} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
             :<div style={{flex:1,overflow:"hidden",display:"flex",position:"relative"}}>
               <div ref={calRef} style={{flex:1,overflow:"auto",padding:"5px 6px"}}>
                 <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
@@ -1815,7 +1819,7 @@ function App() {
                             </div>
                             {/* 방송 일정 */}
                             {showBcastInCal&&bcEvs.map(ev=>(
-                              <BroadcastCard key={ev.id} ev={ev} onClick={e=>{e.stopPropagation();setSel(ev);}}/>
+                              <BroadcastCard key={ev.id} ev={ev} rules={tagColors} onClick={e=>{e.stopPropagation();setSel(ev);}}/>
                             ))}
                             {/* 노트 (showNotesInCal이 true일 때만 표시) */}
                             {showNotesInCal&&noteEvsCel.map(note=>(
@@ -2337,12 +2341,14 @@ function GameNewsList({events, gameId, onSel}) {
   );
 }
 
-function BroadcastCard({ev,onClick}){
-  const isSpecial=ev.type==="특별 방송";           // 게임사 특별방송(내 일정 아님)
+function BroadcastCard({ev,onClick,rules}){
   const isCollab=ev.isCollab||ev.tags?.includes("합방");
-  const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!=="합방"&&t!=="특별 방송");
-  // 색상: 내 방송=주황, 게임사 특별방송=청록 → 시각적으로 구분
-  const C=isSpecial?{r:"38,198,218",solid:"#26C6DA"}:{r:"255,180,50",solid:"#FFB432"};
+  // 강조 태그 규칙(설정) 매칭: ev.tags 중 규칙 match와 일치하는 첫 규칙 → 카드 색/뱃지
+  const rule=(rules||[]).find(r=>r.match&&(ev.tags||[]).includes(r.match));
+  // 색상: 매칭 규칙의 rgb, 없으면 내 방송 기본(주황)
+  const C=rule&&rule.rgb?{r:rule.rgb,solid:`rgb(${rule.rgb})`}:{r:"255,180,50",solid:"#FFB432"};
+  const badge=rule?(rule.label||rule.match):null;
+  const otherTags=(ev.tags||[]).filter(t=>t!=="방송"&&t!=="합방"&&t!==rule?.match);
   const hasGame=ev.gameNames?.length>0;
   const primary=hasGame?ev.gameNames.join(" · "):ev.title;  // 게임명 우선(강조)
   const secondary=hasGame?ev.title:null;                    // 컨텐츠명은 보조
@@ -2353,7 +2359,7 @@ function BroadcastCard({ev,onClick}){
       {/* 시간 + 뱃지 */}
       <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:2}}>
         <span style={{fontSize:9,color:C.solid,fontWeight:700,letterSpacing:"-.3px"}}>{ev.timeStr||"오후 7:00시"}</span>
-        {isSpecial&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:`rgba(${C.r},.22)`,color:C.solid,fontWeight:600,lineHeight:"14px"}}>공식</span>}
+        {badge&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:`rgba(${C.r},.22)`,color:C.solid,fontWeight:600,lineHeight:"14px"}}>{badge}</span>}
         {isCollab&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,background:"rgba(255,80,80,.2)",color:"#FF7070",fontWeight:600,lineHeight:"14px"}}>합방</span>}
         {ev.episode>0&&<span style={{fontSize:8,color:`rgba(${C.r},.7)`,marginLeft:"auto"}}>#{ev.episode}</span>}
       </div>
@@ -2471,7 +2477,7 @@ function GameDetailModal({game,fetchSt,debugLog,evCount,onRefetch,onSave,onDelet
   </div></div>);
 }
 
-function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup,games,setGames,hiddenGames,setHiddenGames,onGameSettings,members,hiddenMembers,setHiddenMembers}){
+function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDbId,noteDbId,setNoteDbId,onSave,onBulkSync,onFetchSchema,onFetchBroadcast,onFetchNotes,onSearchDbs,onSetup,games,setGames,hiddenGames,setHiddenGames,onGameSettings,tagColors,setTagColors,members,hiddenMembers,setHiddenMembers}){
   const [show,setShow]=useState(false);
   const chip=(label,color,on,onClick)=>(
     <button onClick={onClick}
@@ -2518,6 +2524,30 @@ function SettingsPanel({token,setToken,dbId,setDbId,broadcastDbId,setBroadcastDb
           ))}
         </div>
       </div>}
+      {/* 일정 태그 색상: 방송 카드의 강조 태그→색/뱃지 규칙 */}
+      <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
+        <p style={{marginBottom:3,fontSize:13,fontWeight:500,color:"var(--tp)"}}>일정 태그 색상</p>
+        <div style={{fontSize:10,color:"var(--tm)",marginBottom:8,lineHeight:1.4}}>방송 일정에 붙은 태그를 감지해 카드 색과 뱃지를 지정합니다. '감지 태그'는 노션 '컨텐츠 종류' 태그명과 정확히 일치해야 합니다. (미지정 방송은 기본 주황)</div>
+        <div style={{display:"flex",flexDirection:"column",gap:6}}>
+          {(tagColors||[]).map((r,i)=>{
+            const rgb=(r.rgb||"").split(",").map(n=>Math.max(0,Math.min(255,parseInt(n,10)||0)));
+            const hex="#"+[rgb[0]||0,rgb[1]||0,rgb[2]||0].map(n=>n.toString(16).padStart(2,"0")).join("");
+            const upd=patch=>setTagColors(prev=>prev.map((x,j)=>j===i?{...x,...patch}:x));
+            return(
+              <div key={i} style={{display:"flex",alignItems:"center",gap:5}}>
+                <input type="color" value={hex} onChange={e=>{const h=e.target.value;upd({rgb:[1,3,5].map(k=>parseInt(h.slice(k,k+2),16)).join(",")});}}
+                  title="색상 선택" style={{width:28,height:28,padding:0,border:".5px solid var(--br)",borderRadius:5,background:"none",cursor:"pointer",flexShrink:0}}/>
+                <input value={r.match||""} onChange={e=>upd({match:e.target.value})} placeholder="감지 태그(노션)" className="inp" style={{flex:1,minWidth:0,fontSize:11}}/>
+                <input value={r.label||""} onChange={e=>upd({label:e.target.value})} placeholder="뱃지 문구" className="inp" style={{width:74,fontSize:11}}/>
+                <button onClick={()=>setTagColors(prev=>prev.filter((_,j)=>j!==i))} title="삭제"
+                  style={{flexShrink:0,width:26,height:26,borderRadius:5,border:".5px solid var(--br)",background:"var(--bi)",color:"#f17172",cursor:"pointer",fontFamily:"inherit",fontSize:12}}>✕</button>
+              </div>
+            );
+          })}
+        </div>
+        <button onClick={()=>setTagColors(prev=>[...(prev||[]),{match:"",label:"",rgb:"120,80,255"}])}
+          style={{marginTop:8,padding:"6px 10px",fontSize:11,cursor:"pointer",fontFamily:"inherit",borderRadius:6,border:".5px solid var(--br)",background:"var(--bi)",color:"var(--ts)"}}>+ 태그 색상 추가</button>
+      </div>
       <div style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:10,padding:14}}>
         <p style={{marginBottom:6,fontSize:13,fontWeight:500,color:"var(--tp)"}}>Notion 연동</p>
         <p style={{marginBottom:10,fontSize:11,color:"var(--ts)",lineHeight:1.6}}>
