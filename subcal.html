@@ -833,11 +833,10 @@ function App() {
   useEffect(()=>{
     if(!isMobile||view!=="cal"){didFocusToday.current=false;return;}
     if(didFocusToday.current) return;
-    const nowD=new Date();
-    if(yr!==nowD.getFullYear()||mo!==nowD.getMonth()) return; // 오늘이 있는 달일 때만
+    if(events.length+broadcastEvs.length+noteEvs.length===0) return; // 콘텐츠 로드 후
     const el=agendaTodayRef.current;
     if(el){ el.scrollIntoView({block:"start"}); didFocusToday.current=true; }
-  },[isMobile,view,yr,mo,events.length,broadcastEvs.length,noteEvs.length]);
+  },[isMobile,view,events.length,broadcastEvs.length,noteEvs.length]);
   const smoothScrollToRow = React.useCallback((rowIdx)=>{
     // RAF: React 렌더 완료 + 페인트 후 측정 → stale layout 방지
     requestAnimationFrame(()=>{
@@ -1543,9 +1542,9 @@ function App() {
 
       {/* Top bar — 한 줄: < 월 > 오늘 | 필터 | 월시작 | 새로고침 | 설정 */}
       <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,flexWrap:"wrap",rowGap:4}}>
-        <button className="ib" onClick={()=>goMonth(-1)} style={{fontSize:16}}>{"<"}</button>
+        {!isMobile&&<><button className="ib" onClick={()=>goMonth(-1)} style={{fontSize:16}}>{"<"}</button>
         <span style={{fontSize:14,fontWeight:500,color:"var(--tp)",minWidth:82,textAlign:"center"}}>{yr}년 {MONTHS[mo]}</span>
-        <button className="ib" onClick={()=>goMonth(1)} style={{fontSize:16}}>{">"}</button>
+        <button className="ib" onClick={()=>goMonth(1)} style={{fontSize:16}}>{">"}</button></>}
         <button className="ib" style={{fontSize:11,padding:"3px 8px"}} onClick={()=>{setYr(now.getFullYear());setMo(now.getMonth());didFocusToday.current=false;if(isMobile){setTimeout(()=>{if(agendaTodayRef.current)agendaTodayRef.current.scrollIntoView({block:"start"});},120);}else{setTimeout(()=>smoothScrollToRow(todayRowIdx),100);}}}>오늘</button>
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center"}}>
           <button className="pill" onClick={()=>setFilterOpen(o=>!o)}
@@ -1837,11 +1836,7 @@ function App() {
                   {(weekStart===1?["월","화","수","목","금","토","일"]:["일","월","화","수","목","금","토"]).map((d,i)=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:600,padding:"3px 0",color:d==="일"?"#E24B4A":d==="토"?"#5090D3":"var(--ts)"}}>{d}</div>)}
                 </div>}
                 {isMobile ? (()=>{
-                  const monthDays=cells.filter(c=>c.cur);
-                  const todayIn=monthDays.some(c=>c.ds===todayStr);
                   const evOf=cell=>{const a=cellEvs(cell);return{bc:showBcastInCal?a.filter(e=>e.isBroadcast):[],nt:showNotesInCal?noteEvs.filter(e=>e.date===cell.ds):[],gm:a.filter(e=>!e.isBroadcast)};};
-                  const curWeekDs=todayIn?((weekRows.find(wk=>wk.some(c=>c.ds===todayStr))||[]).filter(c=>c.cur).map(c=>c.ds)):[];
-                  const show=cell=>{const {bc,nt,gm}=evOf(cell);return (bc.length+nt.length+gm.length>0)||cell.ds===todayStr||curWeekDs.includes(cell.ds);};
                   const dayNode=cell=>{
                     const isToday=cell.ds===todayStr;
                     const {bc,nt,gm}=evOf(cell);
@@ -1873,9 +1868,21 @@ function App() {
                       </div>
                     );
                   };
-                  // 오름차순(과거 위 → 미래 아래). 로드 시 오늘로 스크롤(effect에서 처리)
-                  const shown=monthDays.filter(show);
-                  return(<div>{shown.map(dayNode)}</div>);
+                  // 달 경계 무시(무한 스크롤): 이벤트 있는 모든 날짜 + 오늘을 오름차순으로
+                  const dsSet=new Set([todayStr]);
+                  events.forEach(e=>{if(e.date)dsSet.add(e.date);if(e.applyDate)dsSet.add(e.applyDate);if(e.pickStart)dsSet.add(e.pickStart);});
+                  if(showBcastInCal) broadcastEvs.forEach(e=>{if(e.date)dsSet.add(e.date);});
+                  if(showNotesInCal) noteEvs.forEach(e=>{if(e.date)dsSet.add(e.date);});
+                  const mk=ds=>{const p=ds.split("-").map(Number);return{ds,yr:p[0],mo:p[1]-1,day:p[2],cur:true};};
+                  const days=[...dsSet].sort().map(mk).filter(c=>{const{bc,nt,gm}=evOf(c);return (bc.length+nt.length+gm.length>0)||c.ds===todayStr;});
+                  let lastMoKey=null;
+                  return(<div>{days.map(c=>{
+                    const moKey=c.yr*12+c.mo; const showMo=moKey!==lastMoKey; lastMoKey=moKey;
+                    return(<React.Fragment key={c.ds}>
+                      {showMo&&<div style={{fontSize:12,fontWeight:700,color:"var(--ts)",margin:"12px 0 6px",padding:"4px 2px",borderBottom:".5px solid var(--br)",position:"sticky",top:0,background:"var(--bc)",zIndex:2}}>{c.yr}년 {MONTHS[c.mo]}</div>}
+                      {dayNode(c)}
+                    </React.Fragment>);
+                  })}</div>);
                 })() : weekRows.map((week,rowIdx)=>{
                   const isHov=rowIdx===focusWeek; // 호버 강조 (크기 변화 없음)
                   const containsToday=week.some(c=>c.ds===todayStr);
