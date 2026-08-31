@@ -1827,10 +1827,57 @@ function App() {
               games={games} setGames={setGames} hiddenGames={hiddenGames} setHiddenGames={setHiddenGames} onGameSettings={g=>setGDetail(g)} tagColors={tagColors} setTagColors={setTagColors} members={members} hiddenMembers={hiddenMembers} setHiddenMembers={setHiddenMembers}/>
             :<div style={{flex:1,overflow:"hidden",display:"flex",position:"relative"}}>
               <div ref={calRef} style={{flex:1,overflow:"auto",padding:"5px 6px"}}>
-                <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
+                {!isMobile&&<div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:2,marginBottom:2}}>
                   {(weekStart===1?["월","화","수","목","금","토","일"]:["일","월","화","수","목","금","토"]).map((d,i)=><div key={d} style={{textAlign:"center",fontSize:10,fontWeight:600,padding:"3px 0",color:d==="일"?"#E24B4A":d==="토"?"#5090D3":"var(--ts)"}}>{d}</div>)}
-                </div>
-                {weekRows.map((week,rowIdx)=>{
+                </div>}
+                {isMobile ? (()=>{
+                  const monthDays=cells.filter(c=>c.cur);
+                  const todayIn=monthDays.some(c=>c.ds===todayStr);
+                  const evOf=cell=>{const a=cellEvs(cell);return{bc:showBcastInCal?a.filter(e=>e.isBroadcast):[],nt:showNotesInCal?noteEvs.filter(e=>e.date===cell.ds):[],gm:a.filter(e=>!e.isBroadcast)};};
+                  const curWeekDs=todayIn?((weekRows.find(wk=>wk.some(c=>c.ds===todayStr))||[]).filter(c=>c.cur).map(c=>c.ds)):[];
+                  const show=cell=>{const {bc,nt,gm}=evOf(cell);return (bc.length+nt.length+gm.length>0)||cell.ds===todayStr||curWeekDs.includes(cell.ds);};
+                  const dayNode=cell=>{
+                    const isToday=cell.ds===todayStr;
+                    const {bc,nt,gm}=evOf(cell);
+                    const any=bc.length+nt.length+gm.length>0;
+                    const dow=new Date(cell.yr,cell.mo,cell.day).getDay();
+                    const wl=["일","월","화","수","목","금","토"][dow];
+                    const col=isToday?"#00C9A7":dow===0?"#E24B4A":dow===6?"#5090D3":"var(--tp)";
+                    return(
+                      <div key={cell.ds} style={{marginBottom:any?12:5}}>
+                        <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 2px 4px",marginBottom:any?6:0,borderBottom:any?".5px solid var(--br)":"none"}}>
+                          <span style={{fontSize:16,fontWeight:700,color:col}}>{cell.day}</span>
+                          <span style={{fontSize:12,fontWeight:600,color:col,opacity:.85}}>{wl}요일</span>
+                          {isToday&&<span style={{fontSize:8,padding:"1px 6px",borderRadius:20,background:"#00C9A7",color:"#fff",fontWeight:700}}>오늘</span>}
+                          {!any&&<span style={{marginLeft:"auto",fontSize:10,color:"var(--tm)"}}>예정된 일정 없음</span>}
+                          {notionTok&&<button onClick={()=>setQuickAdd({date:cell.ds})} style={{marginLeft:any?"auto":8,width:22,height:22,borderRadius:"50%",background:"#378ADD",color:"#fff",border:"none",cursor:"pointer",fontSize:15,lineHeight:"22px",padding:0,flexShrink:0}}>+</button>}
+                        </div>
+                        {bc.map(ev=><BroadcastCard key={ev.id} ev={ev} rules={tagColors} onClick={()=>setSel(ev)}/>)}
+                        {nt.map(note=>(
+                          <div key={note.id} onClick={()=>setSelNote(note)} style={{background:"rgba(120,80,255,.08)",border:".5px solid rgba(120,80,255,.25)",borderRadius:5,padding:"5px 8px",marginBottom:3,cursor:"pointer"}}>
+                            <div style={{display:"flex",alignItems:"center",gap:4}}>
+                              <span style={{fontSize:9}}>📝</span>
+                              {note.category&&<span style={{fontSize:8,padding:"0 4px",borderRadius:3,...catStyle(note.category)}}>{note.category}</span>}
+                              <span style={{fontSize:11,color:"var(--tp)",fontWeight:500,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{note.title}</span>
+                            </div>
+                            {note.gameNames?.length>0&&<div style={{fontSize:8,color:"rgba(120,80,255,.7)",marginTop:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{note.gameNames.join(" · ")}</div>}
+                          </div>
+                        ))}
+                        {gm.map(ev=><ExpandedCard key={ev.id} ev={ev} game={gOf(ev.gameId)} cellDs={cell.ds} onClick={()=>setSel(ev)}/>)}
+                      </div>
+                    );
+                  };
+                  if(todayIn){
+                    const up=monthDays.filter(c=>c.ds>=todayStr&&show(c));
+                    const pastAll=monthDays.filter(c=>c.ds<todayStr&&show(c)).reverse();
+                    return(<div>
+                      {up.map(dayNode)}
+                      {pastAll.length>0&&<div style={{fontSize:11,fontWeight:700,color:"var(--tm)",margin:"16px 0 8px",paddingBottom:4,borderBottom:".5px solid var(--br)"}}>지난 일정</div>}
+                      {pastAll.map(dayNode)}
+                    </div>);
+                  }
+                  return(<div>{monthDays.filter(show).map(dayNode)}</div>);
+                })() : weekRows.map((week,rowIdx)=>{
                   const isHov=rowIdx===focusWeek; // 호버 강조 (크기 변화 없음)
                   const containsToday=week.some(c=>c.ds===todayStr);
                   return(
