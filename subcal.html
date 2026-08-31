@@ -108,6 +108,8 @@ const TC = {
   "픽업":    {bg:"rgba(233,30,140,.22)",  t:"#f48fb1",  b:"#E91E8C"},
   "영상":    {bg:"rgba(123,31,162,.22)",  t:"#ce93d8",  b:"#7B1FA2"},
 };
+// 필터 아이콘 (타입 4종 + 게임/일정/문서) — 통일성 위해 전부 아이콘 배정
+const FILTER_ICON={"업데이트":"🔄","특별 방송":"📡","픽업":"✦","영상":"▶","게임":"🎮","일정":"📺","문서":"📝"};
 // 문서 카테고리 색상
 const CAT_COLOR={
   "메모":  {bg:"rgba(120,80,255,.12)", c:"#8B5CF6", b:"rgba(120,80,255,.25)"},
@@ -809,6 +811,7 @@ function App() {
   const [tagColors,setTagColors]=useState(()=>[{match:"특별 방송",label:"공식",rgb:"38,198,218"}]);
   const [isMobile,setIsMobile]=useState(()=>typeof window!=="undefined"&&!!window.matchMedia&&window.matchMedia("(max-width:768px)").matches);
   const [mDocOpen,setMDocOpen]=useState(false); // 모바일: 문서 목록 아코디언 열림
+  const [filterOpen,setFilterOpen]=useState(false); // 상단 필터 패널 접이식
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
   const [syncing,     setSyncing]     = useState({});
   const [focusWeek,   setFocusWeek]   = useState(0);
@@ -1474,7 +1477,7 @@ function App() {
       {/* 원스동 멤버 바 (서버가 안전 필드만 내려줌 — 토큰/일정DB/문서DB 없음) */}
       {members.length>0 && (
         <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,overflowX:"auto"}}>
-          <span style={{fontSize:10,fontWeight:700,color:"var(--tm)",whiteSpace:"nowrap",marginRight:2,flexShrink:0}}>원스동</span>
+          {!isMobile&&<span style={{fontSize:10,fontWeight:700,color:"var(--tm)",whiteSpace:"nowrap",marginRight:2,flexShrink:0}}>원스동</span>}
           {(()=>{
             // 가장 가까운(다가오는) 생일 멤버 id 계산
             const today=new Date(); today.setHours(0,0,0,0);
@@ -1527,64 +1530,62 @@ function App() {
       {/* 광고 배너 자리 (미래) — 구조만 예약, 기본 숨김 */}
       <div id="ad-slot" style={{display:"none"}} />
 
-      {/* Top bar */}
+      {/* Top bar — 한 줄: < 월 > 오늘 | 필터 | 월시작 | 새로고침 | 설정 */}
       <div style={{display:"flex",alignItems:"center",gap:5,padding:"5px 10px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,flexWrap:"wrap",rowGap:4}}>
         <button className="ib" onClick={()=>goMonth(-1)} style={{fontSize:16}}>{"<"}</button>
-        <span style={{fontSize:14,fontWeight:500,color:"var(--tp)",minWidth:92,textAlign:"center"}}>{yr}년 {MONTHS[mo]}</span>
+        <span style={{fontSize:14,fontWeight:500,color:"var(--tp)",minWidth:82,textAlign:"center"}}>{yr}년 {MONTHS[mo]}</span>
         <button className="ib" onClick={()=>goMonth(1)} style={{fontSize:16}}>{">"}</button>
         <button className="ib" style={{fontSize:11,padding:"3px 8px"}} onClick={()=>{setYr(now.getFullYear());setMo(now.getMonth());setTimeout(()=>smoothScrollToRow(todayRowIdx),100);}}>오늘</button>
-        <div style={{width:1,height:14,background:"var(--br)",margin:"0 2px"}} />
+        <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center"}}>
+          <button className="pill" onClick={()=>setFilterOpen(o=>!o)}
+            style={{background:filterOpen?"rgba(55,138,221,.15)":"transparent",color:filterOpen?"#378ADD":"var(--ts)",border:".5px solid "+(filterOpen?"rgba(55,138,221,.4)":"var(--br)")}}>필터 {filterOpen?"▲":"▼"}</button>
+          <button className="pill" onClick={()=>setWeekStart(w=>w===0?1:0)}
+            style={{background:"rgba(55,138,221,.15)",color:"#378ADD",border:".5px solid rgba(55,138,221,.4)"}}>{weekStart===1?"🗓 월":"🗓 일"}</button>
+          <button className="ib" title="게임 전체 새로고침"
+            onClick={async()=>{if(location.protocol==="file:"){setShowGuide(true);return;}for(let i=0;i<games.length;i++){await doFetch(games[i]);if(i<games.length-1)await new Promise(r=>setTimeout(r,400));}}}
+            style={{fontSize:14,padding:"3px 8px"}}>↻</button>
+          <button className="pill" onClick={()=>setView(v=>v==="settings"?"cal":"settings")}>{view==="settings"?"캘린더":"⚙ 설정"}</button>
+        </div>
+      </div>
+      {/* 필터 패널 (접이식): 업데이트·특별방송·픽업·영상 + 게임·일정·문서 (전부 아이콘) */}
+      {filterOpen&&<div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 10px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0}}>
         {Object.keys(TC).map(t=>{
           const hidden=hiddenTypes.has(t);
           return(
             <button key={t} onClick={()=>setHiddenTypes(p=>{const s=new Set(p);s.has(t)?s.delete(t):s.add(t);return s;})}
               style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
-                background:hidden?"transparent":TC[t]?.bg,
-                color:hidden?"var(--tm)":TC[t]?.t,
-                borderColor:hidden?"var(--br)":TC[t]?.b,
-                textDecoration:hidden?"line-through":"none",
-                opacity:hidden?.6:1}}>
-              {t}
+                background:hidden?"transparent":TC[t]?.bg,color:hidden?"var(--tm)":TC[t]?.t,borderColor:hidden?"var(--br)":TC[t]?.b,
+                textDecoration:hidden?"line-through":"none",opacity:hidden?.6:1}}>
+              {FILTER_ICON[t]} {t}
             </button>
           );
         })}
-        <div style={{width:1,height:14,background:"var(--br)",margin:"0 2px"}} />
+        <div style={{width:1,height:20,background:"var(--br)",alignSelf:"center"}} />
         {(()=>{
           const allOn=games.filter(g=>!hiddenGames.has(g.id)).every(g=>g.on);
           const saveFilters=(notes,bcast)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast}));}catch{}};
           const tgl=(on,label,emoji,c,onClick)=>(
             <button onClick={onClick}
-              style={{fontSize:11,padding:"4px 10px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
+              style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
                 background:on?c+"22":"transparent",color:on?c:"var(--tm)",borderColor:on?c:"var(--br)",opacity:on?1:.65}}>
               {emoji} {label}{on?" ✓":""}
             </button>
           );
           return(<>
-            {tgl(allOn,"게임","🎮","#378ADD",()=>setGames(p=>p.map(g=>hiddenGames.has(g.id)?g:{...g,on:!allOn})))}
-            {tgl(showBcastInCal,"일정","📺","#c07000",()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);})}
-            {tgl(showNotesInCal,"문서","📝","#9B60FF",()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);})}
+            {tgl(allOn,"게임",FILTER_ICON["게임"],"#378ADD",()=>setGames(p=>p.map(g=>hiddenGames.has(g.id)?g:{...g,on:!allOn})))}
+            {tgl(showBcastInCal,"일정",FILTER_ICON["일정"],"#c07000",()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);})}
+            {tgl(showNotesInCal,"문서",FILTER_ICON["문서"],"#9B60FF",()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);})}
           </>);
         })()}
-        <div style={{marginLeft:"auto",display:"flex",gap:5}}>
-
-          <button className="pill" onClick={()=>setWeekStart(w=>w===0?1:0)}
-            style={{background:"rgba(55,138,221,.15)",color:"#378ADD",border:".5px solid rgba(55,138,221,.4)"}}>
-            {weekStart===1?"🗓 월 시작":"🗓 일 시작"}
-          </button>
-          <button className="pill" onClick={()=>setView(v=>v==="settings"?"cal":"settings")}>{view==="settings"?"캘린더":"설정"}</button>
-        </div>
-      </div>
+      </div>}
 
       <div className="content-row" style={{flex:1,display:"flex",overflow:"hidden"}}>
         {/* Sidebar */}
         <div className="sidebar" style={{width:200,flexShrink:0,display:"flex",flexDirection:"column",background:"var(--bc)",borderRight:".5px solid var(--br)",overflow:"hidden"}}>
           {!isMobile&&<div style={{padding:"8px 7px 6px",borderBottom:".5px solid var(--br)"}}>
-            {/* 게임 헤더 + 전체 새로고침 (모바일은 스트립 행에 통합) */}
+            {/* 게임 헤더 (전체 새로고침은 상단바로 이동) */}
             <div style={{display:"flex",alignItems:"center",padding:"6px 3px 3px",gap:4}}>
               <span style={{fontSize:11,fontWeight:700,color:"var(--tp)",flex:1}}>🎮 게임</span>
-              <button onClick={async()=>{if(location.protocol==="file:"){setShowGuide(true);return;}for(let i=0;i<games.length;i++){await doFetch(games[i]);if(i<games.length-1)await new Promise(r=>setTimeout(r,400));}}}
-                title="전체 새로고침"
-                style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:5,color:"var(--ts)",fontSize:11,padding:"2px 6px",cursor:"pointer"}}>↻</button>
             </div>
           </div>}
           <div style={isMobile
@@ -1722,12 +1723,7 @@ function App() {
               );
             });
             if(isMobile) return(
-              <div style={{display:"flex",alignItems:"center",gap:6,padding:"6px 7px",borderBottom:".5px solid var(--br)"}}>
-                <span style={{fontSize:11,fontWeight:700,color:"var(--tp)",flexShrink:0}}>게임</span>
-                <div style={{display:"flex",gap:6,overflowX:"auto",flex:1,minWidth:0,paddingBottom:2}}>{gameItems}</div>
-                <button onClick={async()=>{if(location.protocol==="file:"){setShowGuide(true);return;}for(let i=0;i<games.length;i++){await doFetch(games[i]);if(i<games.length-1)await new Promise(r=>setTimeout(r,400));}}}
-                  title="전체 새로고침" style={{flexShrink:0,background:"var(--bi)",border:".5px solid var(--br)",borderRadius:5,color:"var(--ts)",fontSize:12,padding:"3px 7px",cursor:"pointer"}}>↻</button>
-              </div>
+              <div style={{display:"flex",gap:6,overflowX:"auto",padding:"6px 7px",borderBottom:".5px solid var(--br)"}}>{gameItems}</div>
             );
             return gameItems;
             })()}
@@ -1867,16 +1863,9 @@ function App() {
                       </div>
                     );
                   };
-                  if(todayIn){
-                    const up=monthDays.filter(c=>c.ds>=todayStr&&show(c));
-                    const pastAll=monthDays.filter(c=>c.ds<todayStr&&show(c)).reverse();
-                    return(<div>
-                      {up.map(dayNode)}
-                      {pastAll.length>0&&<div style={{fontSize:11,fontWeight:700,color:"var(--tm)",margin:"16px 0 8px",paddingBottom:4,borderBottom:".5px solid var(--br)"}}>지난 일정</div>}
-                      {pastAll.map(dayNode)}
-                    </div>);
-                  }
-                  return(<div>{monthDays.filter(show).map(dayNode)}</div>);
+                  // 역순: 최신 날짜(미래·오늘)가 위에 오도록 내림차순
+                  const shown=monthDays.filter(show).slice().reverse();
+                  return(<div>{shown.map(dayNode)}</div>);
                 })() : weekRows.map((week,rowIdx)=>{
                   const isHov=rowIdx===focusWeek; // 호버 강조 (크기 변화 없음)
                   const containsToday=week.some(c=>c.ds===todayStr);
