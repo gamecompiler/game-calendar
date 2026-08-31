@@ -807,6 +807,8 @@ function App() {
   const [hiddenGames,setHiddenGames]=useState(()=>new Set()); // 추적 끈 게임 id → 사이드바·캘린더·소식 전부 제거
   // 방송 카드 강조 태그 색상 규칙: match(노션 태그) → label(뱃지 문구) + rgb(카드 색). 기본: 게임사 특별방송=공식/청록
   const [tagColors,setTagColors]=useState(()=>[{match:"특별 방송",label:"공식",rgb:"38,198,218"}]);
+  const [isMobile,setIsMobile]=useState(()=>typeof window!=="undefined"&&!!window.matchMedia&&window.matchMedia("(max-width:768px)").matches);
+  const [mDocOpen,setMDocOpen]=useState(false); // 모바일: 문서 목록 아코디언 열림
   const [broadcastDbId,setBroadcastDbId]=useState(""); // 방송 캘린더 DB ID (게임캘린더 DB와 동일하거나 별도)
   const [syncing,     setSyncing]     = useState({});
   const [focusWeek,   setFocusWeek]   = useState(0);
@@ -814,6 +816,14 @@ function App() {
   const [scrollToDate,  setScrollToDate]  = useState(null);
   const weekRefs = React.useRef({});
   const calRef  = React.useRef(null);
+  // 모바일 여부 반응형 감지 (≤768px)
+  useEffect(()=>{
+    if(typeof window==="undefined"||!window.matchMedia) return;
+    const mq=window.matchMedia("(max-width:768px)");
+    const h=e=>setIsMobile(e.matches);
+    if(mq.addEventListener) mq.addEventListener("change",h); else mq.addListener(h);
+    return()=>{if(mq.removeEventListener) mq.removeEventListener("change",h); else mq.removeListener(h);};
+  },[]);
   const smoothScrollToRow = React.useCallback((rowIdx)=>{
     // RAF: React 렌더 완료 + 페인트 후 측정 → stale layout 방지
     requestAnimationFrame(()=>{
@@ -1578,13 +1588,32 @@ function App() {
                 style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:5,color:"var(--ts)",fontSize:11,padding:"2px 6px",cursor:"pointer"}}>↻</button>
             </div>
           </div>
-          <div style={{flex:1,overflow:"auto",padding:5}}>
+          <div style={isMobile
+              ?{overflowX:"hidden",overflowY:"auto",padding:0}
+              :{flex:1,overflow:"auto",padding:5}}>
+            <div style={isMobile?{display:"flex",flexDirection:"row",gap:6,overflowX:"auto",overflowY:"hidden",padding:"6px 7px"}:{display:"contents"}}>
             {games.filter(g=>!hiddenGames.has(g.id)).map(g=>{
               const st=fetchSt[g.id],isFetch=!!(st&&st.state==="fetching");
               const initial=(g.name.trim()[0]||"?").toUpperCase();
               const stMsg=st?st.msg:(g.fetched?g.fetched:"미수집");
               const stCol=st?stColor(st.state):"var(--tm)";
               const isOpen=showDbg===g.id;
+              // ── 모바일: 아이콘 토글 스트립(이름 생략, 탭=캘린더 표시 on/off) ──
+              if(isMobile){
+                const numeric=e=>e.version&&/^\d+\.\d+$/.test(e.version);
+                const ups=events.filter(e=>e.gameId===g.id&&e.type==="업데이트"&&e.date<=todayStr&&numeric(e));
+                let mver=ups.sort((a,b)=>b.date.localeCompare(a.date))[0]?.version;
+                if(!mver){const any=events.filter(e=>e.gameId===g.id&&e.date<=todayStr&&numeric(e));mver=any.sort((a,b)=>{const A=a.version.split(".").map(Number),B=b.version.split(".").map(Number);return(B[0]-A[0])||(B[1]-A[1]);})[0]?.version;}
+                return(
+                  <button key={g.id} onClick={()=>setGames(p=>p.map(x=>x.id===g.id?{...x,on:!x.on}:x))} title={g.name+(g.on?"":" (숨김)")}
+                    style={{position:"relative",flexShrink:0,width:46,height:46,borderRadius:11,border:`.5px solid ${g.on?g.color:"var(--br)"}`,background:g.color,opacity:g.on?1:.35,cursor:"pointer",padding:0,overflow:"hidden"}}>
+                    <span style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",fontSize:15,fontWeight:700,color:"#fff"}}>{initial}</span>
+                    {g.icon&&<img src={g.icon} alt="" onError={e=>{e.target.style.display="none";}} style={{position:"absolute",inset:0,width:"100%",height:"100%",objectFit:"cover"}}/>}
+                    {isFetch&&<span className="spin" style={{position:"absolute",inset:0,display:"flex",alignItems:"center",justifyContent:"center",background:"rgba(0,0,0,.35)",color:"#fff",fontSize:16}}>↻</span>}
+                    {mver&&<span style={{position:"absolute",bottom:0,left:0,right:0,fontSize:8,fontWeight:700,color:"#fff",background:"rgba(0,0,0,.55)",textAlign:"center",lineHeight:"12px"}}>{mver}</span>}
+                  </button>
+                );
+              }
               return(
                 <div key={g.id} style={{marginBottom:4,borderRadius:6,overflow:"hidden",border:`.5px solid ${isFetch?"rgba(55,138,221,.4)":"transparent"}`,background:isFetch?"rgba(55,138,221,.07)":"var(--bh)"}}>
                   {isFetch&&<div style={{height:2,background:"rgba(55,138,221,.15)",overflow:"hidden"}}><div className="fetchbar"/></div>}
@@ -1681,6 +1710,7 @@ function App() {
                 </div>
               );
             })}
+            </div>{/* /게임 스트립 래퍼 */}
 
             {/* 문서 섹션 - 게임 목록 바로 아래 */}
             <div style={{borderTop:".5px solid var(--br)",marginTop:2}}>
@@ -1688,7 +1718,7 @@ function App() {
                 const NPP=12, total=Math.max(1,Math.ceil(noteEvs.length/NPP)), page=Math.min(notePage,total-1);
                 return(<>
               <div style={{display:"flex",alignItems:"center",padding:"6px 3px 3px",gap:4}}>
-                <span style={{fontSize:11,fontWeight:700,color:"var(--tp)"}}>📝 문서 목록{noteLoading&&<span className="pulse" style={{fontSize:9,color:"#9B60FF",marginLeft:5,fontWeight:500}}>● 수집 중…</span>}</span>
+                <span onClick={()=>isMobile&&setMDocOpen(o=>!o)} style={{fontSize:11,fontWeight:700,color:"var(--tp)",cursor:isMobile?"pointer":"default",display:"flex",alignItems:"center",gap:4}}>📝 문서 목록{isMobile&&` (${noteEvs.length})`}{noteLoading&&<span className="pulse" style={{fontSize:9,color:"#9B60FF",fontWeight:500}}>● 수집 중…</span>}{isMobile&&<span style={{fontSize:9,color:"var(--tm)"}}>{mDocOpen?"▲":"▼"}</span>}</span>
                 {total>1&&<span style={{display:"flex",alignItems:"center",gap:5,marginLeft:6,fontSize:9,color:"var(--ts)"}}>
                   <button onClick={()=>setNotePage(Math.max(0,page-1))} disabled={page<=0} style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:4,color:"var(--ts)",fontSize:10,padding:"0 6px",cursor:page<=0?"default":"pointer",opacity:page<=0?.4:1,fontFamily:"inherit"}}>◀</button>
                   <span>{page+1}/{total}</span>
@@ -1700,7 +1730,7 @@ function App() {
                 <button onClick={fetchNotes}
                   style={{background:"var(--bi)",border:".5px solid var(--br)",borderRadius:5,color:"var(--ts)",fontSize:11,padding:"2px 6px",cursor:"pointer"}}>↻</button>
               </div>
-              <div>
+              {(!isMobile||mDocOpen)&&<div>
                 {noteEvs.length===0
                   ?<div style={{fontSize:10,color:"var(--tm)",padding:"4px 3px",textAlign:"center"}}>문서 없음</div>
                   :<>
@@ -1721,7 +1751,7 @@ function App() {
                     ))}
                   </>
                 }
-              </div>
+              </div>}
                 </>);
               })()}
             </div>
