@@ -827,6 +827,17 @@ function App() {
     if(mq.addEventListener) mq.addEventListener("change",h); else mq.addListener(h);
     return()=>{if(mq.removeEventListener) mq.removeEventListener("change",h); else mq.removeListener(h);};
   },[]);
+  // 모바일 아젠다: 로드/월변경 시 오늘로 스크롤 포커싱 (1회)
+  const agendaTodayRef=React.useRef(null);
+  const didFocusToday=React.useRef(false);
+  useEffect(()=>{
+    if(!isMobile||view!=="cal"){didFocusToday.current=false;return;}
+    if(didFocusToday.current) return;
+    const nowD=new Date();
+    if(yr!==nowD.getFullYear()||mo!==nowD.getMonth()) return; // 오늘이 있는 달일 때만
+    const el=agendaTodayRef.current;
+    if(el){ el.scrollIntoView({block:"start"}); didFocusToday.current=true; }
+  },[isMobile,view,yr,mo,events.length,broadcastEvs.length,noteEvs.length]);
   const smoothScrollToRow = React.useCallback((rowIdx)=>{
     // RAF: React 렌더 완료 + 페인트 후 측정 → stale layout 방지
     requestAnimationFrame(()=>{
@@ -1535,19 +1546,19 @@ function App() {
         <button className="ib" onClick={()=>goMonth(-1)} style={{fontSize:16}}>{"<"}</button>
         <span style={{fontSize:14,fontWeight:500,color:"var(--tp)",minWidth:82,textAlign:"center"}}>{yr}년 {MONTHS[mo]}</span>
         <button className="ib" onClick={()=>goMonth(1)} style={{fontSize:16}}>{">"}</button>
-        <button className="ib" style={{fontSize:11,padding:"3px 8px"}} onClick={()=>{setYr(now.getFullYear());setMo(now.getMonth());setTimeout(()=>smoothScrollToRow(todayRowIdx),100);}}>오늘</button>
+        <button className="ib" style={{fontSize:11,padding:"3px 8px"}} onClick={()=>{setYr(now.getFullYear());setMo(now.getMonth());didFocusToday.current=false;if(isMobile){setTimeout(()=>{if(agendaTodayRef.current)agendaTodayRef.current.scrollIntoView({block:"start"});},120);}else{setTimeout(()=>smoothScrollToRow(todayRowIdx),100);}}}>오늘</button>
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center"}}>
           <button className="pill" onClick={()=>setFilterOpen(o=>!o)}
             style={{background:filterOpen?"rgba(55,138,221,.15)":"transparent",color:filterOpen?"#378ADD":"var(--ts)",border:".5px solid "+(filterOpen?"rgba(55,138,221,.4)":"var(--br)")}}>필터 {filterOpen?"▲":"▼"}</button>
-          <button className="pill" onClick={()=>setWeekStart(w=>w===0?1:0)}
-            style={{background:"rgba(55,138,221,.15)",color:"#378ADD",border:".5px solid rgba(55,138,221,.4)"}}>{weekStart===1?"🗓 월":"🗓 일"}</button>
+          {!isMobile&&<button className="pill" onClick={()=>setWeekStart(w=>w===0?1:0)}
+            style={{background:"rgba(55,138,221,.15)",color:"#378ADD",border:".5px solid rgba(55,138,221,.4)"}}>{weekStart===1?"🗓 월":"🗓 일"}</button>}
           <button className="ib" title="게임 전체 새로고침"
             onClick={async()=>{if(location.protocol==="file:"){setShowGuide(true);return;}for(let i=0;i<games.length;i++){await doFetch(games[i]);if(i<games.length-1)await new Promise(r=>setTimeout(r,400));}}}
             style={{fontSize:14,padding:"3px 8px"}}>↻</button>
           <button className="pill" onClick={()=>setView(v=>v==="settings"?"cal":"settings")}>{view==="settings"?"캘린더":"⚙ 설정"}</button>
         </div>
       </div>
-      {/* 필터 패널 (접이식): 업데이트·특별방송·픽업·영상 + 게임·일정·문서 (전부 아이콘) */}
+      {/* 필터 패널 (접이식): 아이콘·구분자 없이 한 줄 */}
       {filterOpen&&<div style={{display:"flex",flexWrap:"wrap",gap:6,padding:"8px 10px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0}}>
         {Object.keys(TC).map(t=>{
           const hidden=hiddenTypes.has(t);
@@ -1556,25 +1567,24 @@ function App() {
               style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
                 background:hidden?"transparent":TC[t]?.bg,color:hidden?"var(--tm)":TC[t]?.t,borderColor:hidden?"var(--br)":TC[t]?.b,
                 textDecoration:hidden?"line-through":"none",opacity:hidden?.6:1}}>
-              {FILTER_ICON[t]} {t}
+              {t}
             </button>
           );
         })}
-        <div style={{width:1,height:20,background:"var(--br)",alignSelf:"center"}} />
         {(()=>{
           const allOn=games.filter(g=>!hiddenGames.has(g.id)).every(g=>g.on);
           const saveFilters=(notes,bcast)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast}));}catch{}};
-          const tgl=(on,label,emoji,c,onClick)=>(
+          const tgl=(on,label,c,onClick)=>(
             <button onClick={onClick}
               style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
                 background:on?c+"22":"transparent",color:on?c:"var(--tm)",borderColor:on?c:"var(--br)",opacity:on?1:.65}}>
-              {emoji} {label}{on?" ✓":""}
+              {label}{on?" ✓":""}
             </button>
           );
           return(<>
-            {tgl(allOn,"게임",FILTER_ICON["게임"],"#378ADD",()=>setGames(p=>p.map(g=>hiddenGames.has(g.id)?g:{...g,on:!allOn})))}
-            {tgl(showBcastInCal,"일정",FILTER_ICON["일정"],"#c07000",()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);})}
-            {tgl(showNotesInCal,"문서",FILTER_ICON["문서"],"#9B60FF",()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);})}
+            {tgl(allOn,"게임","#378ADD",()=>setGames(p=>p.map(g=>hiddenGames.has(g.id)?g:{...g,on:!allOn})))}
+            {tgl(showBcastInCal,"일정","#c07000",()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);})}
+            {tgl(showNotesInCal,"문서","#9B60FF",()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);})}
           </>);
         })()}
       </div>}
@@ -1840,7 +1850,7 @@ function App() {
                     const wl=["일","월","화","수","목","금","토"][dow];
                     const col=isToday?"#00C9A7":dow===0?"#E24B4A":dow===6?"#5090D3":"var(--tp)";
                     return(
-                      <div key={cell.ds} style={{marginBottom:any?12:5}}>
+                      <div key={cell.ds} ref={isToday?agendaTodayRef:null} style={{marginBottom:any?12:5,scrollMarginTop:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 2px 4px",marginBottom:any?6:0,borderBottom:any?".5px solid var(--br)":"none"}}>
                           <span style={{fontSize:16,fontWeight:700,color:col}}>{cell.day}</span>
                           <span style={{fontSize:12,fontWeight:600,color:col,opacity:.85}}>{wl}요일</span>
@@ -1863,8 +1873,8 @@ function App() {
                       </div>
                     );
                   };
-                  // 역순: 최신 날짜(미래·오늘)가 위에 오도록 내림차순
-                  const shown=monthDays.filter(show).slice().reverse();
+                  // 오름차순(과거 위 → 미래 아래). 로드 시 오늘로 스크롤(effect에서 처리)
+                  const shown=monthDays.filter(show);
                   return(<div>{shown.map(dayNode)}</div>);
                 })() : weekRows.map((week,rowIdx)=>{
                   const isHov=rowIdx===focusWeek; // 호버 강조 (크기 변화 없음)
