@@ -2195,9 +2195,14 @@ function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onCl
     }catch(e){setSaving(false);alert("오류: "+e.message);}
   }
   const L={fontSize:10,color:"var(--ts)",display:"block",marginBottom:3,fontWeight:500};
+  // 노션에서 이 일정 페이지로 바로 열기(선택한 일정에 포커싱)
+  const notionUrl=ev.notionUrl||(ev.notionPageId?"https://notion.so/"+String(ev.notionPageId).replace(/-/g,""):null);
   return(
     <div style={{borderTop:".5px solid var(--br)",paddingTop:12,marginTop:4}}>
-      <div style={{fontSize:11,fontWeight:600,color:"#FFB432",marginBottom:10}}>✏️ 방송 일정 편집</div>
+      <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:10}}>
+        <span style={{fontSize:11,fontWeight:600,color:notionTok?"#FFB432":"var(--tp)"}}>{notionTok?"✏️ 방송 일정 편집":"📺 방송 일정"}</span>
+        {notionUrl&&<a href={notionUrl} target="_blank" rel="noreferrer" style={{marginLeft:"auto",fontSize:10,color:"#378ADD",textDecoration:"none",display:"flex",alignItems:"center",gap:3}}>🔗 노션에서 열기 ↗</a>}
+      </div>
       <div style={{display:"flex",flexDirection:"column",gap:8}}>
         <div><label style={L}>컨텐츠명</label>
           <input value={title} onChange={e=>setTitle(e.target.value)} readOnly={!notionTok} className="inp"/></div>
