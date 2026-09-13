@@ -69,11 +69,16 @@ code{font-family:monospace}
 /* 스켈레톤 로딩 (E) */
 @keyframes shimmer{0%{background-position:-400px 0}100%{background-position:400px 0}}
 .skel{background:linear-gradient(90deg,var(--bi) 25%,var(--bh) 50%,var(--bi) 75%);background-size:800px 100%;animation:shimmer 1.3s infinite linear;border-radius:8px}
-/* 모바일 반응형 (A 1차: 데스크톱 무영향, 768px 이하에서만 세로 스택) */
+/* 모바일 반응형 (데스크톱 무영향, 768px 이하) */
 @media (max-width:768px){
   .content-row{flex-direction:column !important;overflow:auto !important;}
-  .sidebar{width:auto !important;border-right:none !important;border-bottom:.5px solid var(--br) !important;max-height:44vh;}
+  .sidebar{width:auto !important;border-right:none !important;border-bottom:.5px solid var(--br) !important;max-height:38vh;}
   .topbar{flex-wrap:wrap;row-gap:4px;}
+  /* 모달 풀스크린 시트 */
+  .overlay{padding:0 !important;align-items:stretch !important;}
+  .modal{width:100% !important;max-width:100% !important;height:100% !important;max-height:100% !important;border-radius:0 !important;padding:16px !important}
+  /* 아젠다 이벤트 카드 최소 터치 높이 */
+  .mday>div:not(:first-child){min-height:42px}
 }
 </style>
 </head>
@@ -1487,7 +1492,7 @@ function App() {
 
       {/* 원스동 멤버 바 (서버가 안전 필드만 내려줌 — 토큰/일정DB/문서DB 없음) */}
       {members.length>0 && (
-        <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,overflowX:"auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:isMobile?4:6,padding:isMobile?"3px 8px":"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,overflowX:"auto"}}>
           {!isMobile&&<span style={{fontSize:10,fontWeight:700,color:"var(--tm)",whiteSpace:"nowrap",marginRight:2,flexShrink:0}}>원스동</span>}
           {(()=>{
             // 가장 가까운(다가오는) 생일 멤버 id 계산
@@ -1508,7 +1513,7 @@ function App() {
             const expanded=selMember===m.id;
             return(
               <div key={m.id} onClick={()=>setSelMember(expanded?null:m.id)} title={m.name}
-                style={{display:"flex",alignItems:"center",gap:5,padding:"3px 10px",borderRadius:20,background:expanded?col+"2A":col+"1A",border:`.5px solid ${expanded?col:col+"66"}`,whiteSpace:"nowrap",flexShrink:0,cursor:"pointer"}}>
+                style={{display:"flex",alignItems:"center",gap:isMobile?4:5,padding:isMobile?"2px 8px":"3px 10px",borderRadius:20,background:expanded?col+"2A":col+"1A",border:`.5px solid ${expanded?col:col+"66"}`,whiteSpace:"nowrap",flexShrink:0,cursor:"pointer"}}>
                 {/* 이름 옆 원: 치지직 프로필(테두리=퍼스널컬러), 클릭 시 치지직 이동. 없으면 퍼스널컬러 원 */}
                 {m.chzzk
                   ?<a href={`https://chzzk.naver.com/${m.chzzk}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" title="치지직" style={{display:"inline-flex",flexShrink:0}}>
@@ -1847,7 +1852,7 @@ function App() {
                     const wl=["일","월","화","수","목","금","토"][dow];
                     const col=isToday?"#00C9A7":dow===0?"#E24B4A":dow===6?"#5090D3":"var(--tp)";
                     return(
-                      <div key={cell.ds} ref={isToday?agendaTodayRef:null} style={{marginBottom:any?12:5,scrollMarginTop:8}}>
+                      <div key={cell.ds} className="mday" ref={isToday?agendaTodayRef:null} style={{marginBottom:any?12:5,scrollMarginTop:8}}>
                         <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 2px 4px",marginBottom:any?6:0,borderBottom:any?".5px solid var(--br)":"none"}}>
                           <span style={{fontSize:16,fontWeight:700,color:col}}>{cell.day}</span>
                           <span style={{fontSize:12,fontWeight:600,color:col,opacity:.85}}>{wl}요일</span>
@@ -1982,8 +1987,8 @@ function App() {
               onSaved={()=>{setSelNote(null);showToast("저장됐습니다.");fetchNotes();}}
               onDeleted={()=>{setSelNote(null);showToast("삭제됐습니다.");fetchNotes();}}/>}
               {sel&&(
-                <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.55)",zIndex:50,display:"flex",alignItems:"center",justifyContent:"center",padding:20}} onClick={()=>setSel(null)}>
-                  <div style={{width:400,maxHeight:"82vh",borderRadius:14,background:"var(--bc)",border:".5px solid var(--br)",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 8px 40px rgba(0,0,0,.5)"}} onClick={e=>e.stopPropagation()}>
+                <div style={{position:"absolute",inset:0,background:"rgba(0,0,0,.55)",zIndex:50,display:"flex",alignItems:isMobile?"stretch":"center",justifyContent:"center",padding:isMobile?0:20}} onClick={()=>setSel(null)}>
+                  <div style={{width:isMobile?"100%":400,height:isMobile?"100%":"auto",maxHeight:isMobile?"100%":"82vh",borderRadius:isMobile?0:14,background:"var(--bc)",border:".5px solid var(--br)",display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 8px 40px rgba(0,0,0,.5)"}} onClick={e=>e.stopPropagation()}>
                     {/* 배너 이미지 — 클릭 시 링크 이동 */}
                     {(sel.characterImg||getYtId(sel.youtubeUrl))&&(()=>{
                       const ytid=getYtId(sel.youtubeUrl);
@@ -2064,6 +2069,7 @@ function App() {
 
 // 방송 일정 카드 (노션 캘린더 연동)
 function QuickAddModal({date,editEv,docMode,broadcastEvs,noteEvs,gameIndex,gameNames,events,games,notionTok,broadcastDbId,noteDbId,showToast,onClose,onSuccess}){
+  const isMobile=typeof window!=="undefined"&&!!window.matchMedia&&window.matchMedia("(max-width:768px)").matches;
   const isEdit=!!editEv;
   const isNote=isEdit&&editEv.isNote;
   // docMode=true이면 노트 전용 (사이드바 + 버튼)
@@ -2147,8 +2153,8 @@ function QuickAddModal({date,editEv,docMode,broadcastEvs,noteEvs,gameIndex,gameN
   }
 
   const S={label:{fontSize:11,color:"var(--ts)",display:"block",marginBottom:3,fontWeight:500}};
-  return(<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-    <div onClick={e=>e.stopPropagation()} style={{background:"var(--bc)",borderRadius:12,padding:20,width:380,maxWidth:"100%",border:".5px solid var(--br)",boxShadow:"0 8px 40px rgba(0,0,0,.5)",maxHeight:"85vh",overflowY:"auto"}}>
+  return(<div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,display:"flex",alignItems:isMobile?"stretch":"center",justifyContent:"center",padding:isMobile?0:16}}>
+    <div onClick={e=>e.stopPropagation()} style={{background:"var(--bc)",borderRadius:isMobile?0:12,padding:isMobile?16:20,width:isMobile?"100%":380,maxWidth:"100%",border:".5px solid var(--br)",boxShadow:"0 8px 40px rgba(0,0,0,.5)",maxHeight:isMobile?"100%":"85vh",height:isMobile?"100%":"auto",overflowY:"auto"}}>
       <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
         <div>
           <div style={{fontSize:13,fontWeight:700,color:"var(--tp)"}}>{isEdit?"수정":"추가"}: {date}</div>
@@ -2350,6 +2356,7 @@ function BroadcastInlineEdit({ev,gameIndex,gameNames,events,games,notionTok,onCl
 }
 
 function NoteDetailModal({note,gameIndex,gameNames,notionTok,onClose,onSaved,onDeleted}){
+  const isMobile=typeof window!=="undefined"&&!!window.matchMedia&&window.matchMedia("(max-width:768px)").matches;
   const [title,setTitle]=React.useState(note.title||"");
   const [cat,setCat]=React.useState(note.category||"메모");
   const [game,setGame]=React.useState(note.gameNames?.[0]||"");
@@ -2382,8 +2389,8 @@ function NoteDetailModal({note,gameIndex,gameNames,notionTok,onClose,onSaved,onD
   }
   const L={fontSize:10,color:"var(--ts)",display:"block",marginBottom:3,fontWeight:500};
   return(
-    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bc)",borderRadius:12,padding:20,width:380,maxWidth:"100%",border:".5px solid var(--br)",boxShadow:"0 8px 40px rgba(0,0,0,.5)",maxHeight:"85vh",overflowY:"auto"}}>
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.6)",zIndex:300,display:"flex",alignItems:isMobile?"stretch":"center",justifyContent:"center",padding:isMobile?0:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bc)",borderRadius:isMobile?0:12,padding:isMobile?16:20,width:isMobile?"100%":380,maxWidth:"100%",border:".5px solid var(--br)",boxShadow:"0 8px 40px rgba(0,0,0,.5)",maxHeight:isMobile?"100%":"85vh",height:isMobile?"100%":"auto",overflowY:"auto"}}>
         <div style={{display:"flex",alignItems:"center",marginBottom:14}}>
           <span style={{fontSize:13,fontWeight:700,color:"var(--tp)"}}>📝 문서</span>
           <span style={{fontSize:10,color:"var(--tm)",marginLeft:8}}>{note.date}</span>
