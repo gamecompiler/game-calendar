@@ -1187,13 +1187,12 @@ function App() {
         // 컨텐츠 종류 태그에서 방송 여부 판단 (제목 기반 필터 X)
         const typeProp=props["컨텐츠 종류"]||{};
         const tags=(typeProp.multi_select||[]).map(t=>t.name);
-        // 카테고리 태그(방송/일정/합방)가 있으면 수동 입력 일정 → 표시.
-        // 피드에서 동기화된 게임이벤트(카테고리 없이 업데이트/픽업/영상 타입만)만 중복 방지로 제외.
-        const hasCategory=tags.some(t=>t.startsWith("방송")||t.startsWith("일정")||t==="합방");
-        const looksSyncedFeed=!hasCategory && tags.length>0 && tags.every(t=>t==="업데이트"||t==="픽업"||t==="영상");
-        if(looksSyncedFeed) return null;
+        // 순수 방송만 표시: 방송/합방/특별방송 태그가 있어야 함(공식 게임일정·비공식 메모는 제외).
+        // 업데이트/픽업 태그가 섞여 있으면(피드 동기화 항목과 중복) 제외.
+        if(tags.some(t=>t==="업데이트"||t==="픽업")) return null;
+        if(!tags.some(t=>t.startsWith("방송")||t==="합방"||t==="특별 방송")) return null;
         const isCollab=tags.some(t=>t.includes("합방"));
-        const evType=tags.includes("특별 방송")?"특별 방송":(tags.some(t=>t.startsWith("방송")||t==="합방")?"방송":"일정");
+        const evType=tags.includes("특별 방송")?"특별 방송":"방송";
         // 회차
         const epProp=props["컨텐츠 회차"]||props["회차"]||{};
         const episode=epProp.number||null;
