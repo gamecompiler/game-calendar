@@ -926,10 +926,22 @@ class Handler(SimpleHTTPRequestHandler):
             db = qs.get("db", [""])[0] or ""
             if not db or db.replace("-", "").lower() not in wl:
                 send({"error": "db not allowed (public read is limited to whitelisted DBs)"}, 403); return
-            body = _j.dumps({"page_size": 100}).encode()
-            req = urllib.request.Request(f"https://api.notion.com/v1/databases/{db}/query", data=body, method="POST", headers=H)
-            with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
-                send(_j.loads(r.read())); return
+            # 전량 수집(페이지네이션): 미래·과거 일정이 100개 제한에 잘리지 않도록 최대 6페이지(600개)
+            all_results = []; cursor = None; pages = 0
+            while True:
+                q = {"page_size": 100}
+                if cursor: q["start_cursor"] = cursor
+                body = _j.dumps(q).encode()
+                req = urllib.request.Request(f"https://api.notion.com/v1/databases/{db}/query", data=body, method="POST", headers=H)
+                with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+                    d = _j.loads(r.read())
+                all_results.extend(d.get("results", []))
+                pages += 1
+                if d.get("has_more") and d.get("next_cursor") and pages < 6:
+                    cursor = d.get("next_cursor")
+                else:
+                    break
+            send({"results": all_results, "has_more": False}); return
         except urllib.error.HTTPError as e:
             try: send(_j.loads(e.read()), e.code)
             except Exception: send({"error": "HTTP %d" % e.code}, e.code)

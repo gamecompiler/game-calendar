@@ -81,13 +81,30 @@ export default async function handler(req, res) {
       return res.status(403).json({ error: 'db not allowed (public read is limited to whitelisted DBs)' });
     }
     // (4) 바디는 서버가 구성. Notion query는 POST지만, 읽기 전용 토큰이라 조회만 가능.
-    const body = JSON.stringify({ page_size: 100 });
-    const r = await fetch(`https://api.notion.com/v1/databases/${db}/query`, {
-      method: 'POST', headers, body,
-    });
-    const data = await r.json();
+    // 전량 수집(페이지네이션): 미래·과거 일정이 100개 제한에 잘리지 않도록 최대 6페이지(600개).
+    const all = [];
+    let cursor = null, pages = 0, lastStatus = 200;
+    while (true) {
+      const q = { page_size: 100 };
+      if (cursor) q.start_cursor = cursor;
+      const r = await fetch(`https://api.notion.com/v1/databases/${db}/query`, {
+        method: 'POST', headers, body: JSON.stringify(q),
+      });
+      lastStatus = r.status;
+      const data = await r.json();
+      if (!r.ok) {
+        return res.status(r.status).json(data); // 오류는 그대로 전달
+      }
+      all.push(...(data.results || []));
+      pages += 1;
+      if (data.has_more && data.next_cursor && pages < 6) {
+        cursor = data.next_cursor;
+      } else {
+        break;
+      }
+    }
     res.setHeader('Cache-Control', 's-maxage=300, stale-while-revalidate=60');
-    return res.status(r.status).json(data);
+    return res.status(200).json({ results: all, has_more: false });
   } catch (e) {
     return res.status(502).json({ error: e.message });
   }
