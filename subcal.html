@@ -879,6 +879,7 @@ function App() {
   const [selNote,     setSelNote]     = useState(null); // 선택된 노트 상세
   const [showNotesInCal, setShowNotesInCal] = useState(true); // 캘린더에 문서 표시 여부
   const [showBcastInCal, setShowBcastInCal] = useState(true); // 캘린더에 방송일정 표시 여부
+  const [maxCellEvs,  setMaxCellEvs]  = useState(3); // 하루 셀당 기본 표시 개수(방송카드 제외분) — 필터에서 조정 가능
   const [noteLoading, setNoteLoading] = useState(false); // 노션 문서 수집 중 // 노션 방송 일정
   const [noteDbId,    setNoteDbId]    = useState("20466cc1-f1b5-8060-b379-eb16721bd1e4"); // 문서 목록 DB
   const [noteEvs,     setNoteEvs]     = useState([]); // 노션 노트 목록
@@ -1081,7 +1082,7 @@ function App() {
       try{const r=await store.get("v45_dbid");if(r?.value)setNotionDbId(r.value);}catch{}
 
       try{const r=await store.get("v67_ws");if(r?.value)setWeekStart(Number(r.value));}catch{}
-      try{const r=await store.get("cal_filters");if(r?.value){const f=JSON.parse(r.value);if(f.showNotes!=null)setShowNotesInCal(f.showNotes);if(f.showBcast!=null)setShowBcastInCal(f.showBcast);}}catch{}
+      try{const r=await store.get("cal_filters");if(r?.value){const f=JSON.parse(r.value);if(f.showNotes!=null)setShowNotesInCal(f.showNotes);if(f.showBcast!=null)setShowBcastInCal(f.showBcast);if(f.maxCellEvs!=null)setMaxCellEvs(f.maxCellEvs);}}catch{}
       try{const r=await store.get("v_hidden_mem");if(r?.value)setHiddenMembers(new Set(JSON.parse(r.value)));}catch{}
       try{const r=await store.get("v_hidden_game");if(r?.value)setHiddenGames(new Set(JSON.parse(r.value)));}catch{}
       try{const r=await store.get("v_tag_colors");if(r?.value){const a=JSON.parse(r.value);if(Array.isArray(a))setTagColors(a);}}catch{}
@@ -1657,7 +1658,7 @@ function App() {
         })}
         {(()=>{
           const allOn=games.filter(g=>!hiddenGames.has(g.id)).every(g=>g.on);
-          const saveFilters=(notes,bcast)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast}));}catch{}};
+          const saveFilters=(notes,bcast,maxN)=>{try{store.set("cal_filters",JSON.stringify({showNotes:notes,showBcast:bcast,maxCellEvs:maxN??maxCellEvs}));}catch{}};
           const tgl=(on,label,c,onClick)=>(
             <button onClick={onClick}
               style={{fontSize:12,padding:"4px 12px",borderRadius:20,cursor:"pointer",fontFamily:"inherit",border:".5px solid",
@@ -1669,6 +1670,13 @@ function App() {
             {tgl(allOn,"게임","#378ADD",()=>setGames(p=>p.map(g=>hiddenGames.has(g.id)?g:{...g,on:!allOn})))}
             {tgl(showBcastInCal,"일정","#c07000",()=>{const v=!showBcastInCal;setShowBcastInCal(v);saveFilters(showNotesInCal,v);})}
             {tgl(showNotesInCal,"문서","#9B60FF",()=>{const v=!showNotesInCal;setShowNotesInCal(v);saveFilters(v,showBcastInCal);})}
+            {!isMobile&&<label style={{display:"flex",alignItems:"center",gap:5,fontSize:12,padding:"4px 10px",borderRadius:20,border:".5px solid var(--br)",color:"var(--ts)",cursor:"pointer"}}>
+              하루 기본 표시
+              <select value={maxCellEvs} onChange={e=>{const v=Number(e.target.value);setMaxCellEvs(v);saveFilters(showNotesInCal,showBcastInCal,v);}}
+                style={{background:"var(--bi)",color:"var(--tp)",border:".5px solid var(--br)",borderRadius:5,fontSize:11,padding:"2px 4px",fontFamily:"inherit",cursor:"pointer"}}>
+                {[1,2,3,4,5,6,8,10].map(n=><option key={n} value={n}>{n}개</option>)}
+              </select>
+            </label>}
           </>);
         })()}
       </div>}
@@ -1983,7 +1991,7 @@ function App() {
                         const noteEvsCel=noteEvs.filter(e=>e.date===cell.ds);
                         const gameEvs=allCellEvs.filter(e=>!e.isBroadcast);
                         const isExpanded=(rowIdx===expandedWeek);
-                        const maxGameEvs=isExpanded?9999:Math.max(0,3-bcEvs.length); // 밀집 주간(런칭 겹침 등)이 과하게 길어지지 않게 기본 표시 개수 축소(6→3), 클릭해서 펼치면 전체 표시
+                        const maxGameEvs=isExpanded?9999:Math.max(0,maxCellEvs-bcEvs.length); // 필터의 "하루 기본 표시" 옵션으로 조정 가능. 클릭해서 펼치면 전체 표시
                         return(
                           <div key={cell.ds}
                             onMouseEnter={()=>cell.cur&&setHoverDs(cell.ds)}
