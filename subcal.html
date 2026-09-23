@@ -1549,8 +1549,8 @@ function App() {
         </div>
       )}
 
-      {/* Compiler banner */}
-      <div style={{display:"flex",alignItems:"center",gap:6,padding:"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0}}>
+      {/* Compiler banner — 아래 멤버바와 하나의 "정체성 블록"으로 묶어 헤더 줄 수 축소(에디토리얼 정리) */}
+      <div style={{display:"flex",alignItems:"center",gap:6,padding:members.length>0?"6px 12px 2px":"5px 12px",background:"var(--bc)",borderBottom:members.length>0?"none":".5px solid var(--br)",flexShrink:0}}>
         <span onClick={()=>window.location.reload()} title="새로고침"
           style={{fontSize:11,fontWeight:800,letterSpacing:"-0.3px",color:"var(--tp)",marginRight:4,cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
           컴파일러의 서브컬쳐 캘린더
@@ -1570,7 +1570,7 @@ function App() {
 
       {/* 원스동 멤버 바 (서버가 안전 필드만 내려줌 — 토큰/일정DB/문서DB 없음) */}
       {members.length>0 && (
-        <div style={{display:"flex",alignItems:"center",gap:isMobile?4:6,padding:isMobile?"3px 8px":"5px 12px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,overflowX:"auto"}}>
+        <div style={{display:"flex",alignItems:"center",gap:isMobile?4:6,padding:isMobile?"3px 8px 6px":"2px 12px 6px",background:"var(--bc)",borderBottom:".5px solid var(--br)",flexShrink:0,overflowX:"auto"}}>
           {!isMobile&&<span style={{fontSize:10,fontWeight:700,color:"var(--tm)",whiteSpace:"nowrap",marginRight:2,flexShrink:0}}>원스동</span>}
           {(()=>{
             // 가장 가까운(다가오는) 생일 멤버 id 계산
