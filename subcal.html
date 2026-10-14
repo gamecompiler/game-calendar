@@ -1556,6 +1556,10 @@ function App() {
           style={{fontSize:11,fontWeight:800,letterSpacing:"-0.3px",color:"var(--tp)",marginRight:4,cursor:"pointer",userSelect:"none",whiteSpace:"nowrap"}}>
           컴파일러의 서브컬쳐 캘린더
         </span>
+        {!IS_LOCAL&&<a href="/guide/" title="컴소이드 42빌드 가이드(뷰포인트 설치·접속)"
+          style={{order:99,marginLeft:"auto",fontSize:11,fontWeight:700,color:"var(--ts)",textDecoration:"none",padding:"2px 9px",borderRadius:12,border:".5px solid var(--br)",whiteSpace:"nowrap",flexShrink:0}}>
+          🧟 컴소이드 가이드
+        </a>}
         {!isMobile&&COMPILER.map((ch,ci)=>{
           const icon=ci===0?chIcon0:ci===1?chIcon1:ci===2?chIcon2:"";
           return(
