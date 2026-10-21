@@ -850,6 +850,99 @@ function ProtocolGuide({onClose}) {
 }
 
 /* ── App ──────────────────────────────────────────────────────────────────── */
+// ── 주간 일정표 (원스동 멤버, 노션 연동한 사람만) ──────────────────────────────
+// 'Weekly Plan' 카드를 캔버스에 그린다 (CastEdit 주간 일정표와 같은 모양). PNG로 내려받기.
+const WP_W=1080, WP_H=1520, WP_WEEK=["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+function wpMonday(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+function wpIso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function wpClock(t){if(!t)return"";const[h,m]=t.split(":").map(Number);return m?`${h}시 ${m}분`:`${h}시`;}
+function wpRows(data){
+  return (data?.days||[]).map(d=>{
+    const it=d.items||[];
+    if(!it.length) return {day:d.date,lines:[],tag:"",off:true};
+    const f=it[0];
+    const game=(f.games||[]).join(", ");
+    let l1=game||f.title, l2=game&&f.title!==game?f.title:"";
+    if(f.episode!=null&&l2&&!String(l2).includes(String(f.episode))) l2+=` · ${f.episode}화`;
+    if(it.length>1){const more=it.slice(1,3).map(x=>(x.games||[])[0]||x.title).join(" · ");l2=l2?`${l2} · ${more}`:more;}
+    return {day:d.date,lines:[l1,l2].filter(Boolean),tag:wpClock(f.time)||(f.collab?"합방":""),off:false};
+  });
+}
+function wpDraw(cv,rows,name,note,frame){
+  const g=cv.getContext("2d");cv.width=WP_W;cv.height=WP_H;
+  const F="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif";
+  const ink="#2B2B2B", bg="#FFF4CF", fr=frame||"#7CC27E", cols=["#F28C28","#F28C28","#F28C28","#F28C28","#F28C28","#7B78D9","#E0688E"], tagc="#E8505B";
+  const rr=(x,y,w,h,r)=>{g.beginPath();g.roundRect(x,y,w,h,r);};
+  const fit=(t,px,maxw,wt=700)=>{let p=px;g.font=`${wt} ${p}px ${F}`;while(p>18&&g.measureText(t).width>maxw){p-=2;g.font=`${wt} ${p}px ${F}`;}return p;};
+  const outl=(t,x,y,px,fill,stroke,sw,wt=900)=>{g.font=`${wt} ${px}px ${F}`;g.lineJoin="round";g.lineWidth=sw;g.strokeStyle=stroke;g.strokeText(t,x,y);g.fillStyle=fill;g.fillText(t,x,y);};
+  g.fillStyle=bg;g.fillRect(0,0,WP_W,WP_H);
+  rr(18,18,WP_W-36,WP_H-36,46);g.lineWidth=14;g.strokeStyle=fr;g.stroke();
+  g.textBaseline="alphabetic";g.textAlign="left";
+  if(name) outl(`${name}'s`,70,118,58,ink,"#FFFFFF",10);
+  outl("Weekly Plan",70,name?245:205,118,fr,ink,14);
+  if(note){rr(WP_W-300,70,230,110,22);g.fillStyle="#FFF";g.fill();g.lineWidth=4;g.strokeStyle=ink;g.stroke();
+    g.textAlign="center";g.textBaseline="middle";g.fillStyle=ink;fit(note,30,200);g.fillText(note,WP_W-185,125);}
+  const top=290,bottom=WP_H-70,rh=(bottom-top)/7;
+  rows.slice(0,7).forEach((r,i)=>{
+    const y=top+i*rh,d=new Date(r.day+"T00:00:00"),wd=(d.getDay()+6)%7;
+    rr(70,y+18,250,rh-36,(rh-36)/2);g.fillStyle=cols[wd];g.fill();g.lineWidth=4;g.strokeStyle=ink;g.stroke();
+    g.textAlign="center";g.textBaseline="middle";g.fillStyle="#FFF";g.font=`900 40px ${F}`;
+    g.fillText(`${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")} ${WP_WEEK[wd]}`,195,y+rh/2);
+    const bx=345,by=y+12,bw=WP_W-345-70,bh=rh-24;
+    if(r.off){g.textAlign="left";g.textBaseline="middle";outl("휴방!",bx+40,y+rh/2,84,tagc,"#FFFFFF",12);return;}
+    rr(bx,by,bw,bh,26);g.fillStyle="#FFF";g.fill();g.lineWidth=4;g.strokeStyle=ink;g.stroke();
+    let tw=0;
+    if(r.tag){g.font=`900 28px ${F}`;tw=g.measureText(r.tag).width+34;const ty=by+bh/2-22-(r.lines.length>1?18:0);
+      rr(bx+28,ty,tw,44,22);g.fillStyle=tagc;g.fill();g.fillStyle="#FFF";g.textAlign="center";g.textBaseline="middle";g.fillText(r.tag,bx+28+tw/2,ty+22);tw+=16;}
+    const ix=bx+28+tw,iw=bw-56-tw,cx=ix+iw/2;g.fillStyle=ink;g.textAlign="center";
+    if(r.lines.length<=1){fit(r.lines[0]||"",44,iw);g.textBaseline="middle";g.fillText(r.lines[0]||"",cx,by+bh/2);}
+    else{fit(r.lines[0],40,iw);g.textBaseline="bottom";g.fillText(r.lines[0],cx,by+bh/2+2);
+      fit(r.lines[1],34,bw-56,600);g.textBaseline="top";g.fillText(r.lines[1],bx+bw/2,by+bh/2+6);}
+  });
+}
+function WeeklyPlanModal({member,onClose}){
+  const cvRef=React.useRef(null);
+  const [mon,setMon]=React.useState(()=>{const t=new Date();return wpMonday(t.getDay()===5||t.getDay()===6||t.getDay()===0?new Date(t.getFullYear(),t.getMonth(),t.getDate()+3):t);});
+  const [data,setData]=React.useState(null);
+  const [err,setErr]=React.useState("");
+  React.useEffect(()=>{
+    let alive=true;setData(null);setErr("");
+    fetch(`${API}/api/member-week?id=${member.id.replace(/-/g,"")}&start=${wpIso(mon)}`)
+      .then(async r=>{const j=await r.json().catch(()=>({}));if(!r.ok)throw new Error(j.error||("HTTP "+r.status));return j;})
+      .then(j=>{if(alive)setData(j);}).catch(e=>{if(alive)setErr(e.message);});
+    return()=>{alive=false;};
+  },[member.id,mon]);
+  React.useEffect(()=>{
+    if(!data||!cvRef.current) return;
+    const draw=()=>wpDraw(cvRef.current,wpRows(data),member.name,"",member.color||"#7CC27E");
+    (document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(draw);
+  },[data,member]);
+  const shift=n=>setMon(m=>{const x=new Date(m);x.setDate(x.getDate()+n);return x;});
+  const download=()=>{const cv=cvRef.current;if(!cv)return;cv.toBlob(b=>{const a=document.createElement("a");
+    const n=Math.floor((mon.getDate()-1)/7)+1;a.href=URL.createObjectURL(b);
+    a.download=`${member.name}_${mon.getFullYear()}.${String(mon.getMonth()+1).padStart(2,"0")}_${n}주차.png`;a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);},"image/png");};
+  return(
+    <div onClick={onClose} style={{position:"fixed",inset:0,background:"rgba(0,0,0,.55)",zIndex:300,display:"flex",alignItems:"center",justifyContent:"center",padding:16}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"var(--bc)",border:".5px solid var(--br)",borderRadius:12,padding:12,width:"min(460px,100%)",maxHeight:"100%",display:"flex",flexDirection:"column",gap:8}}>
+        <div style={{display:"flex",alignItems:"center",gap:6}}>
+          <span style={{fontSize:13,fontWeight:700,color:"var(--tp)",flex:1}}>📅 {member.name} 주간 일정</span>
+          <button className="ib" onClick={()=>shift(-7)}>{"<"}</button>
+          <span style={{fontSize:11,color:"var(--ts)",minWidth:84,textAlign:"center"}}>{wpIso(mon).slice(5).replace("-","/")} 주</span>
+          <button className="ib" onClick={()=>shift(7)}>{">"}</button>
+          <button className="ib" onClick={onClose}>✕</button>
+        </div>
+        <div style={{overflow:"auto",flex:1,minHeight:0}}>
+          {err?<div style={{fontSize:12,color:"#E8505B",padding:20,textAlign:"center"}}>일정을 불러오지 못했습니다 — {err}</div>
+            :!data?<div style={{fontSize:12,color:"var(--ts)",padding:20,textAlign:"center"}}>불러오는 중…</div>
+            :<canvas ref={cvRef} style={{width:"100%",height:"auto",display:"block",borderRadius:8}}/>}
+        </div>
+        <button className="pill" disabled={!data} onClick={download} style={{justifyContent:"center"}}>PNG로 받기</button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const now=new Date(), todayStr=lDS(now);
 
@@ -886,6 +979,7 @@ function App() {
   const [notePage,    setNotePage]    = useState(0);  // 문서 목록 페이지
   const [members,     setMembers]     = useState([]); // 원스동 멤버 명단 (서버에서 안전 필드만)
   const [selMember,   setSelMember]   = useState(null); // 멤버 바: 선택 시 확장
+  const [weekMember,  setWeekMember]  = useState(null); // 주간 일정표를 연 멤버 (노션 연동한 멤버만)
   const [hiddenMembers,setHiddenMembers]=useState(()=>new Set()); // 추적 끈 스트리머 id → 페이지에서 완전 제거
   const [hiddenGames,setHiddenGames]=useState(()=>new Set()); // 추적 끈 게임 id → 사이드바·캘린더·소식 전부 제거
   // 방송 카드 강조 태그 색상 규칙: match(노션 태그) → label(뱃지 문구) + rgb(카드 색). 기본: 게임사 특별방송=공식/청록
@@ -1618,6 +1712,8 @@ function App() {
                 {expanded&&<>
                   {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
                   {m.birthday&&<span style={{fontSize:11,fontWeight:600,color:"var(--ts)"}}>🎂 {m.birthday.slice(5).replace("-","/")}</span>}
+                  {m.schedule&&<span onClick={e=>{e.stopPropagation();setWeekMember(m);}} title="이번 주 방송 일정"
+                    style={{fontSize:10,fontWeight:700,padding:"1px 7px",borderRadius:10,background:col,color:"#fff",cursor:"pointer"}}>📅 주간 일정</span>}
                 </>}
               </div>
             );
@@ -1625,6 +1721,8 @@ function App() {
           })()}
         </div>
       )}
+
+      {weekMember&&<WeeklyPlanModal member={weekMember} onClose={()=>setWeekMember(null)}/>}
 
       {/* 광고 배너 자리 (미래) — 구조만 예약, 기본 숨김 */}
       <div id="ad-slot" style={{display:"none"}} />

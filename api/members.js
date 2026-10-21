@@ -14,6 +14,7 @@ function txt(p) {
   if (!p) return '';
   if (p.type === 'title') return (p.title || []).map((t) => t.plain_text || '').join('').trim();
   if (p.type === 'rich_text') return (p.rich_text || []).map((t) => t.plain_text || '').join('').trim();
+  if (p.type === 'url') return (p.url || '').trim();
   return '';
 }
 
@@ -28,6 +29,8 @@ function toSafe(page) {
     birthday: (p['생일'] && p['생일'].date && p['생일'].date.start) || '',
     classes: ((p['소속반'] && p['소속반'].multi_select) || []).map((o) => o.name),
     color: txt(p['멤버색상']),
+    // 주간 일정 버튼을 보일지만 (노션토큰·일정DB 값은 담지 않는다)
+    schedule: !!(txt(p['노션토큰']) && /[0-9a-f]{32}/i.test(txt(p['일정DB']).replace(/-/g, ''))),
   };
 }
 
@@ -41,7 +44,8 @@ export default async function handler(req, res) {
   if (!token) return res.status(503).json({ error: 'NOTION_READONLY_TOKEN not configured on server' });
 
   try {
-    const r = await fetch(`https://api.notion.com/v1/databases/${MEMBERS_DB}/query`, {
+    const base = (process.env.NOTION_API_BASE || 'https://api.notion.com').replace(/\/$/, '');
+    const r = await fetch(`${base}/v1/databases/${MEMBERS_DB}/query`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,

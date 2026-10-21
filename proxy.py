@@ -27,6 +27,8 @@ def _load_dotenv():
         pass
 
 _load_dotenv()
+# 노션 API 주소 (테스트에서 가짜 서버로 바꿀 때만 NOTION_API_BASE)
+NOTION_BASE = (os.environ.get("NOTION_API_BASE") or "https://api.notion.com").rstrip("/")
 
 def make_headers(url):
     """요청 대상에 따라 적절한 헤더 반환"""
@@ -168,6 +170,8 @@ class Handler(SimpleHTTPRequestHandler):
                 self.wfile.write(str(e).encode())
         elif self.path.startswith("/api/wuwa"):
             self._handle_wuwa_news()
+        elif self.path.startswith("/api/member-week"):
+            self._handle_member_week()
         elif self.path.startswith("/api/members"):
             self._handle_members()
         # ── 기존 경로 (하위 호환) ───────────────────────────────────────────────
@@ -846,7 +850,7 @@ class Handler(SimpleHTTPRequestHandler):
         if not token:
             send({"error": "NOTION_READONLY_TOKEN not configured on server"}, 503); return
         try:
-            url = f"https://api.notion.com/v1/databases/{db}/query"
+            url = f"{NOTION_BASE}/v1/databases/{db}/query"
             body = _j.dumps({"filter": {"property": "승인", "checkbox": {"equals": True}}, "page_size": 100}).encode()
             req = urllib.request.Request(url, data=body, method="POST",
                 headers={"Authorization": "Bearer " + token, "Notion-Version": "2022-06-28", "Content-Type": "application/json"})
@@ -864,8 +868,10 @@ class Handler(SimpleHTTPRequestHandler):
             t = p.get("type")
             if t == "title": return "".join(x.get("plain_text", "") for x in p.get("title", [])).strip()
             if t == "rich_text": return "".join(x.get("plain_text", "") for x in p.get("rich_text", [])).strip()
+            if t == "url": return (p.get("url") or "").strip()
             return ""
 
+        import re as _re
         out = []
         for page in data.get("results", []):
             p = page.get("properties", {})
@@ -880,8 +886,106 @@ class Handler(SimpleHTTPRequestHandler):
                 "birthday": ((p.get("생일") or {}).get("date") or {}).get("start", ""),
                 "classes": [o["name"] for o in ((p.get("소속반") or {}).get("multi_select") or [])],
                 "color": txt(p.get("멤버색상")),
+                # 주간 일정 버튼을 보일지만 (노션토큰·일정DB 값은 담지 않는다)
+                "schedule": bool(txt(p.get("노션토큰")) and _re.search(r"[0-9a-f]{32}", txt(p.get("일정DB")).replace("-", ""), _re.I)),
             })
         send(out)
+
+    def _handle_member_week(self):
+        """멤버 주간 방송 일정 (팬 공개, 안전 필드만). api/member-week.js 와 동일 출력.
+        멤버의 노션토큰·일정DB는 서버 안에서만 쓰고 응답에 담지 않는다."""
+        import json as _j, re as _re, datetime as _dt
+        token = os.environ.get("NOTION_READONLY_TOKEN", "")
+        db = (os.environ.get("NOTION_MEMBERS_DB") or "3b756ebfd5754e1f8308310b50330806").replace("-", "")
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        mid = (qs.get("id", [""])[0]).replace("-", "")
+        start = qs.get("start", [""])[0]
+
+        def send(obj, code=200):
+            body = _j.dumps(obj, ensure_ascii=False).encode("utf-8")
+            self.send_response(code)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(body)
+
+        def call(tok, method, path, body=None):
+            data = _j.dumps(body).encode() if body is not None else None
+            req = urllib.request.Request(f"{NOTION_BASE}/v1/{path}", data=data, method=method,
+                headers={"Authorization": "Bearer " + tok, "Notion-Version": "2022-06-28", "Content-Type": "application/json"})
+            with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+                return _j.loads(r.read().decode("utf-8"))
+
+        def txt(p):
+            if not p: return ""
+            t = p.get("type")
+            if t == "title": return "".join(x.get("plain_text", "") for x in p.get("title", [])).strip()
+            if t == "rich_text": return "".join(x.get("plain_text", "") for x in p.get("rich_text", [])).strip()
+            if t == "url": return (p.get("url") or "").strip()
+            return ""
+
+        if not token:
+            send({"error": "NOTION_READONLY_TOKEN not configured on server"}, 503); return
+        if not _re.fullmatch(r"[0-9a-fA-F]{32}", mid) or not _re.fullmatch(r"\d{4}-\d{2}-\d{2}", start):
+            send({"error": "id / start(YYYY-MM-DD) required"}, 400); return
+        try:
+            members = call(token, "POST", f"databases/{db}/query",
+                           {"filter": {"property": "승인", "checkbox": {"equals": True}}, "page_size": 100})
+            page = next((m for m in members.get("results", []) if m.get("id", "").replace("-", "").lower() == mid.lower()), None)
+            if not page:
+                send({"error": "member not found"}, 404); return
+            mp = page.get("properties", {})
+            mtok = txt(mp.get("노션토큰"))
+            m = _re.search(r"[0-9a-f]{32}", txt(mp.get("일정DB")).replace("-", ""), _re.I)
+            if not mtok or not m:
+                send({"error": "schedule not linked"}, 404); return
+            mdb = m.group(0)
+            d0 = _dt.date.fromisoformat(start)
+            end = (d0 + _dt.timedelta(days=6)).isoformat()
+            q = call(mtok, "POST", f"databases/{mdb}/query", {
+                "filter": {"and": [{"property": "날짜", "date": {"on_or_after": start}},
+                                   {"property": "날짜", "date": {"on_or_before": end}}]},
+                "sorts": [{"property": "날짜", "direction": "ascending"}], "page_size": 100})
+            items = []
+            for pg in q.get("results", []):
+                p = pg.get("properties", {})
+                dv = (((p.get("날짜") or p.get("일시") or p.get("Date") or {}).get("date")) or {}).get("start") or ""
+                if not dv:
+                    continue
+                tags = [t["name"] for t in ((p.get("컨텐츠 종류") or {}).get("multi_select") or [])]
+                if any(t in ("업데이트", "픽업") for t in tags):
+                    continue
+                if not any(t.startswith("방송") or t in ("합방", "특별 방송") for t in tags):
+                    continue
+                tp = p.get("컨텐츠") or p.get("이름") or p.get("제목") or p.get("Name") or {}
+                title = "".join(x.get("plain_text", "") for x in (tp.get("title") or tp.get("rich_text") or [])).strip()
+                ep = (p.get("컨텐츠 회차") or p.get("회차") or {}).get("number")
+                items.append({"date": dv[:10], "time": dv[11:16] if "T" in dv else "", "title": title,
+                              "gameIds": [r["id"] for r in ((p.get("게임") or {}).get("relation") or [])],
+                              "episode": ep if isinstance(ep, (int, float)) and not isinstance(ep, bool) else None,
+                              "tags": tags, "collab": any("합방" in t for t in tags)})
+            names = {}
+            for pid in list(dict.fromkeys(g for x in items for g in x["gameIds"]))[:30]:
+                try:
+                    pg = call(mtok, "GET", f"pages/{pid}")
+                    t = next((v for v in (pg.get("properties") or {}).values() if v.get("type") == "title"), None)
+                    names[pid] = txt(t) if t else ""
+                except Exception:
+                    names[pid] = ""
+            days = []
+            for i in range(7):
+                d = (d0 + _dt.timedelta(days=i)).isoformat()
+                days.append({"date": d, "items": [{"time": x["time"], "title": x["title"],
+                                                   "games": [names[g] for g in x["gameIds"] if names.get(g)],
+                                                   "episode": x["episode"], "tags": x["tags"], "collab": x["collab"]}
+                                                  for x in items if x["date"] == d]})
+            send({"name": txt(mp.get("이름")), "color": txt(mp.get("멤버색상")), "start": start, "days": days})
+        except urllib.error.HTTPError as e:
+            try: msg = _j.loads(e.read()).get("message", "")
+            except Exception: msg = ""
+            send({"error": msg or ("HTTP %d" % e.code)}, e.code)
+        except Exception as e:
+            send({"error": str(e)}, 502)
 
     def _handle_notion_public(self):
         """팬 공개 읽기 전용 (api/notion-public.js 와 동일). GET·환경변수 토큰·화이트리스트 DB만.
