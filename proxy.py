@@ -46,6 +46,25 @@ def make_headers(url):
         h["Referer"] = "https://wutheringwaves.kurogames.com/"
     return h
 
+import threading as _threading
+_SLIDE_LOCK = _threading.Lock()
+_SLIDE_FILE = os.environ.get("SLIDE_STORE_FILE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), ".slide-store.json")
+
+def _slide_load():
+    import json as _j
+    try:
+        with open(_SLIDE_FILE, encoding="utf-8") as f:
+            return _j.load(f)
+    except (OSError, ValueError):
+        return {}
+
+def _slide_save(st):
+    import json as _j
+    tmp = _SLIDE_FILE + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as f:
+        _j.dump(st, f, ensure_ascii=False)
+    os.replace(tmp, _SLIDE_FILE)
+
 class Handler(SimpleHTTPRequestHandler):
     def do_OPTIONS(self):
         self.send_response(200)
@@ -168,6 +187,11 @@ class Handler(SimpleHTTPRequestHandler):
                 self.send_header("Access-Control-Allow-Origin","*")
                 self.end_headers()
                 self.wfile.write(str(e).encode())
+        elif self.path.startswith("/api/slide"):
+            self._handle_slide("GET")
+        elif self.path == "/slide" or self.path.startswith("/slide/") or self.path.startswith("/slide?"):
+            self.path = "/slide.html"                       # 배포의 /slide/<덱> → slide.html (vercel.json rewrite)와 같게
+            super().do_GET()
         elif self.path.startswith("/api/wuwa"):
             self._handle_wuwa_news()
         elif self.path.startswith("/api/member-week"):
@@ -1115,10 +1139,12 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_response(204)
         self.send_header("Access-Control-Allow-Origin","*")
         self.send_header("Access-Control-Allow-Methods","GET,POST,PATCH,OPTIONS")
-        self.send_header("Access-Control-Allow-Headers","Authorization,Content-Type,Notion-Version")
+        self.send_header("Access-Control-Allow-Headers","Authorization,Content-Type,Notion-Version,X-Slide-Key")
         self.end_headers()
 
     def do_POST(self):
+        if self.path.startswith("/api/slide"):
+            return self._handle_slide("POST")
         # ── /api/notion?path=... (새 경로) ──────────────────────────────────
         if self.path.startswith("/api/notion") or self.path.startswith("/api/notion-setup"):
             qs = urllib.parse.parse_qs(self.path.split("?",1)[1] if "?" in self.path else "")
@@ -1224,6 +1250,103 @@ class Handler(SimpleHTTPRequestHandler):
         except Exception as e:
             err=_j.dumps({"error":str(e)},ensure_ascii=False).encode()
             self.send_response(500);self.send_header("Content-Type","application/json");self.send_header("Access-Control-Allow-Origin","*");self.end_headers();self.wfile.write(err)
+
+    # ── 웹 슬라이드 (api/slide.js 와 같은 주소·같은 응답) — 로컬 저장소는 .slide-store.json ──────
+    def _slide_send(self, code, body, ctype="application/json", cache="no-store"):
+        import json as _j
+        data = body if isinstance(body, (bytes, bytearray)) else _j.dumps(body, ensure_ascii=False).encode()
+        self.send_response(code)
+        self.send_header("Content-Type", ctype + ("; charset=utf-8" if ctype == "application/json" else ""))
+        self.send_header("Cache-Control", cache)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type,X-Slide-Key")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def _handle_slide(self, method):
+        import base64, hashlib, json as _j, re, time
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        op = qs.get("op", [""])[0]; sid = qs.get("id", [""])[0]
+        key = self.headers.get("X-Slide-Key", "") or ""
+        sha = lambda s: hashlib.sha256((s or "").encode("utf-8")).hexdigest()
+        with _SLIDE_LOCK:
+            st = _slide_load()
+            def get(k):
+                v = st.get(k); return _j.loads(v) if v else None
+            def put(k, v):
+                st[k] = _j.dumps(v, ensure_ascii=False); _slide_save(st)
+            if op == "list" and method == "GET":
+                return self._slide_send(200, {"decks": get("slide:index") or []})
+            if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", sid):
+                return self._slide_send(400, {"error": "id"})
+            rec = get(f"slide:deck:{sid}")
+            def owner(claim=False):
+                if not key: return False
+                cur = st.get("slide:owner")
+                if cur: return cur == sha(key)
+                if not claim: return False
+                st["slide:owner"] = sha(key); _slide_save(st); return True
+            host = lambda: bool(key) and ((rec and rec.get("hostHash") == sha(key)) or owner())
+            name = qs.get("name", [""])[0]
+            name_ok = bool(re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,79}", name))
+            if method == "GET":
+                if op == "deck":
+                    if not rec: return self._slide_send(404, {"error": "없는 덱"})
+                    return self._slide_send(200, {"id": sid, "deck": rec["deck"], "updated": rec["updated"]})
+                if op == "state":
+                    return self._slide_send(200, get(f"slide:state:{sid}") or {"page": 0, "t": 0})
+                if op == "notes":
+                    if not host(): return self._slide_send(403, {"error": "호스트 암호가 맞지 않다"})
+                    return self._slide_send(200, {"notes": get(f"slide:notes:{sid}") or []})
+                if op == "img":
+                    if not name_ok: return self._slide_send(400, {"error": "name"})
+                    im = get(f"slide:img:{sid}:{name}")
+                    if not im: return self._slide_send(404, {"error": "없는 그림"})
+                    return self._slide_send(200, base64.b64decode(im["data"]), im.get("type") or "image/webp",
+                                            "public, max-age=31536000, immutable")
+                return self._slide_send(400, {"error": "op"})
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            try:
+                body = _j.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                return self._slide_send(400, {"error": "json"})
+            if op == "page":
+                if not rec: return self._slide_send(404, {"error": "없는 덱"})
+                if not host(): return self._slide_send(403, {"error": "호스트 암호가 맞지 않다"})
+                cnt = len(rec["deck"].get("pages") or [])
+                try: page = int(body.get("page", 0))
+                except (TypeError, ValueError): page = 0
+                state = {"page": max(0, min(max(0, cnt - 1), page)), "t": int(time.time() * 1000)}
+                put(f"slide:state:{sid}", state)
+                return self._slide_send(200, state)
+            if not owner(op in ("deck", "img")):
+                return self._slide_send(403, {"error": "주인 열쇠가 맞지 않다"})
+            if op == "deck":
+                deck = body.get("deck")
+                if not isinstance(deck, dict) or not isinstance(deck.get("pages"), list):
+                    return self._slide_send(400, {"error": "deck.pages"})
+                updated = int(time.time() * 1000)
+                put(f"slide:deck:{sid}", {"deck": deck, "hostHash": body.get("hostHash") or (rec or {}).get("hostHash") or "", "updated": updated})
+                put(f"slide:notes:{sid}", body.get("notes") if isinstance(body.get("notes"), list) else [])
+                index = [d for d in (get("slide:index") or []) if d.get("id") != sid]
+                index.insert(0, {"id": sid, "title": str(deck.get("title") or sid), "updated": updated})
+                put("slide:index", index[:200])
+                return self._slide_send(200, {"ok": True, "id": sid, "updated": updated, "pages": len(deck["pages"])})
+            if op == "img":
+                if not name_ok or not body.get("data"): return self._slide_send(400, {"error": "name · data"})
+                if len(body["data"]) > 1_300_000: return self._slide_send(413, {"error": "그림이 너무 크다 (1MB 이하로 줄여서)"})
+                put(f"slide:img:{sid}:{name}", {"type": str(body.get("type") or "image/webp"), "data": body["data"]})
+                return self._slide_send(200, {"ok": True, "name": name})
+            if op == "has":
+                names = [x for x in (body.get("names") or []) if isinstance(x, str)][:300]
+                return self._slide_send(200, {"have": [x for x in names if f"slide:img:{sid}:{x}" in st]})
+            if op == "remove":
+                for k in (f"slide:deck:{sid}", f"slide:notes:{sid}", f"slide:state:{sid}"):
+                    st.pop(k, None)
+                put("slide:index", [d for d in (get("slide:index") or []) if d.get("id") != sid])
+                return self._slide_send(200, {"ok": True})
+            return self._slide_send(400, {"error": "op"})
 
     def log_message(self, fmt, *args):
         pass  # 로그 억제

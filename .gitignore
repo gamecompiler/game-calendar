@@ -24,3 +24,4 @@ Thumbs.db
 
 # Node (Vercel 함수용 의존성)
 node_modules/
+.slide-store.json

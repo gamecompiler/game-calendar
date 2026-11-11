@@ -8,6 +8,8 @@
 - `proxy.py` — 포트 8080 로컬 CORS 프록시. HoYoLAB / Kuro CDN / YouTube RSS / Notion API를 서버사이드로 중계. **로컬 실행의 기준 구현.**
 - `api/*.js` — Vercel 배포용 서버리스 함수. proxy.py의 각 엔드포인트를 이식한 버전.
   - `api/notion.js` — 관리자 쓰기용(호출자 토큰 중계). `api/notion-public.js` — 팬 공개 읽기 전용(환경변수 토큰, GET·화이트리스트 DB만).
+- `slide.html` — 웹 슬라이드(설명회·토론회). `/slide/<덱>` 으로 열린다(React 없이 순수 JS, subcal.html과 무관). 호스트(암호)가 넘기면 접속한 화면이 따라오고(1초마다 `op=state` 확인), `?view=script`는 송출컴용 대본 화면. **CastEdit 앱이 이 파일을 미리 보기로 그대로 묶어 쓴다** — 고치면 cast-ops의 `tools/cast-edit/castedit/slides_web/slide.html`에도 같은 내용을 넣을 것.
+  - `api/slide.js` — 덱·그림·대본·지금 페이지 보관(Upstash Redis: `KV_REST_API_URL`/`KV_REST_API_TOKEN`). 열쇠는 `X-Slide-Key` 헤더, 서버에는 해시만. 주인 열쇠(앱이 올릴 때) / 호스트 암호(넘기기·대본). proxy.py는 같은 주소·같은 응답을 `.slide-store.json`(git 제외)으로 낸다.
 - 로컬은 proxy.py, 배포는 `/api/*`를 쓴다(HTML의 `IS_LOCAL` 자동 분기).
 - **액자 모드** (`/frame`, 로컬은 `subcal.html?frame`) — `subcal.html` 안의 `FrameMode`. 같은 자료(게임 일정·방송일정)로 태블릿 화면보호기용 화면만 다르게 그린다. 그림은 기기의 폴더에서 직접 읽고(서버 업로드 없음), 설정·즐겨찾기·제외·재생목록은 그 브라우저의 localStorage(`frame_cfg_v1`)·IndexedDB(`frame_db`)에만 둔다.
 

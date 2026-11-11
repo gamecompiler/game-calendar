@@ -8,6 +8,14 @@
     {
       "source": "/frame",
       "destination": "/subcal.html"
+    },
+    {
+      "source": "/slide",
+      "destination": "/slide.html"
+    },
+    {
+      "source": "/slide/:id",
+      "destination": "/slide.html"
     }
   ],
   "headers": [
@@ -24,7 +32,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Authorization,Content-Type,Notion-Version"
+          "value": "Authorization,Content-Type,Notion-Version,X-Slide-Key"
         }
       ]
     }

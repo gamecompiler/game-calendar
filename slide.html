@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>슬라이드</title>
+<!--
+  웹 슬라이드 (설명회 · 토론회) — sub-cal.vercel.app/slide/<덱>
+  · 호스트(암호)가 넘기면 접속한 사람 화면이 따라온다 (1초마다 지금 페이지를 확인).
+  · ?view=script  = 송출컴용 대본 화면 (호스트 암호 필요): 지금 페이지의 대본을 크게.
+  · CastEdit 앱도 이 파일을 그대로 미리 보기로 쓴다 (window.__DECK 를 넣어 주면 서버 없이 그린다).
+  배치(layout): cover 표지 · chapter 장 나눔 · topic 글+그림 · gallery 그림 여러 장 · full 그림 가득 · text 글만 · auto(그림 수에 따라)
+-->
+<style>
+  :root{ --bg:#0e1420; --fg:#f3f4f6; --dim:#9aa4b5; --accent:#f5c451; --panel:#172033;
+         --font:'Pretendard','Noto Sans KR','Malgun Gothic',sans-serif; --title-font:var(--font); }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:#000; color:var(--fg); font-family:var(--font); overflow:hidden; }
+  #fit{ position:fixed; inset:0; display:flex; align-items:center; justify-content:center; background:#000; }
+  #stage{ width:1920px; height:1080px; flex:none; transform-origin:center center; background:var(--bg); position:relative; overflow:hidden; }
+  .slide{ position:absolute; inset:0; padding:84px 96px 96px; display:flex; gap:56px; }
+  .slide .tag{ font-size:30px; letter-spacing:.06em; color:var(--accent); font-weight:700; margin-bottom:18px; }
+  .slide h1{ font-family:var(--title-font); font-size:var(--title-size,84px); line-height:1.16; margin:0 0 28px; font-weight:800; word-break:keep-all; }
+  .slide .sub{ font-size:38px; color:var(--dim); line-height:1.45; word-break:keep-all; }
+  .slide ul{ margin:8px 0 0; padding:0; list-style:none; }
+  .slide li{ font-size:var(--body-size,42px); line-height:1.42; margin:0 0 20px; padding-left:38px; position:relative; word-break:keep-all; }
+  .slide li:before{ content:''; position:absolute; left:4px; top:.58em; width:14px; height:14px; border-radius:50%; background:var(--accent); }
+  .txt{ flex:0 0 var(--text-w,40%); display:flex; flex-direction:column; justify-content:center; min-width:0; }
+  .pics{ flex:1; min-width:0; display:grid; gap:20px; }
+  .pic{ position:relative; border-radius:18px; overflow:hidden; background:#000; min-height:0; }
+  .pic img{ width:100%; height:100%; object-fit:var(--fit,cover); display:block; }
+  .pic .cap{ position:absolute; left:0; right:0; bottom:0; padding:12px 18px; font-size:26px; background:linear-gradient(transparent,rgba(0,0,0,.78)); }
+  .l-topic.right{ flex-direction:row-reverse; }
+  .l-topic .pics{ align-content:center; }
+  .l-topic .pic{ aspect-ratio:16/9; max-height:100%; }
+  .l-text{ flex-direction:column; justify-content:center; padding:110px 200px; }
+  .l-text h1{ font-size:calc(var(--title-size,84px)*1.14); }
+  .l-text li{ font-size:calc(var(--body-size,42px)*1.14); }
+  .l-gallery{ flex-direction:column; gap:26px; padding-bottom:104px; }
+  .l-gallery .head{ flex:none; display:flex; align-items:baseline; gap:28px; }
+  .l-gallery h1{ font-size:calc(var(--title-size,84px)*.74); margin:0; }
+  .l-gallery .tag{ margin:0; }
+  .l-gallery .pics.n2{ grid-template-columns:1fr 1fr; }
+  .l-gallery .pics.n3{ grid-template-columns:1.5fr 1fr; grid-template-rows:1fr 1fr; }
+  .l-gallery .pics.n3 .pic:first-child{ grid-row:1 / span 2; }
+  .l-gallery .pics.n4{ grid-template-columns:1fr 1fr; grid-template-rows:1fr 1fr; }
+  .l-gallery .pics.n5,.l-gallery .pics.n6{ grid-template-columns:1fr 1fr 1fr; grid-template-rows:1fr 1fr; }
+  .l-gallery .foot{ flex:none; font-size:32px; color:var(--dim); }
+  .l-full{ padding:0; }
+  .l-full .pic{ position:absolute; inset:0; border-radius:0; }
+  .l-full .bar{ position:absolute; left:0; right:0; bottom:0; padding:90px 96px 64px; background:linear-gradient(transparent,rgba(0,0,0,.86)); }
+  .l-full h1{ margin:0 0 10px; font-size:calc(var(--title-size,84px)*.86); }
+  .l-cover,.l-chapter{ flex-direction:column; justify-content:center; align-items:flex-start; padding:120px 150px; }
+  .l-cover h1{ font-size:calc(var(--title-size,84px)*1.5); }
+  .l-cover .bgpic,.l-chapter .bgpic{ position:absolute; inset:0; opacity:.28; }
+  .l-cover .bgpic img,.l-chapter .bgpic img{ width:100%; height:100%; object-fit:cover; }
+  .l-cover > *:not(.bgpic),.l-chapter > *:not(.bgpic){ position:relative; }
+  .chips{ display:flex; flex-wrap:wrap; gap:14px; margin-top:44px; }
+  .chips span{ font-size:30px; padding:10px 24px; border-radius:999px; background:var(--panel); border:1px solid rgba(255,255,255,.14); }
+  .l-chapter{ align-items:center; text-align:center; }
+  .l-chapter .no{ font-size:44px; color:var(--accent); font-weight:800; letter-spacing:.2em; margin-bottom:24px; }
+  .l-chapter h1{ font-size:calc(var(--title-size,84px)*1.3); }
+  #footer{ position:absolute; left:96px; right:96px; bottom:34px; display:flex; justify-content:space-between; font-size:24px; color:var(--dim); pointer-events:none; }
+  /* 조작 줄 (마우스를 움직이면 나타난다) */
+  #ui{ position:fixed; top:14px; right:14px; display:flex; gap:8px; align-items:center; opacity:0; transition:opacity .25s; z-index:20; }
+  body.show #ui, #ui:focus-within{ opacity:1; }
+  #ui button, #ui span.pill{ font:600 14px var(--font); color:#e5e7eb; background:rgba(17,24,39,.86); border:1px solid rgba(255,255,255,.18);
+       border-radius:999px; padding:7px 14px; cursor:pointer; }
+  #ui span.pill{ cursor:default; }
+  #ui button.on{ background:#f5c451; color:#111; border-color:#f5c451; }
+  #msg{ position:fixed; left:50%; bottom:26px; transform:translateX(-50%); padding:9px 18px; border-radius:999px; background:rgba(17,24,39,.9);
+        font:600 15px var(--font); opacity:0; transition:opacity .3s; z-index:30; pointer-events:none; }
+  #msg.on{ opacity:1; }
+  #login{ position:fixed; inset:0; display:none; align-items:center; justify-content:center; background:rgba(0,0,0,.7); z-index:40; }
+  #login.on{ display:flex; }
+  #login form{ background:#111827; padding:28px; border-radius:16px; width:min(420px,90vw); border:1px solid rgba(255,255,255,.14); }
+  #login h2{ margin:0 0 6px; font-size:20px; } #login p{ margin:0 0 16px; color:#9aa4b5; font-size:14px; }
+  #login input{ width:100%; font:18px var(--font); padding:11px 14px; border-radius:10px; border:1px solid #374151; background:#0b1220; color:#fff; }
+  #login .row{ display:flex; gap:8px; justify-content:flex-end; margin-top:16px; }
+  #login button{ font:600 15px var(--font); padding:9px 18px; border-radius:10px; border:0; cursor:pointer; background:#f5c451; color:#111; }
+  #login button.ghost{ background:#1f2937; color:#e5e7eb; }
+  #login .err{ color:#fca5a5; font-size:14px; min-height:20px; margin-top:8px; }
+  /* 목록 (G) */
+  #grid{ position:fixed; inset:0; background:rgba(3,7,18,.96); z-index:25; display:none; overflow:auto; padding:26px; }
+  #grid.on{ display:grid; grid-template-columns:repeat(auto-fill,minmax(250px,1fr)); gap:16px; align-content:start; }
+  #grid div{ background:#111827; border:2px solid transparent; border-radius:12px; padding:14px 16px; cursor:pointer; min-height:96px; }
+  #grid div.cur{ border-color:#f5c451; } #grid b{ color:#f5c451; margin-right:8px; } #grid small{ display:block; color:#9aa4b5; margin-top:6px; }
+  /* 대본 화면 */
+  body.script{ overflow:auto; background:#0b0f19; }
+  #script{ display:none; max-width:1100px; margin:0 auto; padding:26px 28px 120px; }
+  body.script #script{ display:block; } body.script #fit{ display:none; }
+  #script .top{ display:flex; gap:12px; align-items:center; position:sticky; top:0; background:#0b0f19; padding:10px 0; z-index:5; flex-wrap:wrap; }
+  #script .top button{ font:600 16px var(--font); padding:9px 16px; border-radius:10px; border:1px solid #374151; background:#111827; color:#e5e7eb; cursor:pointer; }
+  #script .no{ font-size:20px; color:#f5c451; font-weight:800; }
+  #script h1{ font-size:30px; margin:14px 0 6px; } #script .next{ color:#9aa4b5; font-size:18px; margin-top:26px; border-top:1px solid #1f2937; padding-top:14px; }
+  #script .notes{ font-size:var(--script-size,34px); line-height:1.62; white-space:pre-wrap; word-break:keep-all; margin-top:14px; }
+  #script .empty{ color:#6b7280; }
+</style>
+</head>
+<body>
+<div id="fit"><div id="stage"></div></div>
+<div id="ui">
+  <span class="pill" id="count"></span>
+  <button id="b-follow" title="호스트가 넘기는 페이지를 따라간다">호스트 따라가기</button>
+  <button id="b-host" title="암호를 넣으면 내가 넘기는 대로 모두의 화면이 넘어간다">호스트</button>
+  <button id="b-grid" title="G">목록</button>
+  <button id="b-full" title="F">전체 화면</button>
+</div>
+<div id="grid"></div>
+<div id="script">
+  <div class="top">
+    <span class="no" id="s-no"></span>
+    <button id="s-prev">◀ 이전</button><button id="s-next">다음 ▶</button>
+    <button id="s-minus">글자 −</button><button id="s-plus">글자 +</button>
+    <span id="s-state" style="color:#9aa4b5;font-size:14px"></span>
+  </div>
+  <h1 id="s-title"></h1>
+  <div class="notes" id="s-notes"></div>
+  <div class="next" id="s-nextt"></div>
+</div>
+<div id="login"><form id="login-form">
+  <h2>호스트 암호</h2><p id="login-why">내가 넘기는 대로 접속한 사람들의 화면이 따라온다.</p>
+  <input id="login-pw" type="password" autocomplete="off" placeholder="암호">
+  <div class="err" id="login-err"></div>
+  <div class="row"><button type="button" class="ghost" id="login-cancel">취소</button><button type="submit">확인</button></div>
+</form></div>
+<div id="msg"></div>
+<script>
+(function(){
+  "use strict";
+  var LOCAL_DECK = window.__DECK || null;                       // 앱 미리 보기: 서버 없이
+  var isLocalHost = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  var API = (location.protocol === "file:" || (isLocalHost && location.port !== "8080")) ? "http://localhost:8080" : "";
+  var qs = new URLSearchParams(location.search);
+  var ID = (qs.get("id") || (location.pathname.match(/\/slide\/([a-z0-9-]+)/) || [])[1] || "").toLowerCase();
+  var SCRIPT = qs.get("view") === "script";
+  var deck = null, cur = 0, follow = true, hostKey = "", notes = null, lastT = 0, hold = 0, scriptSize = 34;
+  var $ = function(id){ return document.getElementById(id); };
+  function esc(s){ return String(s == null ? "" : s).replace(/[&<>"]/g, function(c){ return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]; }); }
+  function store(k, v){ try{ if(v === undefined) return sessionStorage.getItem(k); if(v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); }catch(e){} return null; }
+  function say(t){ var m = $("msg"); m.textContent = t; m.classList.add("on"); clearTimeout(say.t); say.t = setTimeout(function(){ m.classList.remove("on"); }, 2200); }
+  function api(op, opt){
+    opt = opt || {};
+    var u = API + "/api/slide?op=" + op + "&id=" + encodeURIComponent(ID) + (opt.q || "");
+    var h = {}; if(opt.key || hostKey) h["X-Slide-Key"] = opt.key || hostKey;
+    if(opt.body){ h["Content-Type"] = "application/json"; }
+    return fetch(u, {method: opt.body ? "POST" : "GET", headers: h, body: opt.body ? JSON.stringify(opt.body) : undefined, cache: "no-store"})
+      .then(function(r){ return r.json().then(function(j){ if(!r.ok) throw new Error(j.error || r.status); return j; }); });
+  }
+  function imgUrl(im){
+    if(!im) return "";
+    if(im.src) return im.src;
+    return API + "/api/slide?op=img&id=" + encodeURIComponent(ID) + "&name=" + encodeURIComponent(im.name || "");
+  }
+
+  // ── 그리기 ────────────────────────────────────────────
+  function pic(im, cls){
+    return '<div class="pic ' + (cls || "") + '" style="' + (im.fit ? "--fit:" + esc(im.fit) + ";" : "") + '">' +
+      '<img src="' + esc(imgUrl(im)) + '" alt="" style="' + (im.pos ? "object-position:" + esc(im.pos) : "") + '">' +
+      (im.caption ? '<div class="cap">' + esc(im.caption) + '</div>' : "") + '</div>';
+  }
+  function bullets(p){ return (p.bullets && p.bullets.length) ? "<ul>" + p.bullets.map(function(b){ return "<li>" + esc(b) + "</li>"; }).join("") + "</ul>" : ""; }
+  function head(p){ return (p.tag ? '<div class="tag">' + esc(p.tag) + '</div>' : "") + "<h1>" + esc(p.title || "") + "</h1>" + (p.sub ? '<div class="sub">' + esc(p.sub) + '</div>' : ""); }
+  function layoutOf(p){
+    var n = (p.images || []).length, l = p.layout || "auto";
+    if(l !== "auto") return l;
+    var d = (deck.theme && deck.theme.auto) || {};
+    return d[String(Math.min(n, 4))] || (n === 0 ? "text" : n === 1 ? "topic" : "gallery");
+  }
+  function slideHtml(p, i){
+    var th = deck.theme || {}, ims = p.images || [], l = layoutOf(p);
+    var side = p.side || th.side || "left";
+    if(l === "cover"){
+      return '<div class="slide l-cover">' + (ims[0] ? '<div class="bgpic"><img src="' + esc(imgUrl(ims[0])) + '"></div>' : "") +
+        (p.tag || deck.kind ? '<div class="tag">' + esc(p.tag || deck.kind) + '</div>' : "") + "<h1>" + esc(p.title || deck.title || "") + "</h1>" +
+        '<div class="sub">' + esc(p.sub || deck.subtitle || "") + "</div>" +
+        ((deck.members || []).length ? '<div class="chips">' + deck.members.map(function(m){ return "<span>" + esc(m) + "</span>"; }).join("") + "</div>" : "") + "</div>";
+    }
+    if(l === "chapter"){
+      return '<div class="slide l-chapter">' + (ims[0] ? '<div class="bgpic"><img src="' + esc(imgUrl(ims[0])) + '"></div>' : "") +
+        (p.tag ? '<div class="no">' + esc(p.tag) + '</div>' : "") + "<h1>" + esc(p.title || "") + "</h1>" + (p.sub ? '<div class="sub">' + esc(p.sub) + '</div>' : "") + "</div>";
+    }
+    if(l === "full" && ims.length){
+      return '<div class="slide l-full">' + pic(ims[0]) + '<div class="bar">' + head(p) + "</div></div>";
+    }
+    if(l === "gallery" && ims.length){
+      var n = Math.min(ims.length, 6);
+      return '<div class="slide l-gallery"><div class="head">' + (p.tag ? '<div class="tag">' + esc(p.tag) + '</div>' : "") + "<h1>" + esc(p.title || "") + "</h1></div>" +
+        '<div class="pics n' + n + '">' + ims.slice(0, n).map(function(im){ return pic(im); }).join("") + "</div>" +
+        (p.sub || (p.bullets || []).length ? '<div class="foot">' + esc(p.sub || p.bullets.join("  ·  ")) + "</div>" : "") + "</div>";
+    }
+    if(l === "topic" && ims.length){
+      return '<div class="slide l-topic ' + (side === "right" ? "right" : "") + '"><div class="txt">' + head(p) + bullets(p) + '</div><div class="pics">' + pic(ims[0]) + "</div></div>";
+    }
+    return '<div class="slide l-text">' + head(p) + bullets(p) + "</div>";
+  }
+  function applyTheme(){
+    var th = deck.theme || {}, st = $("stage").style, map = {bg:"--bg", fg:"--fg", dim:"--dim", accent:"--accent", panel:"--panel"};
+    Object.keys(map).forEach(function(k){ if(th[k]) st.setProperty(map[k], th[k]); else st.removeProperty(map[k]); });
+    [["font","--font"],["titleFont","--title-font"]].forEach(function(x){ if(th[x[0]]) st.setProperty(x[1], "'" + th[x[0]] + "', 'Pretendard','Noto Sans KR','Malgun Gothic',sans-serif"); else st.removeProperty(x[1]); });
+    [["titleSize","--title-size"],["bodySize","--body-size"]].forEach(function(x){ if(th[x[0]]) st.setProperty(x[1], parseInt(th[x[0]], 10) + "px"); else st.removeProperty(x[1]); });
+    if(th.textWidth) st.setProperty("--text-w", parseInt(th.textWidth, 10) + "%"); else st.removeProperty("--text-w");
+    if(th.fit) st.setProperty("--fit", th.fit); else st.removeProperty("--fit");
+    document.title = (deck.title || "슬라이드");
+  }
+  function fit(){
+    var s = Math.min(window.innerWidth / 1920, window.innerHeight / 1080);
+    $("stage").style.transform = "scale(" + s + ")";
+  }
+  function draw(){
+    if(!deck) return;
+    var pages = deck.pages || [];
+    cur = Math.max(0, Math.min(pages.length - 1, cur));
+    var p = pages[cur] || {};
+    var th = deck.theme || {};
+    $("stage").innerHTML = slideHtml(p, cur) + (layoutOf(p) === "full" || layoutOf(p) === "cover" ? "" :
+      '<div id="footer"><span>' + esc(th.footer || deck.title || "") + "</span><span>" + (cur + 1) + " / " + pages.length + "</span></div>");
+    $("count").textContent = (cur + 1) + " / " + pages.length;
+    var nx = pages[cur + 1];                                       // 다음 장 그림을 미리 받아 둔다
+    if(nx) (nx.images || []).forEach(function(im){ var i = new Image(); i.src = imgUrl(im); });
+    if(SCRIPT) drawScript();
+    if(window.__onPage) try{ window.__onPage(cur); }catch(e){}
+  }
+  function drawScript(){
+    var pages = deck.pages || [], p = pages[cur] || {};
+    $("s-no").textContent = (cur + 1) + " / " + pages.length;
+    $("s-title").textContent = p.title || "";
+    var t = notes ? (notes[cur] || "") : null;
+    $("s-notes").innerHTML = t === null ? '<span class="empty">대본을 보려면 호스트 암호가 필요하다</span>' : (t ? esc(t) : '<span class="empty">(이 페이지는 대본이 없다)</span>');
+    $("s-notes").style.setProperty("--script-size", scriptSize + "px");
+    $("s-nextt").textContent = pages[cur + 1] ? "다음: " + (pages[cur + 1].title || "") : "마지막 페이지";
+  }
+  function grid(on){
+    var g = $("grid");
+    if(on === undefined) on = !g.classList.contains("on");
+    if(on){
+      g.innerHTML = (deck.pages || []).map(function(p, i){
+        return '<div data-i="' + i + '" class="' + (i === cur ? "cur" : "") + '"><b>' + (i + 1) + "</b>" + esc(p.title || "") + "<small>" + esc(p.tag || "") + "</small></div>"; }).join("");
+    }
+    g.classList.toggle("on", on);
+  }
+
+  // ── 넘기기 · 동기화 ───────────────────────────────────
+  function go(i, fromSync){
+    if(!deck) return;
+    var n = (deck.pages || []).length, to = Math.max(0, Math.min(n - 1, i));
+    if(to === cur && !fromSync) return;
+    cur = to; draw();
+    if(fromSync || LOCAL_DECK) return;
+    if(hostKey){
+      hold = Date.now() + 2500;                                    // 내가 방금 넘겼다: 그사이 도착하는 옛 상태로 되돌아가지 않게
+      api("page", {body: {page: cur}}).then(function(s){ if(s.t > lastT) lastT = s.t; }).catch(function(e){ say("넘기기를 알리지 못함: " + e.message); });
+    } else if(follow){ follow = false; ui(); say("혼자 보는 중 — [호스트 따라가기]를 누르면 다시 따라간다"); }
+  }
+  function poll(){
+    if(LOCAL_DECK || !ID || !deck) return;
+    api("state").then(function(s){
+      if(s.t && s.t > lastT && Date.now() > hold){
+        lastT = s.t;
+        if((follow || SCRIPT) && s.page !== cur){ go(s.page, true); }
+      }
+      if(SCRIPT) $("s-state").textContent = "연결됨";
+    }).catch(function(){ if(SCRIPT) $("s-state").textContent = "연결 끊김 — 다시 시도 중"; });
+  }
+  function ui(){
+    $("b-follow").style.display = hostKey ? "none" : "";
+    $("b-follow").classList.toggle("on", follow && !hostKey);
+    $("b-host").classList.toggle("on", !!hostKey);
+    $("b-host").textContent = hostKey ? "호스트 (넘기는 중)" : "호스트";
+  }
+  function askKey(why){
+    return new Promise(function(done){
+      $("login-why").textContent = why; $("login-err").textContent = ""; $("login-pw").value = "";
+      $("login").classList.add("on"); $("login-pw").focus();
+      $("login-form").onsubmit = function(ev){
+        ev.preventDefault();
+        var k = $("login-pw").value;
+        api("notes", {key: k}).then(function(r){
+          hostKey = k; notes = r.notes || []; store("slide-key-" + ID, k);
+          $("login").classList.remove("on"); done(true);
+        }).catch(function(e){ $("login-err").textContent = e.message; });
+      };
+      $("login-cancel").onclick = function(){ $("login").classList.remove("on"); done(false); };
+    });
+  }
+  function becomeHost(){
+    if(hostKey){ hostKey = ""; store("slide-key-" + ID, null); follow = true; ui(); say("호스트를 그만둠"); return; }
+    askKey("내가 넘기는 대로 접속한 사람들의 화면이 따라온다.").then(function(ok){
+      if(!ok) return;
+      ui(); say("호스트 — 지금 페이지부터 모두에게 알린다");
+      api("page", {body: {page: cur}}).then(function(s){ if(s.t > lastT) lastT = s.t; }).catch(function(){});
+    });
+  }
+  function full(){ if(document.fullscreenElement) document.exitFullscreen(); else document.documentElement.requestFullscreen().catch(function(){}); }
+
+  document.addEventListener("keydown", function(e){
+    if($("login").classList.contains("on") || e.ctrlKey || e.altKey || e.metaKey) return;
+    var k = e.key;
+    if(k === "ArrowRight" || k === " " || k === "PageDown" || k === "Enter"){ go(cur + 1); e.preventDefault(); }
+    else if(k === "ArrowLeft" || k === "PageUp" || k === "Backspace"){ go(cur - 1); e.preventDefault(); }
+    else if(k === "Home"){ go(0); } else if(k === "End"){ go(1e9); }
+    else if(k === "f" || k === "F" || k === "ㄹ"){ full(); }
+    else if(k === "g" || k === "G" || k === "ㅎ"){ grid(); }
+    else if(k === "Escape"){ grid(false); }
+    else if(SCRIPT && (k === "=" || k === "+")){ scriptSize = Math.min(80, scriptSize + 2); drawScript(); }
+    else if(SCRIPT && (k === "-" || k === "_")){ scriptSize = Math.max(18, scriptSize - 2); drawScript(); }
+  });
+  $("fit").addEventListener("click", function(e){ go(cur + (e.clientX < window.innerWidth * 0.3 ? -1 : 1)); });
+  $("fit").addEventListener("wheel", function(e){ if(Math.abs(e.deltaY) > 20){ var now = Date.now(); if(now - (go.w || 0) > 280){ go.w = now; go(cur + (e.deltaY > 0 ? 1 : -1)); } } }, {passive: true});
+  var hideT; document.addEventListener("mousemove", function(){ document.body.classList.add("show"); clearTimeout(hideT); hideT = setTimeout(function(){ document.body.classList.remove("show"); }, 2200); });
+  window.addEventListener("resize", fit);
+  $("b-follow").onclick = function(){ follow = !follow; ui(); if(follow){ lastT = 0; poll(); say("호스트를 따라간다"); } };
+  $("b-host").onclick = becomeHost;
+  $("b-full").onclick = full;
+  $("b-grid").onclick = function(){ grid(); };
+  $("grid").onclick = function(e){ var d = e.target.closest("div[data-i]"); if(d){ grid(false); go(parseInt(d.dataset.i, 10)); } };
+  $("s-prev").onclick = function(){ go(cur - 1); }; $("s-next").onclick = function(){ go(cur + 1); };
+  $("s-plus").onclick = function(){ scriptSize = Math.min(80, scriptSize + 2); drawScript(); };
+  $("s-minus").onclick = function(){ scriptSize = Math.max(18, scriptSize - 2); drawScript(); };
+
+  // 앱(CastEdit)에서 부르는 것
+  window.slideSet = function(d, i){ deck = d; LOCAL_DECK = d; if(i !== undefined) cur = i; applyTheme(); fit(); draw(); };
+  window.slideGo = function(i){ cur = i; draw(); };
+
+  function start(){
+    fit();
+    if(SCRIPT) document.body.classList.add("script");
+    if(LOCAL_DECK){ deck = LOCAL_DECK; applyTheme(); draw(); $("ui").style.display = "none"; return; }
+    if(!ID){ $("stage").innerHTML = '<div class="slide l-text"><h1>슬라이드</h1><div class="sub">주소 끝에 덱 이름이 필요하다 — 예: /slide/hsr-4-7</div></div>'; return; }
+    api("deck").then(function(r){
+      deck = r.deck; applyTheme();
+      var saved = store("slide-key-" + ID);
+      var ready = function(){ ui(); draw(); poll(); setInterval(poll, 1000); };
+      if(saved){ api("notes", {key: saved}).then(function(n){ hostKey = saved; notes = n.notes || []; ready(); }).catch(function(){ store("slide-key-" + ID, null); ready(); if(SCRIPT) askKey("대본 화면은 호스트 암호가 필요하다.").then(function(){ ui(); draw(); }); }); }
+      else { ready(); if(SCRIPT) askKey("대본 화면은 호스트 암호가 필요하다.").then(function(){ ui(); draw(); }); }
+      setInterval(function(){ if(deck) api("deck").then(function(x){ if(x.updated !== r.updated){ r = x; deck = x.deck; applyTheme(); draw(); if(hostKey) api("notes").then(function(n){ notes = n.notes || []; draw(); }).catch(function(){}); } }).catch(function(){}); }, 15000);
+    }).catch(function(e){
+      $("stage").innerHTML = '<div class="slide l-text"><h1>열 수 없다</h1><div class="sub">' + esc(e.message) + "</div></div>";
+    });
+  }
+  start();
+})();
+</script>
+</body>
+</html>
