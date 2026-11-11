@@ -9,6 +9,7 @@
 - `api/*.js` — Vercel 배포용 서버리스 함수. proxy.py의 각 엔드포인트를 이식한 버전.
   - `api/notion.js` — 관리자 쓰기용(호출자 토큰 중계). `api/notion-public.js` — 팬 공개 읽기 전용(환경변수 토큰, GET·화이트리스트 DB만).
 - 로컬은 proxy.py, 배포는 `/api/*`를 쓴다(HTML의 `IS_LOCAL` 자동 분기).
+- **액자 모드** (`/frame`, 로컬은 `subcal.html?frame`) — `subcal.html` 안의 `FrameMode`. 같은 자료(게임 일정·방송일정)로 태블릿 화면보호기용 화면만 다르게 그린다. 그림은 기기의 폴더에서 직접 읽고(서버 업로드 없음), 설정·즐겨찾기·제외·재생목록은 그 브라우저의 localStorage(`frame_cfg_v1`)·IndexedDB(`frame_db`)에만 둔다.
 
 ---
 

@@ -4,6 +4,10 @@
     {
       "source": "/",
       "destination": "/subcal.html"
+    },
+    {
+      "source": "/frame",
+      "destination": "/subcal.html"
     }
   ],
   "headers": [
