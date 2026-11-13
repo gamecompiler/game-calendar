@@ -1048,7 +1048,7 @@ function wkcDraw(cv,{items,clashes}){
     const iso=wkcIso(d), x=60+i*(W+gap), isToday=iso===todayIso;
     rr(x,top,W,68,18); g.fillStyle=WKC_COL[i]; g.fill();
     if(isToday){ g.lineWidth=4; g.strokeStyle="#00C9A7"; g.stroke(); }
-    g.textAlign="center"; g.textBaseline="middle"; g.fillStyle="#fff"; g.font=`900 26px ${F}`;
+    g.textAlign="center"; g.textBaseline="middle"; g.fillStyle="#fff"; g.font=`900 28px ${F}`;
     g.fillText(`${WKC_DOW[i]}  ${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`, x+W/2, top+35);
     if(isToday){ g.textAlign="right"; g.font=`900 16px ${F}`; g.fillStyle="#08281F"; g.fillText("오늘", x+W-14, top+18); }
     const by=top+78, bh=bottom-by;
@@ -1070,24 +1070,24 @@ function wkcDraw(cv,{items,clashes}){
       g.fillText("휴방", x+W/2, by+bh/2+10);
       continue;
     }
-    const per=138;
+    const per=168;
     const room=Math.max(1,Math.floor((by+bh-y-6)/per));
     const shown=list.slice(0,room);
     shown.forEach((it,k)=>{
       const iy=y+k*per;
       g.fillStyle=it.color||accent; rr(x+14,iy+4,5,per-22,2.5); g.fill();
       g.textAlign="left";
-      g.fillStyle=accent; g.font=`900 21px ${F}`;
-      g.fillText(fitTxt(it.timeStr||"",21,W-52,900), x+30, iy+28);
-      g.fillStyle=ink; g.font=`900 24px ${F}`;
-      g.fillText(fitTxt(it.game||it.content||"",24,W-52,900), x+30, iy+62);
+      g.fillStyle=accent; g.font=`900 25px ${F}`;
+      g.fillText(fitTxt(it.timeStr||"",25,W-52,900), x+30, iy+32);
+      g.fillStyle=ink; g.font=`900 29px ${F}`;
+      g.fillText(fitTxt(it.game||it.content||"",29,W-52,900), x+30, iy+72);
       g.fillStyle=sub;
-      const lines=wrapTxt(it.content||"", W-56, 18, 500, 2);
-      lines.forEach((ln,j)=>{ g.font=`500 18px ${F}`; g.fillText(ln, x+30, iy+90+j*23); });
+      const lines=(it.game&&it.content&&it.content!==it.game)?wrapTxt(it.content, W-56, 20, 500, 2):[];
+      lines.forEach((ln,j)=>{ g.font=`500 20px ${F}`; g.fillText(ln, x+30, iy+104+j*26); });
       const tags=[];
       if(it.collab) tags.push("합방");
       if(it.episode) tags.push(it.episode+"화");
-      if(tags.length){ g.font=`800 15px ${F}`; g.fillStyle="#E0688E"; g.fillText(tags.join(" · "), x+30, iy+90+lines.length*23+6); }
+      if(tags.length){ g.font=`800 16px ${F}`; g.fillStyle="#E0688E"; g.fillText(tags.join(" · "), x+30, iy+104+lines.length*26+6); }
     });
     if(list.length>shown.length){
       g.textAlign="center"; g.fillStyle=accent; g.font=`800 16px ${F}`;
@@ -3307,7 +3307,14 @@ function BroadcastCard({ev,onClick,rules,clash}){
       {secondary&&<div style={{fontSize:8,color:`rgba(${C.r},.8)`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{secondary}</div>}
       {/* 공식 대형 일정(특별 방송·업데이트)과 같은 날 겹침 — 방송 준비에 영향 */}
       {clash&&(clash.sp.length>0||clash.up.length>0)&&(()=>{
-        const tip=list=>list.map(x=>`${x.game||""}${x.version?" "+x.version:""}${x.predicted?" (예측)":""}`.trim()).filter(Boolean).join(" · ");
+        const tip=list=>{
+          const seen=new Set(), out=[];
+          for(const x of list){
+            const t=`${x.game||""}${x.version?" "+x.version:""}${x.predicted?" (예측)":""}`.trim();
+            if(t&&!seen.has(t)){ seen.add(t); out.push(t); }
+          }
+          return out.join(" · ");
+        };
         const chip=(bg,fg)=>Object.assign({display:"inline-block",fontSize:8,fontWeight:700,padding:"0 4px",borderRadius:3,lineHeight:"13px",whiteSpace:"nowrap"},{background:bg,color:fg});
         return (<div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:2}}>
           {clash.sp.length>0&&<span title={"특별 방송 겹침\n"+tip(clash.sp)} style={chip("rgba(255,183,77,.18)","#ffc266")}>
