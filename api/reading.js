@@ -117,7 +117,10 @@ export default async function handler(req, res) {
       await setJson(`read:state:${id}`, st);
       return send(res, 200, st);
     }
-    if (!(await owner(op === 'work'))) return send(res, 403, { error: '주인 열쇠가 맞지 않다' });
+    // 처음 올리는 사람이 주인 (앱은 그림·소리부터 올린다 — has/img/snd에서도 주인을 정한다. 웹 슬라이드와 같은 주인)
+    if (!(await owner(['work', 'has', 'img', 'snd'].includes(op)))) {
+      return send(res, 403, { error: '주인 열쇠가 맞지 않다 — 웹 슬라이드를 다른 PC·다른 열쇠로 올린 적이 있으면 그 열쇠가 주인이다' });
+    }
     if (op === 'work') {
       const w = body.work;
       if (!w || !Array.isArray(w.episodes)) return send(res, 400, { error: 'work.episodes' });

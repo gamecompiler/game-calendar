@@ -1428,8 +1428,8 @@ class Handler(SimpleHTTPRequestHandler):
                 state = {"ep": ep, "beat": beat, "t": int(time.time() * 1000)}
                 put(f"read:state:{wid}", state)
                 return send(200, state)
-            if not owner(op == "work"):
-                return send(403, {"error": "주인 열쇠가 맞지 않다"})
+            if not owner(op in ("work", "has", "img", "snd")):   # 처음 올리는 것(그림부터)이 주인 — 웹 슬라이드와 같은 주인
+                return send(403, {"error": "주인 열쇠가 맞지 않다 — 웹 슬라이드를 다른 PC·다른 열쇠로 올린 적이 있으면 그 열쇠가 주인이다"})
             if op == "work":
                 w = body.get("work")
                 if not isinstance(w, dict) or not isinstance(w.get("episodes"), list):
