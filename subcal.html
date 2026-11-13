@@ -1054,9 +1054,19 @@ function wkcDraw(cv,{items,clashes}){
     const by=top+78, bh=bottom-by;
     rr(x,by,W,bh,16); g.fillStyle=panel; g.fill();
     g.lineWidth=isToday?3:2; g.strokeStyle=isToday?"rgba(0,201,167,.8)":"rgba(205,214,244,.10)"; g.stroke();
-    let y=by+12;
     const cl=clashes[iso];
-    if(cl&&((cl.sp&&cl.sp.length)||(cl.up&&cl.up.length))){
+    const hasClash=!!(cl&&((cl.sp&&cl.sp.length)||(cl.up&&cl.up.length)));
+    const list=items[iso]||[];
+    const per=168;
+    const room=Math.max(1,Math.floor((bh-40-(hasClash?32:0))/per));
+    const shown=list.slice(0,room);
+    // 일정이 적은 날은 칸 위에 붙지 않고 적당히 내려 균형을 잡는다(최대 110px)
+    let y=by+12;
+    if(list.length){
+      const free=(by+bh-10)-y-(shown.length*per+(hasClash?32:0));
+      if(free>0) y+=Math.min(free/3,110);
+    }
+    if(hasClash){
       let cx=x+12; g.textAlign="left"; g.textBaseline="middle";
       const tag=(txt,fg,bgc)=>{ g.font=`800 15px ${F}`; const w=g.measureText(txt).width+14;
         rr(cx,y,w,24,8); g.fillStyle=bgc; g.fill(); g.fillStyle=fg; g.fillText(txt,cx+7,y+12); cx+=w+5; };
@@ -1064,18 +1074,11 @@ function wkcDraw(cv,{items,clashes}){
       if(cl.up&&cl.up.length) tag("⚠️ 업데이트","#8fcaf8","rgba(100,181,246,.18)");
       y+=32;
     }
-    const list=items[iso]||[];
     if(!list.length){
       g.textAlign="center"; g.textBaseline="middle"; g.fillStyle=mute; g.font=`900 38px ${F}`;
       g.fillText("휴방", x+W/2, by+bh/2+10);
       continue;
     }
-    const per=168;
-    const room=Math.max(1,Math.floor((by+bh-y-6)/per));
-    const shown=list.slice(0,room);
-    // 일정이 적은 날은 칸 위에 붙지 않고 적당히 내려서 균형을 잡는다(최대 110px)
-    const freeH=(by+bh-y-8)-shown.length*per;
-    if(freeH>0) y+=Math.min(freeH/3,110);
     shown.forEach((it,k)=>{
       const iy=y+k*per;
       g.fillStyle=it.color||accent; rr(x+14,iy+4,5,per-22,2.5); g.fill();
