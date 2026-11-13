@@ -2302,7 +2302,7 @@ function App() {
                     <div className={isLive?"live-ring":undefined} style={{width:18,height:18,borderRadius:"50%",overflow:"hidden",border:`2px solid ${col}`,background:col,display:"flex",alignItems:"center",justifyContent:"center"}}>
                       {chanIcons["c_"+m.chzzk]&&<img src={chanIcons["c_"+m.chzzk]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>}
                     </div>
-                    {isLive&&<span title="치지직 방송 중" style={{position:"absolute",right:-3,bottom:-3,width:8,height:8,borderRadius:"50%",background:"#FF3B30",border:"1.5px solid var(--bc)",boxSizing:"content-box"}}/>}
+                    {isLive&&<span title="치지직 방송 중" style={{position:"absolute",right:-3,bottom:-3,width:8,height:8,borderRadius:"50%",background:"#00FFA3",boxShadow:"0 0 5px #00FFA3",border:"1.5px solid var(--bc)",boxSizing:"content-box"}}/>}
                   </a>
                   :<span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}} />}
                 {/* 확장 시 치지직 바로 옆에 유튜브 채널들 (치지직 → 유튜브 1,2,3 순) */}
@@ -2315,10 +2315,16 @@ function App() {
                 ))}
                 <span style={{fontSize:11,fontWeight:600,color:"var(--tp)"}}>{m.name}</span>
                 {isLive&&<span onClick={e=>{e.stopPropagation();window.open(chHref,"_blank","noreferrer");}} title={chTip}
-                  style={{fontSize:8,fontWeight:800,letterSpacing:".2px",padding:"1px 5px",borderRadius:8,background:"#FF3B30",color:"#fff",flexShrink:0,cursor:"pointer"}}>🔴 LIVE</span>}
+                  style={{fontSize:9,fontWeight:800,letterSpacing:".3px",padding:"1px 6px",borderRadius:8,background:"rgba(255,59,48,0.12)",border:"1px solid #FF3B30",color:"#fff",display:"inline-flex",alignItems:"center",gap:3,flexShrink:0,cursor:"pointer"}}>
+                  <svg width="9" height="9" viewBox="0 0 24 24" style={{flexShrink:0}}><polygon points="9.28,0 17.96,0 15.32,3.52 24,3.52 13.36,17.77 23.06,17.77 23.06,24 0,24 10.81,9.58 2.21,9.58" fill="#00FFA3"/></svg>
+                  LIVE
+                </span>}
                 {m.id===nearestId&&<span title="가장 가까운 생일" style={{fontSize:12,flexShrink:0}}>🎂</span>}
                 {expanded&&<>
-                  {isLive&&lv.title&&<span title={lv.title} style={{fontSize:9,fontWeight:600,color:"#FF6B60",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis"}}>🔴 {lv.title}</span>}
+                  {isLive&&lv.title&&<span title={lv.title} style={{fontSize:9,fontWeight:600,color:"#00FFA3",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis",display:"inline-flex",alignItems:"center",gap:3}}>
+                    <svg width="8" height="8" viewBox="0 0 24 24" style={{flexShrink:0}}><polygon points="9.28,0 17.96,0 15.32,3.52 24,3.52 13.36,17.77 23.06,17.77 23.06,24 0,24 10.81,9.58 2.21,9.58" fill="#00FFA3"/></svg>
+                    {lv.title}
+                  </span>}
                   {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
                   {m.birthday&&<span style={{fontSize:11,fontWeight:600,color:"var(--ts)"}}>🎂 {m.birthday.slice(5).replace("-","/")}</span>}
                   {m.schedule&&<span onClick={e=>{e.stopPropagation();setWeekMember(m);}} title="이번 주 방송 일정"
