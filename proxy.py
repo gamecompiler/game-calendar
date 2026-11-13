@@ -428,12 +428,12 @@ class Handler(SimpleHTTPRequestHandler):
         import json as _j, re as _re
         from datetime import datetime, timezone
 
-        # 공식 홈페이지 뉴스 피드 (한국어 우선, 실패 시 영어)
+        # 공식 홈페이지 뉴스 피드 (한국어 우선, 실패 시 영어) — 상세 링크도 같은 언어판으로 만든다
         FEEDS = [
-            "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/kr/MainMenu.json",
-            "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/en/MainMenu.json",
+            ("kr", "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/kr/MainMenu.json"),
+            ("en", "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/en/MainMenu.json"),
         ]
-        DETAIL_URL = "https://wutheringwaves.kurogames.com/kr/main/news/detail/{}"
+        DETAIL_URL = "https://wutheringwaves.kurogames.com/{}/main/news/detail/{}"
 
         HDRS = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
@@ -506,7 +506,7 @@ class Handler(SimpleHTTPRequestHandler):
                     return ""
             return ""
 
-        def parse_feed(raw):
+        def parse_feed(raw, locale):
             """MainMenu.json → [{title,date,type,version,img,url}] (api/wuwa.js 와 동일 규칙)"""
             articles = raw.get("article") if isinstance(raw, dict) else None
             if not isinstance(articles, list):
@@ -557,7 +557,7 @@ class Handler(SimpleHTTPRequestHandler):
                     img = "https:" + img
                 link = str(a.get("jumpUrl") or a.get("articleUrl") or a.get("link") or a.get("url") or "")
                 if not link:
-                    link = DETAIL_URL.format(key)
+                    link = DETAIL_URL.format(locale, key)
                 vm, _vt = version_of(title)
                 result.append({
                     "title": title,
@@ -571,7 +571,7 @@ class Handler(SimpleHTTPRequestHandler):
             return result
 
         # ── 피드 조회 → 파싱 ──────────────────────────────────────────────────
-        for url in FEEDS:
+        for locale, url in FEEDS:
             try:
                 raw = fetch_url(url)
             except urllib.error.HTTPError as e:
@@ -581,14 +581,14 @@ class Handler(SimpleHTTPRequestHandler):
                 print(f"[wuwa] 실패 {type(e).__name__}: {url} ({e})")
                 continue
             try:
-                out = parse_feed(raw)
+                out = parse_feed(raw, locale)
             except Exception as e:
                 print(f"[wuwa] 파싱 실패 {type(e).__name__}: {url} ({e})")
                 out = None
             if out is None:
                 print(f"[wuwa] 예상과 다른 응답(article 배열 없음): {url}")
                 continue
-            print(f"[wuwa] {url.rsplit('/', 2)[-2]} 피드 OK → {len(out)}개 "
+            print(f"[wuwa] {locale} 피드 OK → {len(out)}개 "
                   f"(타입 있음: {sum(1 for r in out if r['type'] != '이벤트')}개)")
             send_json(out)
             return

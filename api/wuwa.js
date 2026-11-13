@@ -4,10 +4,10 @@
 // proxy.py _handle_wuwa_news 의 파싱 로직을 그대로 이식 (동일 JSON 출력)
 
 const FEEDS = [
-  "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/kr/MainMenu.json",
-  "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/en/MainMenu.json",
+  { locale: "kr", url: "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/kr/MainMenu.json" },
+  { locale: "en", url: "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/en/MainMenu.json" },
 ];
-const DETAIL_URL = "https://wutheringwaves.kurogames.com/kr/main/news/detail/";
+const DETAIL_URL = (locale, id) => `https://wutheringwaves.kurogames.com/${locale}/main/news/detail/${id}`;
 
 const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
@@ -58,7 +58,7 @@ function dateOf(item) {
   return "";
 }
 
-function parseFeed(raw) {
+function parseFeed(raw, locale) {
   const articles = raw && typeof raw === "object" ? raw.article : null;
   if (!Array.isArray(articles)) return null;
 
@@ -103,7 +103,7 @@ function parseFeed(raw) {
     let img = String(a.suggestCover || a.articleImg || a.cover || a.img || a.imgUrl || a.thumbnail || "");
     if (img.startsWith("//")) img = "https:" + img;
     let link = String(a.jumpUrl || a.articleUrl || a.link || a.url || "");
-    if (!link) link = DETAIL_URL + key;
+    if (!link) link = DETAIL_URL(locale, key);
     const v = versionOf(title);
     result.push({
       title,
@@ -123,14 +123,14 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  for (const url of FEEDS) {
+  for (const { locale, url } of FEEDS) {
     try {
       const r = await fetch(url, { headers: FETCH_HEADERS });
       if (!r.ok) { console.log(`[wuwa] HTTP ${r.status}: ${url}`); continue; }
       const raw = await r.json();
-      const out = parseFeed(raw);
+      const out = parseFeed(raw, locale);
       if (out === null) { console.log(`[wuwa] 예상과 다른 응답(article 배열 없음): ${url}`); continue; }
-      console.log(`[wuwa] ${url.split("/").slice(-2)[0]} 피드 OK → ${out.length}개`);
+      console.log(`[wuwa] ${locale} 피드 OK → ${out.length}개`);
       res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=600");
       return res.status(200).json(out);
     } catch (e) {
