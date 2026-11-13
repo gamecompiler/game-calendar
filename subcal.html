@@ -1073,6 +1073,9 @@ function wkcDraw(cv,{items,clashes}){
     const per=168;
     const room=Math.max(1,Math.floor((by+bh-y-6)/per));
     const shown=list.slice(0,room);
+    // 일정이 적은 날은 칸 위에 붙지 않고 적당히 내려서 균형을 잡는다(최대 110px)
+    const freeH=(by+bh-y-8)-shown.length*per;
+    if(freeH>0) y+=Math.min(freeH/3,110);
     shown.forEach((it,k)=>{
       const iy=y+k*per;
       g.fillStyle=it.color||accent; rr(x+14,iy+4,5,per-22,2.5); g.fill();
