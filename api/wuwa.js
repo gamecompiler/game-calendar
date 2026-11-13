@@ -1,16 +1,14 @@
-// api/wuwa.js — 명조(Wuthering Waves) 공식 CDN 뉴스 수집
-// Kuro Games 공식 런처 API 사용: prod-alicdn-gamestarter.kurogame.com
+// api/wuwa.js — 명조(Wuthering Waves) 공식 홈페이지 뉴스 수집
+// 쿠로게임즈 공식 홈페이지(website2.0) 뉴스 피드 MainMenu.json 사용
+// (기존 런처 CDN information/*.json 은 빈 목록만 돌려줘 일정이 사라졌다)
 // proxy.py _handle_wuwa_news 의 파싱 로직을 그대로 이식 (동일 JSON 출력)
 
-const BASE = "https://prod-alicdn-gamestarter.kurogame.com/launcher/50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c/G153";
-const CDN_URLS = [
-  `${BASE}/information/ko.json`,
-  `${BASE}/information/zh-Hans.json`,
-  `${BASE}/information/en.json`,
+const FEEDS = [
+  "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/kr/MainMenu.json",
+  "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/en/MainMenu.json",
 ];
-const CFG_URL = `${BASE}/index.json`;   // (기존 /launcher/launcher/ 중복 버그 수정)
+const DETAIL_URL = "https://wutheringwaves.kurogames.com/kr/main/news/detail/";
 
-// proxy.py HDRS 와 동일 (Cloudflare 우회 위해 Chrome UA + Origin)
 const FETCH_HEADERS = {
   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
   "Accept": "application/json, text/plain, */*",
@@ -19,28 +17,24 @@ const FETCH_HEADERS = {
   "Origin": "https://wutheringwaves.kurogames.com",
 };
 
-// 우선순위 순서: 영상 > 특별 방송 > 픽업 > 업데이트 > 이벤트 (proxy.py KEYWORDS 와 동일)
+// 우선순위 순서: 영상 > 특별 방송 > 픽업 > 업데이트 (proxy.py KEYWORDS 와 동일)
 const KEYWORDS = [
   ["영상",     ["pv「","pv |"," pv ","trailer","teaser"," mv ","홍보 영상","애니메이션","character video","캐릭터 영상","ost"]],
   ["특별 방송", ["special program","livestream","live stream","preview program","특별 프로그램","특별방송","특별 방송","special preview","생방송","미리보기 방송"]],
-  ["픽업",     ["convene","resonator banner","rate-up","limited supply","픽업 소환","픽업 이벤트","limited convene","기간 한정 모집","공명자","한정 모집","픽업","음률 시뮬레이션"]],
-  ["업데이트", ["version update","update maintenance","update notice","maintenance notice","점검 안내","패치 노트","patch note","업데이트 안내","버전 업데이트","업데이트 점검","점검 공지"]],
+  ["픽업",     ["convene","resonator banner","rate-up","limited supply","픽업 소환","픽업 이벤트","limited convene","기간 한정 모집","공명자","한정 모집","픽업","음률 시뮬레이션","튜닝"]],
+  ["업데이트", ["version update","update maintenance","update notice","maintenance notice","점검 안내","패치 노트","patch note","업데이트 안내","버전 업데이트","업데이트 점검","점검 공지","버전 내용 안내"]],
 ];
 const SKIP = ["fan art","wallpaper","survey","feedback","fanart","beginner","wiki","terms","privacy","설문","커뮤니티","팬아트"];
 
-function detectType(title) {
-  const t = title.toLowerCase();
-  if (SKIP.some(s => t.includes(s))) return null;
-  for (const [type, kws] of KEYWORDS) {
-    if (kws.some(k => t.includes(k))) return type;
-  }
-  return "이벤트";
+function versionOf(title) {
+  const m = String(title).match(/(\d+)\.(\d+)/);
+  if (!m) return null;
+  return { text: m[0], key: [Number(m[1]), Number(m[2])] };
 }
 
-function extractDate(item) {
-  const ts = item.showTime || item.publishTime || item.publish_time ||
-             item.created_at || item.createTime || item.startTime ||
-             item.time || item.date || "";
+function dateOf(item) {
+  let ts = item.startTime || item.createTime || item.showTime || item.publishTime ||
+           item.publish_time || item.created_at || item.time || item.date;
   if (ts === "" || ts == null) return "";
   // 숫자 타임스탬프 (초/밀리초) → UTC 날짜
   if (typeof ts === "number" && ts > 0) {
@@ -64,65 +58,63 @@ function extractDate(item) {
   return "";
 }
 
-// proxy.py collect() 와 동일: contents 키를 카테고리로 인식하고 내부 게시글만 수집
-function collectItems(raw) {
-  const all = [];
-  const TITLE_KEYS = ["title", "articleTitle", "subject", "postTitle", "contentTitle", "jumpUrl"];
-  function walk(obj, depth) {
-    if (depth > 8) return;
-    if (Array.isArray(obj)) {
-      for (const x of obj) walk(x, depth + 1);
-    } else if (obj && typeof obj === "object") {
-      // 카테고리 노드: contents 배열 보유 → 내부만 수집 (자신은 항목 아님)
-      if (Array.isArray(obj.contents)) {
-        for (const c of obj.contents) walk(c, depth + 1);
-        return;
-      }
-      // 실제 게시글: title류 키 보유
-      if (TITLE_KEYS.some(k => k in obj)) {
-        all.push(obj);
-        return;
-      }
-      // 그 외 dict는 값들을 재귀 탐색
-      for (const v of Object.values(obj)) {
-        if (v && typeof v === "object") walk(v, depth + 1);
-      }
+function parseFeed(raw) {
+  const articles = raw && typeof raw === "object" ? raw.article : null;
+  if (!Array.isArray(articles)) return null;
+
+  // 같은 articleId 가 '전체'(articleType 0) + '분류'로 2건씩 들어옴 → articleId 기준 중복 제거,
+  // 분류가 붙은 항목(articleType≠0)을 남긴다.
+  const byId = new Map();
+  for (const a of articles) {
+    if (!a || typeof a !== "object") continue;
+    const aid = a.articleId;
+    if (aid === undefined || aid === null || aid === "") continue;
+    const key = String(aid);
+    const prev = byId.get(key);
+    if (!prev || ((prev.articleType === 0 || prev.articleType == null) &&
+                  !(a.articleType === 0 || a.articleType == null))) {
+      byId.set(key, a);
     }
   }
-  walk(raw, 0);
-  return all;
-}
 
-function parseItems(raw, currentVer) {
-  const items = collectItems(raw);
+  // 제목에서 뽑은 최신 버전 (버전명 없는 업데이트 공지에 채워 넣기 위함)
+  let latest = null;
+  for (const a of byId.values()) {
+    const v = versionOf(a.articleTitle || a.title || "");
+    if (v && (!latest || v.key[0] > latest.key[0] ||
+              (v.key[0] === latest.key[0] && v.key[1] > latest.key[1]))) {
+      latest = v;
+    }
+  }
+
   const result = [];
-  for (const item of items) {
-    // 명조 CDN: 제목은 'content' 필드 (title 아님)
-    const title = (item.content || item.articleTitle || item.title ||
-                   item.contentTitle || item.subject || item.postTitle ||
-                   item.name || "").trim();
+  for (const [key, a] of byId) {
+    const title = String(a.articleTitle || a.title || "").trim();
     if (!title) continue;
-    const type = detectType(title);
-    if (!type) continue;
-    const date = extractDate(item);
+    const low = title.toLowerCase();
+    if (SKIP.some(s => low.includes(s))) continue;
+    const date = dateOf(a);
     if (!date) continue;
-    let img = (item.articleImg || item.cover || item.img || item.imgUrl ||
-               item.thumbnail || item.bg || "");
+    let type = null;
+    for (const [t, kws] of KEYWORDS) {
+      if (kws.some(k => low.includes(k))) { type = t; break; }
+    }
+    type = type || "이벤트";
+    let img = String(a.suggestCover || a.articleImg || a.cover || a.img || a.imgUrl || a.thumbnail || "");
     if (img.startsWith("//")) img = "https:" + img;
-    const postId = String(item.articleId || item.postId || item.id || "");
-    // 링크 (명조: jumpUrl = 네이버 라운지)
-    let link = item.jumpUrl || item.articleUrl || item.link || item.url || "";
-    if (!link && postId) link = `https://wutheringwaves.kurogames.com/kr/main/news/detail/${postId}`;
-    const vm = title.match(/(\d+\.\d+)/);
+    let link = String(a.jumpUrl || a.articleUrl || a.link || a.url || "");
+    if (!link) link = DETAIL_URL + key;
+    const v = versionOf(title);
     result.push({
       title,
       date,
       type,
-      version: vm ? vm[1] : (type === "업데이트" ? currentVer : null),
+      version: v ? v.text : (type === "업데이트" && latest ? latest.text : null),
       img,
       url: link,
     });
   }
+  result.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
   return result;
 }
 
@@ -131,28 +123,21 @@ export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
 
-  // 현재 버전 조회
-  let currentVer = null;
-  try {
-    const cfg = await fetch(CFG_URL, { headers: FETCH_HEADERS }).then(r => r.json());
-    currentVer = cfg?.default?.config?.version || null;
-  } catch { /* 무시 */ }
-
-  // 뉴스 API 순차 시도
-  for (const url of CDN_URLS) {
+  for (const url of FEEDS) {
     try {
       const r = await fetch(url, { headers: FETCH_HEADERS });
-      if (!r.ok) continue;
+      if (!r.ok) { console.log(`[wuwa] HTTP ${r.status}: ${url}`); continue; }
       const raw = await r.json();
-      const items = parseItems(raw, currentVer);
-      console.log(`[wuwa] ${url.split("/").pop()} OK → ${items.length}개`);
+      const out = parseFeed(raw);
+      if (out === null) { console.log(`[wuwa] 예상과 다른 응답(article 배열 없음): ${url}`); continue; }
+      console.log(`[wuwa] ${url.split("/").slice(-2)[0]} 피드 OK → ${out.length}개`);
       res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=600");
-      return res.status(200).json(items);
+      return res.status(200).json(out);
     } catch (e) {
-      console.log(`[wuwa] ${url.split("/").pop()} 실패: ${e.message}`);
+      console.log(`[wuwa] 실패 ${url}: ${e.message}`);
     }
   }
 
-  console.log("[wuwa] 모든 CDN 실패 → 빈 배열");
+  console.log("[wuwa] 모든 피드 실패 → 빈 배열");
   return res.status(200).json([]);
 }

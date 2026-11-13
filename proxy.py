@@ -419,39 +419,29 @@ class Handler(SimpleHTTPRequestHandler):
             except: pass
 
     def _handle_wuwa_news(self):
-        """명조 뉴스/이벤트 수집 — Kuro Games 공식 CDN API 사용"""
-        import json as _j, re as _re
-        from datetime import datetime
+        """명조 뉴스/이벤트 수집 — 쿠로게임즈 공식 홈페이지(website2.0) MainMenu.json 사용
 
-        # ── Kuro 공식 CDN 엔드포인트 (런처 뉴스 API) ──────────────────────────
-        # 런처 앱 업데이트 시 해시값이 바뀔 수 있으므로 다중 BASE 시도
-        # Kuro CDN 기본 경로 (해시값이 런처 업데이트마다 바뀔 수 있음)
-        HASH = "50004_obOHXFrFanqsaIEOmuKroCcbZkQRBC7c"
-        _BASES = [
-            f"https://prod-alicdn-gamestarter.kurogame.com/launcher/{HASH}/G153",
-            f"https://pcdownload-alicdn.kurogame.com/launcher/{HASH}/G153",
-            f"https://pcdownload-wangsu.kurogame.com/launcher/{HASH}/G153",
-            f"https://pcdownload-wangsu.joymite.com/launcher/{HASH}/G153",
-            f"https://prod-alicdn-gamestarter.kurogame.com/launcher/{HASH}/G000",
+        기존 런처 CDN(prod-alicdn-gamestarter.kurogame.com/.../information/*.json)이
+        빈 목록(contents: [])만 돌려주어 일정이 사라졌으므로, 공식 홈페이지 피드로 교체.
+        출력 형식은 그대로 [{title,date,type,version,img,url}, ...] (api/wuwa.js 와 동일).
+        """
+        import json as _j, re as _re
+        from datetime import datetime, timezone
+
+        # 공식 홈페이지 뉴스 피드 (한국어 우선, 실패 시 영어)
+        FEEDS = [
+            "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/kr/MainMenu.json",
+            "https://hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/en/MainMenu.json",
         ]
-        BASE = _BASES[0]
-        CDN_URLS = [f"{b}/information/{lang}.json"
-                    for b in _BASES for lang in ("ko","zh-Hans","en")]
-        CFG_URL = f"{BASE}/index.json"
+        DETAIL_URL = "https://wutheringwaves.kurogames.com/kr/main/news/detail/{}"
 
         HDRS = {
-            # 최신 크롬 User-Agent (Cloudflare 우회 개선)
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
             "Accept": "application/json, text/plain, */*",
             "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7",
             "Accept-Encoding": "gzip, deflate, br",
             "Referer": "https://wutheringwaves.kurogames.com/",
             "Origin": "https://wutheringwaves.kurogames.com",
-            "sec-ch-ua": '"Chromium";v="136", "Google Chrome";v="136"',
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "cross-site",
         }
 
         def send_json(data):
@@ -466,7 +456,6 @@ class Handler(SimpleHTTPRequestHandler):
             req = urllib.request.Request(url, headers=HDRS)
             with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
                 raw = r.read()
-            # gzip/deflate 자동 압축 해제
             import gzip as _gz, zlib as _zl
             if raw[:2] == b'\x1f\x8b':
                 raw = _gz.decompress(raw)
@@ -474,185 +463,138 @@ class Handler(SimpleHTTPRequestHandler):
                 raw = _zl.decompress(raw)
             return _j.loads(raw.decode('utf-8'))
 
-        # ── 현재 버전 확인 ─────────────────────────────────────────────────────
-        current_ver = None
-        try:
-            cfg = fetch_url(CFG_URL)
-            current_ver = (cfg.get("default") or {}).get("config", {}).get("version")
-            if current_ver:
-                print(f"[wuwa] 현재 버전: {current_ver}")
-        except Exception as e:
-            print(f"[wuwa] config 조회 실패 (무시): {e}")
-
-        # ── 뉴스 API 시도 ─────────────────────────────────────────────────────
-        raw = None
-        for url in CDN_URLS:
-            try:
-                raw = fetch_url(url)
-                print(f"[wuwa] CDN OK: {url}")
-                print(f"[wuwa] 응답 최상위 키: {list(raw.keys()) if isinstance(raw,dict) else type(raw)}")
-                break
-            except urllib.error.HTTPError as e:
-                print(f"[wuwa] CDN HTTP {e.code}: ...{url[-40:]}")
-            except Exception as e:
-                print(f"[wuwa] CDN 실패: {type(e).__name__} ...{url[-40:]}: {e}")
-
-        if not raw:
-            # CDN 실패 시 공식 한국 페이지에서 JSON 탐색
-            print("[wuwa] CDN 모두 실패, 공식 페이지 시도")
-            ALT_HDRS2 = {"User-Agent":"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-                         "Accept":"text/html,*/*","Accept-Language":"ko-KR,ko;q=0.9"}
-            for aurl in ["https://wutheringwaves.kurogames.com/kr/main/news",
-                         "https://wutheringwaves.kurogames.com/en/main/news"]:
-                try:
-                    req2 = urllib.request.Request(aurl, headers=ALT_HDRS2)
-                    with urllib.request.urlopen(req2, timeout=10, context=ctx) as r2:
-                        hstr = r2.read(600000).decode("utf-8", errors="ignore")
-                    import re as _r2
-                    for pat in [r'"articleList"\s*:\s*(\[.{10,5000}\])',
-                                 r'"newsList"\s*:\s*(\[.{10,5000}\])',
-                                 r'"list"\s*:\s*(\[.{10,5000}\])'  ]:
-                        mm = _r2.search(pat, hstr[:300000])
-                        if mm:
-                            try:
-                                fallback = _j.loads(mm.group(1))
-                                if fallback:
-                                    raw = {"articleList": fallback}
-                                    print(f"[wuwa] 공식 페이지 OK: {len(fallback)}건")
-                                    break
-                            except: pass
-                    if raw: break
-                except Exception as ef:
-                    print(f"[wuwa] 공식 페이지 실패 {aurl}: {ef}")
-        if not raw:
-            print("[wuwa] 모든 방법 실패 — 빈 배열 반환")
-            send_json([]); return
-
-        # ── 응답 정규화 ───────────────────────────────────────────────────────
-        # CDN JSON 구조 (2026): {"guidance": [{title:카테고리, contents:[게시글]}], "slideshow":[]}
-        # 카테고리 노드(contents 키 보유)는 건너뛰고 contents 내부 게시글만 수집
-        all_items = []
-        def collect(obj, depth=0):
-            if depth > 8: return
-            if isinstance(obj, list):
-                for x in obj:
-                    collect(x, depth+1)
-            elif isinstance(obj, dict):
-                # 카테고리 노드: contents 배열을 가진 dict → 내부만 수집 (자신은 항목 아님)
-                if "contents" in obj and isinstance(obj["contents"], list):
-                    for c in obj["contents"]:
-                        collect(c, depth+1)
-                    return
-                # 실제 게시글: title류 키 보유 + contents 없음
-                if any(k in obj for k in ["title","articleTitle","subject","postTitle","contentTitle","jumpUrl"]):
-                    all_items.append(obj)
-                    return
-                # 그 외 dict는 값들을 재귀 탐색
-                for k, v in obj.items():
-                    if isinstance(v, (list, dict)):
-                        collect(v, depth+1)
-
-        collect(raw)
-        print(f"[wuwa] 수집 항목: {len(all_items)}개")
-        if all_items:
-            print(f"[wuwa] 첫 항목 키: {list(all_items[0].keys())[:12]}")
-            print(f"[wuwa] 첫 항목 샘플: {str(all_items[0])[:200]}")
-
-        if not all_items:
-            print(f"[wuwa] 파싱 불가 — 전체 키: {list(raw.keys())[:8]}")
-            if isinstance(raw, dict) and "guidance" in raw:
-                g = raw["guidance"]
-                print(f"[wuwa] guidance 타입: {type(g).__name__}")
-                if isinstance(g, list) and g:
-                    print(f"[wuwa] guidance[0] 키: {list(g[0].keys()) if isinstance(g[0],dict) else g[0]}")
-            send_json([]); return
-
-        # ── 타입 감지 키워드 ──────────────────────────────────────────────────
-        # 우선순위 순서: 영상 > 특별 방송 > 픽업 > 업데이트 > 이벤트
+        # ── 타입 감지 키워드 (우선순위: 영상 > 특별 방송 > 픽업 > 업데이트) ──────
         KEYWORDS = [
-            ("영상",     ["pv「","pv |"," pv ","trailer","teaser"," mv ","홍보 영상","애니메이션","character video","캐릭터 영상","ost"]),
-            ("특별 방송", ["special program","livestream","live stream","preview program","특별 프로그램","특별방송","특별 방송","special preview","생방송","미리보기 방송"]),
-            ("픽업",     ["convene","resonator banner","rate-up","limited supply","픽업 소환","픽업 이벤트","limited convene","기간 한정 모집","공명자","한정 모집","픽업","음률 시뮬레이션"]),
-            ("업데이트", ["version update","update maintenance","update notice","maintenance notice","점검 안내","패치 노트","patch note","업데이트 안내","버전 업데이트","업데이트 점검","점검 공지"]),
+            ("영상",     ["pv「", "pv |", " pv ", "trailer", "teaser", " mv ", "홍보 영상", "애니메이션", "character video", "캐릭터 영상", "ost"]),
+            ("특별 방송", ["special program", "livestream", "live stream", "preview program", "특별 프로그램", "특별방송", "특별 방송", "special preview", "생방송", "미리보기 방송"]),
+            ("픽업",     ["convene", "resonator banner", "rate-up", "limited supply", "픽업 소환", "픽업 이벤트", "limited convene", "기간 한정 모집", "공명자", "한정 모집", "픽업", "음률 시뮬레이션", "튜닝"]),
+            ("업데이트", ["version update", "update maintenance", "update notice", "maintenance notice", "점검 안내", "패치 노트", "patch note", "업데이트 안내", "버전 업데이트", "업데이트 점검", "점검 공지", "버전 내용 안내"]),
         ]
-        SKIP_KW = ["fan art","wallpaper","survey","feedback","fanart",
-                   "beginner","wiki","terms","privacy","설문","커뮤니티","팬아트"]
+        SKIP_KW = ["fan art", "wallpaper", "survey", "feedback", "fanart",
+                   "beginner", "wiki", "terms", "privacy", "설문", "커뮤니티", "팬아트"]
 
-        result = []
-        for item in all_items:
-            # 명조 CDN: 제목은 'content' 필드 (title 아님)
-            title = (item.get("content") or item.get("articleTitle") or item.get("title") or
-                     item.get("contentTitle") or item.get("subject") or
-                     item.get("postTitle") or item.get("name") or "").strip()
-            if not title: continue
-            t = title.lower()
-            if any(s in t for s in SKIP_KW): continue
+        def version_of(title):
+            m = _re.search(r"(\d+)\.(\d+)", title)
+            return m, (int(m.group(1)), int(m.group(2))) if m else None
 
-            # 날짜 추출 (다양한 필드명 대응)
-            ts = (item.get("showTime") or item.get("publishTime") or
+        def date_of(item):
+            ts = (item.get("startTime") or item.get("createTime") or
+                  item.get("showTime") or item.get("publishTime") or
                   item.get("publish_time") or item.get("created_at") or
-                  item.get("createTime") or item.get("startTime") or
                   item.get("time") or item.get("date") or "")
-            date = ""
             if isinstance(ts, (int, float)) and ts > 0:
                 sec = ts if ts < 1e11 else ts / 1000
-                date = datetime.utcfromtimestamp(sec).strftime("%Y-%m-%d")
-            elif ts:
-                ts_str = str(ts)
-                # YYYY-MM-DD 형식
-                m = _re.search(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", ts_str)
-                if m:
-                    date = f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
-                else:
-                    # MM-DD 형식 (연도 없음) → 올해, 미래면 작년
-                    m2 = _re.match(r"(\d{1,2})[-/.](\d{1,2})", ts_str)
-                    if m2:
-                        now = datetime.now()
-                        mo, d = int(m2.group(1)), int(m2.group(2))
-                        year = now.year
-                        try:
-                            cand = datetime(year, mo, d)
-                            if (cand - now).days > 30: year -= 1
-                            date = f"{year}-{str(mo).zfill(2)}-{str(d).zfill(2)}"
-                        except ValueError:
-                            date = ""
-            if not date: continue
+                return datetime.fromtimestamp(sec, timezone.utc).strftime("%Y-%m-%d")
+            if not ts:
+                return ""
+            s = str(ts)
+            m = _re.search(r"(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})", s)
+            if m:
+                return f"{m.group(1)}-{m.group(2).zfill(2)}-{m.group(3).zfill(2)}"
+            # MM-DD (연도 없음) → 올해, 30일 넘게 미래면 작년
+            m2 = _re.match(r"(\d{1,2})[-/.](\d{1,2})", s)
+            if m2:
+                now = datetime.now()
+                mo, d = int(m2.group(1)), int(m2.group(2))
+                year = now.year
+                try:
+                    cand = datetime(year, mo, d)
+                    if (cand - now).days > 30:
+                        year -= 1
+                    return f"{year}-{mo:02d}-{d:02d}"
+                except ValueError:
+                    return ""
+            return ""
 
-            # 이미지
-            img = (item.get("articleImg") or item.get("cover") or
-                   item.get("img") or item.get("imgUrl") or
-                   item.get("thumbnail") or item.get("bg") or "")
-            if img and img.startswith("//"): img = "https:" + img
+        def parse_feed(raw):
+            """MainMenu.json → [{title,date,type,version,img,url}] (api/wuwa.js 와 동일 규칙)"""
+            articles = raw.get("article") if isinstance(raw, dict) else None
+            if not isinstance(articles, list):
+                return None
+            # 같은 articleId 가 '전체'(articleType 0) + '분류'로 2건씩 들어옴 → articleId 기준 중복 제거,
+            # 분류가 붙은 항목(articleType≠0)을 남긴다.
+            by_id = {}
+            for a in articles:
+                if not isinstance(a, dict):
+                    continue
+                aid = a.get("articleId")
+                if aid is None or aid == "":
+                    continue
+                key = str(aid)
+                prev = by_id.get(key)
+                if prev is None or (prev.get("articleType") in (0, None) and a.get("articleType") not in (0, None)):
+                    by_id[key] = a
 
-            # 링크 (명조: jumpUrl = 네이버 라운지)
-            post_id = str(item.get("articleId") or item.get("postId") or
-                          item.get("id") or "")
-            link = (item.get("jumpUrl") or item.get("articleUrl") or
-                    item.get("link") or item.get("url") or "")
-            if not link and post_id:
-                link = f"https://wutheringwaves.kurogames.com/kr/main/news/detail/{post_id}"
+            # 제목에서 뽑은 최신 버전 (버전명 없는 업데이트 공지에 채워 넣기 위함)
+            latest = None
+            for a in by_id.values():
+                vm, vt = version_of(str(a.get("articleTitle") or a.get("title") or ""))
+                if vt and (latest is None or vt > latest[1]):
+                    latest = (vm.group(0), vt)
+            latest_ver = latest[0] if latest else None
 
-            # 이벤트 타입
-            ev_type = None
-            for typ, kws in KEYWORDS:
-                if any(k in t for k in kws):
-                    ev_type = typ; break
+            result = []
+            for key, a in by_id.items():
+                title = str(a.get("articleTitle") or a.get("title") or "").strip()
+                if not title:
+                    continue
+                low = title.lower()
+                if any(s in low for s in SKIP_KW):
+                    continue
+                date = date_of(a)
+                if not date:
+                    continue
+                ev_type = None
+                for typ, kws in KEYWORDS:
+                    if any(k in low for k in kws):
+                        ev_type = typ
+                        break
+                ev_type = ev_type or "이벤트"
+                img = (a.get("suggestCover") or a.get("articleImg") or a.get("cover") or
+                       a.get("img") or a.get("imgUrl") or a.get("thumbnail") or "")
+                img = str(img)
+                if img.startswith("//"):
+                    img = "https:" + img
+                link = str(a.get("jumpUrl") or a.get("articleUrl") or a.get("link") or a.get("url") or "")
+                if not link:
+                    link = DETAIL_URL.format(key)
+                vm, _vt = version_of(title)
+                result.append({
+                    "title": title,
+                    "date": date,
+                    "type": ev_type,
+                    "version": vm.group(0) if vm else (latest_ver if ev_type == "업데이트" else None),
+                    "img": img,
+                    "url": link,
+                })
+            result.sort(key=lambda r: r["date"], reverse=True)
+            return result
 
-            # 버전 추출
-            vm = _re.search(r"(\d+\.\d+)", title)
-            version = vm.group(1) if vm else (current_ver if ev_type == "업데이트" else None)
+        # ── 피드 조회 → 파싱 ──────────────────────────────────────────────────
+        for url in FEEDS:
+            try:
+                raw = fetch_url(url)
+            except urllib.error.HTTPError as e:
+                print(f"[wuwa] HTTP {e.code}: {url}")
+                continue
+            except Exception as e:
+                print(f"[wuwa] 실패 {type(e).__name__}: {url} ({e})")
+                continue
+            try:
+                out = parse_feed(raw)
+            except Exception as e:
+                print(f"[wuwa] 파싱 실패 {type(e).__name__}: {url} ({e})")
+                out = None
+            if out is None:
+                print(f"[wuwa] 예상과 다른 응답(article 배열 없음): {url}")
+                continue
+            print(f"[wuwa] {url.rsplit('/', 2)[-2]} 피드 OK → {len(out)}개 "
+                  f"(타입 있음: {sum(1 for r in out if r['type'] != '이벤트')}개)")
+            send_json(out)
+            return
 
-            result.append({
-                "title": title,
-                "date": date,
-                "type": ev_type or "이벤트",
-                "version": version,
-                "img": img,
-                "url": link,
-            })
-
-        print(f"[wuwa] 최종 결과: {len(result)}개 (타입 있음: {sum(1 for r in result if r['type']!='이벤트')}개)")
-        send_json(result)
+        print("[wuwa] 모든 피드 실패 — 빈 배열 반환")
+        send_json([])
 
     def _handle_notion_pages(self):
         """여러 Notion 페이지의 제목을 일괄 조회 (relation 필드 resolve용)"""

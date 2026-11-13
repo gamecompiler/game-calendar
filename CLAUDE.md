@@ -8,6 +8,7 @@
 - `proxy.py` — 포트 8080 로컬 CORS 프록시. HoYoLAB / Kuro CDN / YouTube RSS / Notion API를 서버사이드로 중계. **로컬 실행의 기준 구현.**
 - `api/*.js` — Vercel 배포용 서버리스 함수. proxy.py의 각 엔드포인트를 이식한 버전.
   - `api/notion.js` — 관리자 쓰기용(호출자 토큰 중계). `api/notion-public.js` — 팬 공개 읽기 전용(환경변수 토큰, GET·화이트리스트 DB만).
+  - `api/wuwa.js` — 명조 일정. 쿠로게임즈 공식 홈페이지 뉴스 피드(`hw-media-cdn-mingchao.kurogame.com/akiwebsite/website2.0/json/G152/{kr,en}/MainMenu.json`)의 `article` 배열을 파싱한다. (기존 런처 CDN `information/*.json` 은 빈 목록만 돌려줘 폐기, 2026-11) 항목에 썸네일 필드가 없어 `img` 는 빈 문자열일 수 있다.
 - `slide.html` — 웹 슬라이드(설명회·토론회). `/slide/<덱>` 으로 열린다(React 없이 순수 JS, subcal.html과 무관). 호스트(암호)가 넘기면 접속한 화면이 따라오고(1초마다 `op=state` 확인), `?view=script`는 송출컴용 대본 화면. **CastEdit 앱이 이 파일을 미리 보기로 그대로 묶어 쓴다** — 고치면 cast-ops의 `tools/cast-edit/castedit/slides_web/slide.html`에도 같은 내용을 넣을 것.
   - `api/slide.js` — 덱·그림·대본·지금 페이지 보관(Upstash Redis: `KV_REST_API_URL`/`KV_REST_API_TOKEN`). 열쇠는 `X-Slide-Key` 헤더, 서버에는 해시만. 주인 열쇠(앱이 올릴 때) / 호스트 암호(넘기기·대본). proxy.py는 같은 주소·같은 응답을 `.slide-store.json`(git 제외)으로 낸다.
 - `reading.html` — **낭독회** (`/read` 작품 목록 · `/read/<작품>` 무대 · `?view=script` 전체 대본). 작품 = 낭독 대본 + 비주얼 노벨(배경·인물·대사창·문단 효과음·연출). 진행 암호를 넣은 사람이 넘기면 접속자가 따라오고(1초마다 `op=state`), 따라가기를 끄면 혼자 앞뒤로 본다. 참여 암호를 건 작품은 암호가 있어야 본문·그림이 보인다. 섭캘 머리줄의 [📖 낭독회]가 입구. **CastEdit 앱의 [낭독회 웹에 올리기]가 올린다** (본문 포함 — 컴파일러 결정, 2026-11-13).
