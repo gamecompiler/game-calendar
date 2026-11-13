@@ -1,52 +1,55 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>CastEdit — 방송 운영부터 편집·업로드까지, 스트리머를 위한 데스크톱 툴킷</title>
-  <meta name="description" content="송출컴 원격 제어, OBS 장면 연동 치지직 카테고리 자동 변경, 썸네일·주간 일정표 원클릭 생산, 투컴 녹화본 자동 이동 및 유튜브 다시보기 업로드까지 한 앱에서.">
-  <link rel="icon" type="image/png" href="/castedit-icon.png">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta name="description" content="송출컴 원격 제어, 치지직 카테고리 자동 변경, T1~T5 멀티트랙 사운드 제어, 스트림덱 허브 매크로, 썸네일·주간 일정표 1초 생성, 유튜브 다시보기 자동 업로드까지.">
+  <link rel="icon" href="/castedit-icon.png">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+
   <style>
     :root {
-      --bg-base: #07090e;
+      --bg-dark: #07090e;
       --bg-surface: #0e121b;
       --bg-surface-elevated: #151b27;
-      --bg-glass: rgba(18, 23, 34, 0.75);
+      --bg-card: rgba(21, 27, 39, 0.7);
       --border-subtle: rgba(255, 255, 255, 0.08);
       --border-bright: rgba(255, 255, 255, 0.18);
-      --border-glow: rgba(139, 92, 246, 0.45);
-      
-      --accent-purple: #8b5cf6;
+      --accent-purple: #7c3aed;
       --accent-purple-light: #a78bfa;
       --accent-indigo: #6366f1;
       --accent-cyan: #06b6d4;
-      --accent-emerald: #10b981;
-      --accent-amber: #f59e0b;
-      --accent-red: #ef4444;
-
+      --accent-chzzk: #00FFA3;
       --text-main: #f8fafc;
       --text-muted: #94a3b8;
       --text-dim: #64748b;
-
-      --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
-      --font-mono: 'JetBrains Mono', monospace;
+      --font-main: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
 
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
     body {
-      background-color: var(--bg-base);
+      background-color: var(--bg-dark);
       color: var(--text-main);
-      font-family: var(--font-sans);
+      font-family: var(--font-main);
       line-height: 1.6;
       overflow-x: hidden;
       -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
     }
 
-    /* Ambient Background Gradients */
+    /* Ambient Glow Background */
     .ambient-bg {
       position: fixed;
       inset: 0;
@@ -109,7 +112,7 @@
       z-index: 100;
       backdrop-filter: blur(16px);
       -webkit-backdrop-filter: blur(16px);
-      background: rgba(7, 9, 14, 0.85);
+      background: rgba(7, 9, 14, 0.88);
       border-bottom: 1px solid var(--border-subtle);
     }
     .nav-inner {
@@ -117,22 +120,25 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 20px;
+      gap: 16px;
     }
     .nav-brand {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
       text-decoration: none;
       color: inherit;
+      min-width: 0;
+      flex-shrink: 0;
     }
     .nav-logo {
-      width: 36px;
-      height: 36px;
+      width: 34px;
+      height: 34px;
       border-radius: 9px;
       background: #1e1b4b;
       box-shadow: 0 0 16px rgba(139, 92, 246, 0.3);
       display: block;
+      flex-shrink: 0;
     }
     .nav-title {
       font-size: 20px;
@@ -141,6 +147,7 @@
       background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
+      white-space: nowrap;
     }
     .version-pill {
       font-size: 11px;
@@ -148,22 +155,24 @@
       font-weight: 600;
       color: var(--accent-purple-light);
       background: rgba(139, 92, 246, 0.15);
-      border: 1px solid rgba(139, 92, 246, 0.35);
-      padding: 2px 8px;
-      border-radius: 20px;
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      padding: 2px 7px;
+      border-radius: 12px;
+      white-space: nowrap;
     }
     .nav-links {
       display: flex;
       align-items: center;
-      gap: 28px;
+      gap: 20px;
       list-style: none;
     }
     .nav-link {
+      font-size: 13.5px;
+      font-weight: 600;
       color: var(--text-muted);
       text-decoration: none;
-      font-size: 14px;
-      font-weight: 500;
       transition: color 0.2s;
+      white-space: nowrap;
     }
     .nav-link:hover {
       color: #fff;
@@ -171,7 +180,8 @@
     .nav-actions {
       display: flex;
       align-items: center;
-      gap: 12px;
+      gap: 10px;
+      flex-shrink: 0;
     }
     .btn-cal {
       display: inline-flex;
@@ -180,34 +190,36 @@
       font-size: 13px;
       font-weight: 600;
       color: var(--text-muted);
-      text-decoration: none;
-      padding: 8px 14px;
-      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.05);
       border: 1px solid var(--border-subtle);
-      background: rgba(255, 255, 255, 0.03);
+      padding: 7px 14px;
+      border-radius: 8px;
+      text-decoration: none;
       transition: all 0.2s;
+      white-space: nowrap;
     }
     .btn-cal:hover {
       color: #fff;
+      background: rgba(255, 255, 255, 0.09);
       border-color: var(--border-bright);
-      background: rgba(255, 255, 255, 0.07);
     }
     .btn-primary {
       display: inline-flex;
       align-items: center;
       justify-content: center;
       gap: 8px;
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 700;
       color: #fff;
       text-decoration: none;
-      padding: 10px 20px;
-      border-radius: 10px;
+      padding: 9px 18px;
+      border-radius: 9px;
       background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
       box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
       border: 1px solid rgba(255, 255, 255, 0.15);
       transition: all 0.2s ease;
       cursor: pointer;
+      white-space: nowrap;
     }
     .btn-primary:hover {
       transform: translateY(-2px);
@@ -238,22 +250,23 @@
 
     /* Hero Section */
     .hero {
-      padding: 85px 0 65px;
+      padding: 70px 0 55px;
       text-align: center;
     }
     .hero-eyebrow {
       display: inline-flex;
       align-items: center;
       gap: 8px;
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 600;
       color: #c4b5fd;
       background: rgba(139, 92, 246, 0.12);
       border: 1px solid rgba(139, 92, 246, 0.3);
       padding: 6px 16px;
       border-radius: 30px;
-      margin-bottom: 26px;
+      margin-bottom: 22px;
       box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+      word-break: keep-all;
     }
     .pulse-dot {
       width: 7px;
@@ -262,17 +275,19 @@
       background: #a78bfa;
       box-shadow: 0 0 8px #a78bfa;
       animation: pulse 2s infinite;
+      flex-shrink: 0;
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50% { opacity: 0.4; transform: scale(0.85); }
     }
     .hero-title {
-      font-size: 52px;
+      font-size: clamp(26px, 6vw, 48px);
       font-weight: 800;
-      letter-spacing: -1.5px;
-      line-height: 1.2;
-      margin-bottom: 22px;
+      letter-spacing: -1.2px;
+      line-height: 1.25;
+      margin-bottom: 18px;
+      word-break: keep-all;
     }
     .gradient-text {
       background: linear-gradient(135deg, #ffffff 10%, #c4b5fd 50%, #818cf8 100%);
@@ -280,99 +295,98 @@
       -webkit-text-fill-color: transparent;
     }
     .hero-subtitle {
-      font-size: 18px;
+      font-size: clamp(14px, 3.2vw, 16.5px);
       color: var(--text-muted);
       max-width: 760px;
-      margin: 0 auto 36px;
-      font-weight: 400;
-      line-height: 1.65;
+      margin: 0 auto 30px;
+      line-height: 1.7;
       word-break: keep-all;
     }
     .hero-cta-group {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 16px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 38px;
-    }
-    .hero-cta-group .btn-primary {
-      padding: 14px 28px;
-      font-size: 16px;
-      border-radius: 12px;
-    }
-    .hero-cta-group .btn-secondary {
-      padding: 14px 24px;
-      font-size: 15px;
-      border-radius: 12px;
+      margin-bottom: 32px;
     }
     .hero-badges {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 22px;
-      color: var(--text-dim);
-      font-size: 13px;
+      gap: 8px;
       flex-wrap: wrap;
+      margin-bottom: 45px;
     }
     .hero-badge-item {
-      display: flex;
+      display: inline-flex;
       align-items: center;
       gap: 6px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #94a3b8;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      padding: 5px 11px;
+      border-radius: 20px;
+      word-break: keep-all;
     }
 
-    /* Windows Native UI Showcase */
+    /* Windows 11 App Showcase Window */
     .showcase {
-      margin-top: 35px;
-      position: relative;
-    }
-    .win-window {
-      background: #11141c;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 8px;
+      max-width: 1040px;
+      margin: 0 auto;
+      border-radius: 12px;
+      background: #090c13;
+      border: 1px solid rgba(255, 255, 255, 0.14);
       box-shadow: 
         0 25px 60px -15px rgba(0, 0, 0, 0.9),
-        0 0 50px -10px rgba(124, 58, 237, 0.25);
+        0 0 50px rgba(124, 58, 237, 0.2);
       overflow: hidden;
-      position: relative;
+      text-align: left;
     }
-    /* Windows 11 Native Titlebar */
     .win-titlebar {
-      height: 36px;
-      background: #181d28;
+      background: #111622;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: space-between;
+      padding: 0 12px;
       user-select: none;
     }
     .win-title-left {
       display: flex;
       align-items: center;
       gap: 8px;
-      padding-left: 12px;
       font-size: 12px;
       font-weight: 500;
       color: #cbd5e1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .win-title-icon {
       width: 16px;
       height: 16px;
       border-radius: 3px;
+      flex-shrink: 0;
     }
     .win-controls {
       display: flex;
-      height: 100%;
+      align-items: center;
+      flex-shrink: 0;
     }
     .win-btn {
-      width: 44px;
-      height: 100%;
+      width: 38px;
+      height: 36px;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #94a3b8;
       font-size: 11px;
-      cursor: default;
+      color: #94a3b8;
+      cursor: pointer;
       transition: background 0.15s, color 0.15s;
     }
     .win-btn:hover {
@@ -380,29 +394,36 @@
       color: #fff;
     }
     .win-btn-close:hover {
-      background: #e81123;
-      color: #fff;
+      background: #e81123 !important;
+      color: #fff !important;
     }
 
     /* PySide6 Menu Bar */
     .win-menubar {
-      background: #141822;
+      background: #0d111a;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      padding: 4px 12px;
+      padding: 4px 8px;
       display: flex;
       align-items: center;
-      gap: 16px;
-      font-size: 12px;
-      color: #94a3b8;
+      gap: 2px;
+      font-size: 11.5px;
+      color: #cbd5e1;
+      overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .win-menubar::-webkit-scrollbar { display: none; }
     .win-menu-item {
-      cursor: pointer;
-      padding: 2px 6px;
+      padding: 2px 7px;
       border-radius: 4px;
+      cursor: pointer;
+      flex-shrink: 0;
+      white-space: nowrap;
       transition: background 0.15s, color 0.15s;
     }
     .win-menu-item:hover {
-      background: rgba(255, 255, 255, 0.06);
+      background: rgba(255, 255, 255, 0.08);
       color: #fff;
     }
 
@@ -411,29 +432,36 @@
       background: #0d1119;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
-      padding: 6px 12px 0;
+      align-items: center;
+      padding: 6px 8px 0;
       gap: 4px;
       overflow-x: auto;
+      white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
     }
+    .win-view-tabs::-webkit-scrollbar { display: none; }
     .v-tab-btn {
       background: transparent;
       border: 1px solid transparent;
       border-bottom: none;
       color: var(--text-dim);
-      padding: 8px 16px;
-      font-size: 12.5px;
+      padding: 8px 13px;
+      font-size: 12px;
       font-weight: 600;
       border-top-left-radius: 6px;
       border-top-right-radius: 6px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
       transition: all 0.2s;
+      flex-shrink: 0 !important;
+      white-space: nowrap !important;
     }
     .v-tab-btn .tab-badge {
       font-family: var(--font-mono);
-      font-size: 10px;
+      font-size: 9.5px;
       padding: 1px 5px;
       border-radius: 3px;
       background: rgba(255, 255, 255, 0.08);
@@ -457,7 +485,7 @@
     /* Showcase Body Container */
     .win-body {
       background: #0f131d;
-      min-height: 440px;
+      min-height: 420px;
       padding: 16px;
       position: relative;
     }
@@ -507,76 +535,151 @@
       font-size: 10px;
       font-family: var(--font-mono);
       padding: 2px 6px;
-      border-radius: 4px;
+      border-radius: 3px;
       font-weight: 600;
     }
-    .chip-green { background: rgba(16, 185, 129, 0.15); color: #34d399; }
-    .chip-purple { background: rgba(139, 92, 246, 0.15); color: #c4b5fd; }
-    .chip-blue { background: rgba(2, 132, 199, 0.15); color: #38bdf8; }
+    .chip-green { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .chip-blue  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .chip-purple{ background: rgba(167, 139, 250, 0.15); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.3); }
+    .chip-red   { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
 
-    /* Interactive Status Rows */
     .status-row {
       display: flex;
-      align-items: center;
+      align-items: flex-start;
       justify-content: space-between;
+      gap: 8px;
       font-size: 11.5px;
-      color: var(--text-muted);
-      padding: 5px 0;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      color: #94a3b8;
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
+      padding-bottom: 5px;
+      word-break: keep-all;
     }
     .status-val {
       font-family: var(--font-mono);
       font-weight: 600;
       color: #f1f5f9;
+      text-align: right;
+      word-break: break-all;
     }
 
-    /* Thumbnail Mock */
+    /* Redesigned 16:9 Thumbnail Mock */
     .thumb-preview-box {
-      background: #07090e;
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 6px;
+      background: radial-gradient(circle at 75% 25%, #2e1065 0%, #0f172a 55%, #020617 100%);
+      border: 1px solid rgba(139, 92, 246, 0.45);
+      border-radius: 8px;
       position: relative;
-      height: 120px;
+      aspect-ratio: 16 / 9;
+      width: 100%;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      justify-content: space-between;
+      padding: 10px 12px;
       overflow: hidden;
-      border: 3px solid #7c3aed;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 0 35px rgba(124, 58, 237, 0.2);
     }
-    .thumb-badge {
+    .thumb-deco-mesh {
       position: absolute;
-      top: 6px;
-      left: 8px;
+      inset: 0;
+      background: linear-gradient(135deg, transparent 40%, rgba(139, 92, 246, 0.18) 70%, rgba(6, 182, 212, 0.15) 100%);
+      pointer-events: none;
+      z-index: 1;
+    }
+    .thumb-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 2;
+    }
+    .thumb-game-tag {
+      font-size: 9.5px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #38bdf8;
+      background: rgba(15, 23, 42, 0.85);
+      border: 1px solid rgba(56, 189, 248, 0.4);
+      padding: 2px 7px;
+      border-radius: 4px;
+      backdrop-filter: blur(4px);
+    }
+    .thumb-archive-badge {
       font-size: 9px;
       font-weight: 800;
-      color: #7cfc00;
-      transform: rotate(-6deg);
-      background: rgba(0, 0, 0, 0.85);
-      padding: 2px 6px;
+      color: #fff;
+      background: #dc2626;
+      padding: 2px 7px;
+      border-radius: 4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.5);
+    }
+    .thumb-archive-badge::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      background: #fff;
+      border-radius: 50%;
+      animation: pulse 1.5s infinite;
+    }
+    .thumb-center {
+      z-index: 2;
+      margin: auto 0 4px;
+    }
+    .thumb-subhead {
+      font-size: 11px;
+      font-weight: 800;
+      color: #facc15;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
+      letter-spacing: -0.3px;
+      margin-bottom: 2px;
+    }
+    .thumb-main-title {
+      font-size: 15px;
+      font-weight: 900;
+      color: #ffffff;
+      line-height: 1.25;
+      letter-spacing: -0.5px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 20px rgba(139, 92, 246, 0.6);
+    }
+    .thumb-bottom-row {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      z-index: 2;
+    }
+    .thumb-ep-badge {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      color: #e2e8f0;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 1px 6px;
       border-radius: 3px;
     }
-    .thumb-title {
-      font-size: 13px;
-      font-weight: 800;
+    .thumb-duration-pill {
+      font-size: 10px;
+      font-family: var(--font-mono);
+      font-weight: 700;
       color: #fff;
-      text-shadow: 0 2px 4px #000;
-      text-align: center;
-      padding: 0 10px;
+      background: rgba(0, 0, 0, 0.85);
+      padding: 1px 5px;
+      border-radius: 3px;
+      letter-spacing: 0.5px;
     }
 
     /* Section Styles */
     .section {
-      padding: 95px 0;
+      padding: 85px 0;
       position: relative;
     }
     .section-header {
       text-align: center;
-      max-width: 720px;
-      margin: 0 auto 55px;
+      max-width: 780px;
+      margin: 0 auto 50px;
     }
     .section-eyebrow {
-      font-size: 13px;
+      font-size: 12.5px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 1px;
@@ -585,25 +688,66 @@
       display: block;
     }
     .section-title {
-      font-size: 38px;
+      font-size: clamp(24px, 5vw, 36px);
       font-weight: 800;
       letter-spacing: -0.8px;
-      line-height: 1.25;
-      margin-bottom: 16px;
+      line-height: 1.3;
+      margin-bottom: 14px;
+      word-break: keep-all;
     }
     .section-desc {
-      font-size: 16px;
+      font-size: 15.5px;
       color: var(--text-muted);
-      line-height: 1.6;
+      line-height: 1.65;
+      word-break: keep-all;
     }
 
-    /* Feature Grid (6 Unique Streamer Features) */
+    /* Category Blocks & Feature Grids */
+    .feat-category {
+      margin-bottom: 55px;
+    }
+    .feat-cat-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+    .feat-cat-badge {
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 6px;
+      white-space: nowrap;
+    }
+    .cat-audio { background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
+    .cat-deck  { background: rgba(167, 139, 250, 0.12); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.3); }
+    .cat-ops   { background: rgba(52, 211, 153, 0.12); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
+    .cat-edit  { background: rgba(251, 146, 60, 0.12); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.3); }
+    .cat-novel { background: rgba(244, 114, 182, 0.12); color: #f472b6; border: 1px solid rgba(244, 114, 182, 0.3); }
+
+    .feat-cat-title {
+      font-size: 20px;
+      font-weight: 800;
+      color: #fff;
+    }
+    .feat-cat-desc {
+      font-size: 13.5px;
+      color: var(--text-dim);
+      margin-left: auto;
+    }
+    @media (max-width: 768px) {
+      .feat-cat-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+      .feat-cat-desc { margin-left: 0; }
+    }
+
     .features-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 22px;
+      gap: 18px;
     }
-    @media (max-width: 960px) {
+    @media (max-width: 1024px) {
       .features-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 640px) {
@@ -612,18 +756,18 @@
     .feat-card {
       background: linear-gradient(180deg, rgba(21, 27, 39, 0.85) 0%, rgba(14, 18, 27, 0.95) 100%);
       border: 1px solid var(--border-subtle);
-      border-radius: 14px;
-      padding: 26px 22px;
+      border-radius: 12px;
+      padding: 22px 20px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
       transition: all 0.25s ease;
       position: relative;
     }
     .feat-card:hover {
-      transform: translateY(-4px);
+      transform: translateY(-3px);
       border-color: rgba(139, 92, 246, 0.4);
-      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(124, 58, 237, 0.15);
+      box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 0 20px rgba(124, 58, 237, 0.15);
     }
     .feat-badge-top {
       display: inline-flex;
@@ -637,14 +781,16 @@
       padding: 2px 8px;
       border-radius: 4px;
       align-self: flex-start;
+      white-space: nowrap;
     }
     .feat-title {
-      font-size: 18px;
+      font-size: 16.5px;
       font-weight: 700;
       color: #fff;
+      line-height: 1.35;
     }
     .feat-desc {
-      font-size: 13.5px;
+      font-size: 13px;
       color: var(--text-muted);
       line-height: 1.65;
       word-break: keep-all;
@@ -655,26 +801,29 @@
       background: var(--bg-surface);
       border: 1px solid var(--border-subtle);
       border-radius: 14px;
-      overflow: hidden;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
       box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
     }
     .compare-table {
       width: 100%;
+      min-width: 680px;
       border-collapse: collapse;
-      font-size: 13.5px;
+      font-size: 13px;
       text-align: left;
     }
     .compare-table th, .compare-table td {
-      padding: 16px 20px;
+      padding: 14px 18px;
       border-bottom: 1px solid rgba(255, 255, 255, 0.06);
     }
     .compare-table th {
       background: #111723;
       font-weight: 700;
       color: var(--text-muted);
-      font-size: 12.5px;
+      font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.5px;
+      white-space: nowrap;
     }
     .compare-table th.highlight-col {
       color: #fff;
@@ -687,44 +836,45 @@
       border-left: 1px solid rgba(139, 92, 246, 0.2);
       border-right: 1px solid rgba(139, 92, 246, 0.2);
       font-weight: 600;
-      color: #f1f5f9;
     }
-    .badge-bad { color: #f87171; font-size: 13px; }
-    .badge-good { color: #34d399; font-size: 13.5px; font-weight: 700; }
+    .badge-bad { color: #f87171; font-size: 12px; font-weight: 700; }
+    .badge-good { color: #34d399; font-size: 12px; font-weight: 700; }
 
-    /* Download Box / Banner */
+    /* Download Section */
     .download-card {
-      background: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.25) 0%, rgba(17, 24, 39, 0.95) 75%);
-      border: 1px solid rgba(139, 92, 246, 0.4);
+      background: linear-gradient(135deg, rgba(26, 32, 48, 0.9) 0%, rgba(15, 19, 29, 0.95) 100%);
+      border: 1px solid rgba(139, 92, 246, 0.3);
       border-radius: 20px;
-      padding: 55px 36px;
+      padding: 50px 32px;
       text-align: center;
       box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 50px rgba(124, 58, 237, 0.25);
     }
     .dl-title {
-      font-size: 36px;
+      font-size: clamp(24px, 5vw, 34px);
       font-weight: 800;
-      letter-spacing: -1px;
-      margin-bottom: 14px;
+      letter-spacing: -0.8px;
+      margin-bottom: 12px;
+      word-break: keep-all;
     }
     .dl-desc {
-      font-size: 15.5px;
+      font-size: 15px;
       color: var(--text-muted);
       max-width: 620px;
-      margin: 0 auto 34px;
+      margin: 0 auto 30px;
       line-height: 1.6;
+      word-break: keep-all;
     }
     .dl-buttons {
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 14px;
+      gap: 12px;
       flex-wrap: wrap;
-      margin-bottom: 28px;
+      margin-bottom: 26px;
     }
     .dl-btn-main {
-      padding: 15px 32px;
-      font-size: 16px;
+      padding: 14px 28px;
+      font-size: 15.5px;
       border-radius: 10px;
       font-weight: 800;
     }
@@ -732,21 +882,22 @@
       background: rgba(0, 0, 0, 0.45);
       border: 1px solid rgba(255, 255, 255, 0.1);
       border-radius: 10px;
-      padding: 14px 20px;
+      padding: 14px 18px;
       max-width: 680px;
       margin: 0 auto;
       font-size: 12px;
       color: #cbd5e1;
       text-align: left;
       line-height: 1.6;
+      word-break: keep-all;
     }
 
     /* Footer */
     .footer {
       border-top: 1px solid var(--border-subtle);
-      padding: 45px 0 35px;
+      padding: 40px 0 30px;
       background: #05070a;
-      font-size: 13px;
+      font-size: 12.5px;
       color: var(--text-dim);
     }
     .footer-inner {
@@ -754,12 +905,13 @@
       align-items: center;
       justify-content: space-between;
       flex-wrap: wrap;
-      gap: 20px;
+      gap: 16px;
     }
     .footer-links {
       display: flex;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
+      flex-wrap: wrap;
     }
     .footer-links a {
       color: var(--text-muted);
@@ -768,11 +920,19 @@
     }
     .footer-links a:hover { color: #fff; }
 
+    /* Comprehensive Mobile Responsive Queries */
     @media (max-width: 768px) {
-      .hero-title { font-size: 34px; }
-      .section-title { font-size: 26px; }
+      .container { padding: 0 16px; }
       .nav-links { display: none; }
+      .navbar .btn-cal { display: none; }
+      .nav-inner { height: 60px; }
+      .nav-title { font-size: 18px; }
+      .btn-primary { font-size: 13px; padding: 7px 14px; }
+      .hero { padding: 50px 0 40px; }
+      .section { padding: 60px 0; }
       .download-card { padding: 36px 18px; }
+      .v-tab-btn { padding: 7px 11px; font-size: 11.5px; }
+      .pane-card { padding: 12px; }
     }
   </style>
 </head>
@@ -796,18 +956,17 @@
       </a>
 
       <ul class="nav-links">
-        <li><a href="#daily-tools" class="nav-link">생방 도구</a></li>
-        <li><a href="#features" class="nav-link">주요 기능</a></li>
+        <li><a href="#features" class="nav-link">전체 기능</a></li>
         <li><a href="#compare" class="nav-link">비교 우위</a></li>
         <li><a href="#download" class="nav-link">다운로드</a></li>
       </ul>
 
       <div class="nav-actions">
         <a href="/" class="btn-cal" title="서브컬처 캘린더로 이동">
-          <span>🗓️</span> 캘린더 보기
+          <span>🗓️</span> 캘린더
         </a>
         <a href="https://github.com/gamecompiler/castedit-release/releases/latest" target="_blank" rel="noreferrer" class="btn-primary">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           다운로드
         </a>
       </div>
@@ -829,8 +988,8 @@
 
       <p class="hero-subtitle">
         송출컴-게임컴 녹화본 자동 이동, OBS 장면 전환에 따른 치지직 카테고리 실시간 변경,<br>
-        템플릿 기반 썸네일·주간 일정표 원클릭 생산, 그리고 유튜브 다시보기 자동 업로드까지.<br>
-        스트리머가 방송 본연의 재미에만 집중할 수 있도록 돕는 실전 데스크톱 도구입니다.
+        T1~T5 사운드 제어, 스트림덱 단일 허브 매크로, 썸네일·주간 일정표 1초 생산, 그리고 유튜브 다시보기 자동 업로드까지.<br>
+        스트리머가 방송 본연의 재미에만 집중할 수 있도록 돕는 실전 데스크톱 올인원 툴킷입니다.
       </p>
 
       <div class="hero-cta-group">
@@ -846,9 +1005,10 @@
 
       <div class="hero-badges">
         <span class="hero-badge-item">🖥️ Windows 10/11 64-bit 전용</span>
-        <span class="hero-badge-item">⚡ OBS Studio & PRISM Live WebSocket 연동</span>
-        <span class="hero-badge-item">🔒 Windows 자격 증명 관리자로 API 토큰 보안 보호</span>
-        <span class="hero-badge-item">🎙️ T1~T5 멀티트랙 무손실 분리</span>
+        <span class="hero-badge-item">⚡ OBS & PRISM WebSocket v5</span>
+        <span class="hero-badge-item">🎙️ T1~T5 사운드 분리 & BGM 브릿지</span>
+        <span class="hero-badge-item">🕹️ 스트림덱 단일 허브 & 매크로</span>
+        <span class="hero-badge-item">🔒 Windows 자격 증명 보안</span>
       </div>
 
       <!-- Real Windows UI Showcase -->
@@ -858,7 +1018,7 @@
           <div class="win-titlebar">
             <div class="win-title-left">
               <img src="/castedit-icon.png" alt="" class="win-title-icon" onerror="this.style.display='none'">
-              <span>CastEdit v0.82.0 - [방송 운영 & 영상 편집]</span>
+              <span>CastEdit v0.82.0 - [방송 운영 · 오디오 제어 · 스트림덱 · 영상 편집]</span>
             </div>
             <div class="win-controls">
               <div class="win-btn" title="최소화">—</div>
@@ -876,23 +1036,30 @@
             <span class="win-menu-item">합방(C)</span>
             <span class="win-menu-item">탐지(D)</span>
             <span class="win-menu-item" style="color:#c4b5fd; font-weight:700;">방송 도구(B)</span>
-            <span class="win-menu-item" style="color:#38bdf8; font-weight:700;">방송 정리(W)</span>
+            <span class="win-menu-item" style="color:#38bdf8; font-weight:700;">사운드(A)</span>
+            <span class="win-menu-item" style="color:#34d399; font-weight:700;">방송 정리(W)</span>
             <span class="win-menu-item">설정(P)</span>
           </div>
 
-          <!-- View Tabs -->
+          <!-- Interactive View Tabs -->
           <div class="win-view-tabs">
             <button class="v-tab-btn active" onclick="switchWinTab('ops', this)">
-              <span class="tab-badge">OPS</span> 데일리 생방 도구 (치지직·OBS)
+              <span class="tab-badge">OPS</span> 데일리 생방
+            </button>
+            <button class="v-tab-btn" onclick="switchWinTab('audio', this)">
+              <span class="tab-badge">AUDIO</span> 사운드 제어
+            </button>
+            <button class="v-tab-btn" onclick="switchWinTab('deck', this)">
+              <span class="tab-badge">DECK</span> 스트림덱 매크로
             </button>
             <button class="v-tab-btn" onclick="switchWinTab('wrapup', this)">
-              <span class="tab-badge">WRAPUP</span> 방송 정리 & 유튜브 자동 업로드
+              <span class="tab-badge">WRAPUP</span> 방송 정리·업로드
             </button>
             <button class="v-tab-btn" onclick="switchWinTab('creative', this)">
-              <span class="tab-badge">CARD</span> 썸네일 & 주간 일정표 생산기
+              <span class="tab-badge">CARD</span> 썸네일·일정표
             </button>
             <button class="v-tab-btn" onclick="switchWinTab('edit', this)">
-              <span class="tab-badge">EDIT</span> F1~F4 영상 편집 (멀티트랙·자막)
+              <span class="tab-badge">EDIT</span> 영상 편집·AI
             </button>
           </div>
 
@@ -902,87 +1069,131 @@
             <!-- Pane 1: Daily Stream Tools (Active) -->
             <div id="pane-ops" class="pane active">
               <div class="pane-grid">
-                <!-- Col 1: OBS to Chzzk Link -->
                 <div class="pane-card">
                   <div class="pane-card-header">
                     <span>치지직 장면 연동 카테고리</span>
                     <span class="pane-chip chip-green">실시간 연동 중</span>
                   </div>
-                  <div class="status-row">
-                    <span>OBS 활성 씬</span>
-                    <span class="status-val">[씬 2] 명조 인게임</span>
-                  </div>
-                  <div class="status-row">
-                    <span>치지직 카테고리</span>
-                    <span class="status-val" style="color:#38bdf8;">명조: 워더링 웨이브</span>
-                  </div>
-                  <div class="status-row">
-                    <span>태그 자동 변경</span>
-                    <span class="status-val">#명조 #스토리분석</span>
-                  </div>
-                  <div class="status-row">
-                    <span>노션 일정 동기화</span>
-                    <span class="status-val">11/13 명조 방송 매핑 ✓</span>
-                  </div>
+                  <div class="status-row"><span>OBS 활성 씬</span><span class="status-val">[씬 2] 명조 인게임</span></div>
+                  <div class="status-row"><span>치지직 카테고리</span><span class="status-val" style="color:#38bdf8;">명조: 워더링 웨이브</span></div>
+                  <div class="status-row"><span>태그 자동 변경</span><span class="status-val">#명조 #스토리분석</span></div>
+                  <div class="status-row"><span>노션 일정 동기화</span><span class="status-val">11/13 명조 방송 매핑 ✓</span></div>
                   <div style="font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.5;">
                     * OBS에서 게임 장면으로 넘기면 치지직 공식 API로 방송 제목과 카테고리가 딜레이 없이 즉시 자동 변경됩니다.
                   </div>
                 </div>
 
-                <!-- Col 2: Stream PC Remote & Stream Deck -->
                 <div class="pane-card">
                   <div class="pane-card-header">
                     <span>송출컴 원격 제어 (투컴)</span>
                     <span class="pane-chip chip-blue">WebSocket v5</span>
                   </div>
-                  <div class="status-row">
-                    <span>송출 PC IP</span>
-                    <span class="status-val">192.168.0.22</span>
-                  </div>
-                  <div class="status-row">
-                    <span>연결 상태</span>
-                    <span class="status-val" style="color:#34d399;">OBS 수신 정상 (초록불)</span>
-                  </div>
-                  <div class="status-row">
-                    <span>스트림덱 연동</span>
-                    <span class="status-val">HTTP 8787 / VBAN</span>
-                  </div>
-                  <div class="status-row">
-                    <span>게임컴 매크로</span>
-                    <span class="status-val">게임별 스크린샷 핫키</span>
-                  </div>
+                  <div class="status-row"><span>송출 PC IP</span><span class="status-val">192.168.0.22</span></div>
+                  <div class="status-row"><span>연결 상태</span><span class="status-val" style="color:#34d399;">OBS 수신 정상 (초록불)</span></div>
+                  <div class="status-row"><span>전송 레이턴시</span><span class="status-val">0.02초 (로컬 네트워크)</span></div>
+                  <div class="status-row"><span>OBS 소스 제어</span><span class="status-val">캠·채팅·게임 영역 토글</span></div>
                   <div style="font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.5;">
                     * 송출컴에 추가 프로그램을 깔지 않고도 OBS 소스·마커 제어와 유튜브뮤직 원격 조작이 가능합니다.
                   </div>
                 </div>
 
-                <!-- Col 3: Discord Collab & Cam Regions -->
                 <div class="pane-card">
                   <div class="pane-card-header">
                     <span>디스코드 합방 & 소스 좌표</span>
                     <span class="pane-chip chip-purple">자동 분석</span>
                   </div>
-                  <div class="status-row">
-                    <span>디스코드 화자 감지</span>
-                    <span class="status-val">윤치 님 통화 중</span>
-                  </div>
-                  <div class="status-row">
-                    <span>화자별 음량 보정</span>
-                    <span class="status-val">자동 평준화 (Normalizer)</span>
-                  </div>
-                  <div class="status-row">
-                    <span>OBS 소스 자동 인식</span>
-                    <span class="status-val">캠·채팅·게임 영역 추출</span>
-                  </div>
-                  <div class="status-row">
-                    <span>말할 때 캐릭터 반응</span>
-                    <span class="status-val">바운스 오버레이 활성</span>
-                  </div>
+                  <div class="status-row"><span>디스코드 화자 감지</span><span class="status-val">윤치 님 통화 중</span></div>
+                  <div class="status-row"><span>화자별 음량 보정</span><span class="status-val">자동 평준화 (Normalizer)</span></div>
+                  <div class="status-row"><span>OBS 소스 자동 인식</span><span class="status-val">캠·채팅·게임 영역 추출</span></div>
+                  <div class="status-row"><span>말할 때 캐릭터 반응</span><span class="status-val">바운스 오버레이 활성</span></div>
                 </div>
               </div>
             </div>
 
-            <!-- Pane 2: Stream Wrapup -->
+            <!-- Pane 2: Sound & Audio Routing -->
+            <div id="pane-audio" class="pane">
+              <div class="pane-grid">
+                <div class="pane-card">
+                  <div class="pane-card-header">
+                    <span>T1~T5 멀티트랙 무손실 분리</span>
+                    <span class="pane-chip chip-blue">독립 트랙</span>
+                  </div>
+                  <div class="status-row"><span>T1 마이크</span><span class="status-val">SHURE MV7+ / DAW</span></div>
+                  <div class="status-row"><span>T2 인게임 소리</span><span class="status-val">Mobile IN (Game PC)</span></div>
+                  <div class="status-row"><span>T3 디코 손님</span><span class="status-val">Playback 1/2 (System)</span></div>
+                  <div class="status-row"><span>T4 사적 알림</span><span class="status-val" style="color:#f87171;">Not Stream (녹화/송출 제외)</span></div>
+                  <div class="status-row"><span>T5 크롬 BGM</span><span class="status-val" style="color:#38bdf8;">Music (송출 O / 녹화 제외)</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">방송 녹화 파일을 열면 5개 트랙이 각자의 역할로 자동 매핑됩니다.</div>
+                </div>
+
+                <div class="pane-card">
+                  <div class="pane-card-header">
+                    <span>스마트 BGM 브릿지 & 라우팅</span>
+                    <span class="pane-chip chip-purple">솔로 모드</span>
+                  </div>
+                  <div class="status-row"><span>솔로 내레이션 모드</span><span class="status-val" style="color:#34d399;">BGM 끊김 방지 유지</span></div>
+                  <div class="status-row"><span>BGM 스마트 엔딩</span><span class="status-val">곡 끝부분 마디 맞춤</span></div>
+                  <div class="status-row"><span>Voicemeeter 연동</span><span class="status-val">B1(OBS) / B2(디코) 분리</span></div>
+                  <div class="status-row"><span>합방 노멀라이저</span><span class="status-val">손님별 볼륨 자동 평준화</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">마이크 말실수를 잘라도 게임 BGM은 끊김 없이 자연스럽게 이어붙입니다.</div>
+                </div>
+
+                <div class="pane-card">
+                  <div class="pane-card-header">
+                    <span>YTM-Remote 유튜브뮤직 원격</span>
+                    <span class="pane-chip chip-green">HTTP 8787</span>
+                  </div>
+                  <div class="status-row"><span>서비스 포트</span><span class="status-val">0.0.0.0:8787</span></div>
+                  <div class="status-row"><span>원격 재생 제어</span><span class="status-val">재생 / 정지 / 이전 / 다음</span></div>
+                  <div class="status-row"><span>볼륨 단계 조절</span><span class="status-val">5% 단위 원격 다이얼</span></div>
+                  <div class="status-row"><span>대상 프로세스</span><span class="status-val">송출컴 크롬 PWA 세션</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">저챗 방송 중 게임컴에서 송출컴 배경음악을 자유자재로 원격 제어합니다.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pane 3: Stream Deck Hub & Macros -->
+            <div id="pane-deck" class="pane">
+              <div class="pane-grid">
+                <div class="pane-card">
+                  <div class="pane-card-header">
+                    <span>CastEdit 스트림덱 허브 (플러그인 Zero)</span>
+                    <span class="pane-chip chip-purple">단일 CLI</span>
+                  </div>
+                  <div class="status-row"><span>호출 방식</span><span class="status-val">CastEdit.exe deck &lt;기능&gt;</span></div>
+                  <div class="status-row"><span>대체 플러그인</span><span class="status-val">VBANDeck, Multi-OBS 통합</span></div>
+                  <div class="status-row"><span>크로스 PC 전송</span><span class="status-val">송출컴 도우미 직결</span></div>
+                  <div class="status-row"><span>버튼 코드 생성기</span><span class="status-val">도구 → 원클릭 복사 제공</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">마켓 플러그인 없이 기본 System → Open 하나로 모든 명령을 전달합니다.</div>
+                </div>
+
+                <div class="pane-card">
+                  <div class="pane-card-header">
+                    <span>게임 자동 감지 매크로 & 스크린샷</span>
+                    <span class="pane-chip chip-green">핫키 매크로</span>
+                  </div>
+                  <div class="status-row"><span>활성 창 인식</span><span class="status-val">현재 포커스 게임 판별</span></div>
+                  <div class="status-row"><span>캡처 매크로</span><span class="status-val">UI 숨김 → 촬영 → UI 복원</span></div>
+                  <div class="status-row"><span>스크린샷 아카이브</span><span class="status-val">게임별 전용 폴더 자동 분류</span></div>
+                  <div class="status-row"><span>외부 캡처 수집</span><span class="status-val">스팀/지포스 캡처 자동 이관</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">버튼 한 번으로 깔끔한 무UI 고화질 게임 스크린샷을 즉시 남깁니다.</div>
+                </div>
+
+                <div class="pane-card">
+                  <div class="pane-card-header">
+                    <span>원클릭 노래 모드 & 방송 마커</span>
+                    <span class="pane-chip chip-blue">라이브 제어</span>
+                  </div>
+                  <div class="status-row"><span>노래 모드 전환</span><span class="status-val">리버브 ON + 반주 디코 전송</span></div>
+                  <div class="status-row"><span>OBS 챕터 마커</span><span class="status-val">CreateRecordChapter 실행</span></div>
+                  <div class="status-row"><span>OBS 음소거 제어</span><span class="status-val">채팅/투네/후원 사운드 제어</span></div>
+                  <div class="status-row"><span>볼륨 로터리 다이얼</span><span class="status-val">마이크/BGM ±2dB 조절</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">스트림덱 다이얼과 버튼으로 복잡한 방송 설정 변경을 0초 만에 끝냅니다.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Pane 4: Stream Wrapup -->
             <div id="pane-wrapup" class="pane">
               <div class="pane-grid">
                 <div class="pane-card">
@@ -995,6 +1206,7 @@
                   <div class="status-row"><span>무결성 검증</span><span class="status-val" style="color:#34d399;">표본 해시 검증 완료</span></div>
                   <div style="font-size:11px; color:#94a3b8; margin-top:6px;">방송 종료 즉시 백그라운드로 자동 복사되어 기다릴 필요가 없습니다.</div>
                 </div>
+
                 <div class="pane-card">
                   <div class="pane-card-header">
                     <span>규칙 기반 파일명 자동 생성</span>
@@ -1005,6 +1217,7 @@
                   <div class="status-row"><span>다시보기 설명문</span><span class="status-val">노션 일정 토큰 자동 치환</span></div>
                   <div style="font-size:11px; color:#94a3b8; margin-top:6px;">노션 방송 일정과 파일 개수를 읽어 회차와 부제를 스스로 결정합니다.</div>
                 </div>
+
                 <div class="pane-card">
                   <div class="pane-card-header">
                     <span>다시보기 유튜브 자동 업로드</span>
@@ -1018,21 +1231,34 @@
               </div>
             </div>
 
-            <!-- Pane 3: Creative Maker -->
+            <!-- Pane 5: Creative Maker (Thumbnails & Notion Calendar) -->
             <div id="pane-creative" class="pane">
               <div class="pane-grid">
-                <!-- Thumbnail Maker -->
+                <!-- Redesigned High-Quality Thumbnail Mock -->
                 <div class="pane-card">
                   <div class="pane-card-header">
                     <span>썸네일 간편 생산기 (1초 완성)</span>
                     <span class="pane-chip chip-purple">템플릿 엔진</span>
                   </div>
+                  
                   <div class="thumb-preview-box">
-                    <div class="thumb-badge">라이브 다시보기</div>
-                    <div class="thumb-title">명조 3.8 메인 스토리 분석 ⑦</div>
+                    <div class="thumb-deco-mesh"></div>
+                    <div class="thumb-top-row">
+                      <span class="thumb-game-tag">WUTHERING WAVES 3.8</span>
+                      <span class="thumb-archive-badge">다시보기</span>
+                    </div>
+                    <div class="thumb-center">
+                      <div class="thumb-subhead">메인 스토리 완벽 해석</div>
+                      <div class="thumb-main-title">검은 해안의 진실과 떡밥</div>
+                    </div>
+                    <div class="thumb-bottom-row">
+                      <span class="thumb-ep-badge">EPISODE · 07</span>
+                      <span class="thumb-duration-pill">▶ 3:48:12</span>
+                    </div>
                   </div>
-                  <div class="status-row"><span>규칙</span><span class="status-val">게임별 로고 + 도장 + 회차 ⑦</span></div>
-                  <div class="status-row"><span>출력 포맷</span><span class="status-val">1280×720 PNG 즉시 저장</span></div>
+
+                  <div class="status-row"><span>템플릿 규칙</span><span class="status-val">게임별 로고 + 도장 + 회차 ⑦</span></div>
+                  <div class="status-row"><span>출력 포맷</span><span class="status-val">1280×720 PNG (16:9 규격)</span></div>
                 </div>
 
                 <!-- Schedule Publisher -->
@@ -1050,26 +1276,40 @@
               </div>
             </div>
 
-            <!-- Pane 4: Video Editing -->
+            <!-- Pane 6: Video Editing & AI -->
             <div id="pane-edit" class="pane">
               <div class="pane-grid">
                 <div class="pane-card">
-                  <div class="pane-card-header"><span>F1 구간 선택 (Lossless)</span></div>
+                  <div class="pane-card-header">
+                    <span>F1 구간 선택 (Lossless)</span>
+                    <span class="pane-chip chip-blue">대구간 컷</span>
+                  </div>
                   <div class="status-row"><span>처리 방식</span><span class="status-val">0초 무손실 인코딩 분할</span></div>
                   <div class="status-row"><span>단축키</span><span class="status-val">I(시작) / O(끝) / B(분할)</span></div>
-                  <div class="status-row"><span>디스크 절약</span><span class="status-val">임시 파일 0 Byte 생성</span></div>
+                  <div class="status-row"><span>디스크 절약</span><span class="status-val">중간 인코딩 임시 파일 0 Byte</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">LosslessCut의 속도와 편의성을 그대로 구현했습니다.</div>
                 </div>
+
                 <div class="pane-card">
-                  <div class="pane-card-header"><span>F2 정밀 컷 & 자막 (Whisper)</span></div>
-                  <div class="status-row"><span>Whisper AI</span><span class="status-val">단축키 Ctrl+T 받아쓰기</span></div>
+                  <div class="pane-card-header">
+                    <span>F2 정밀 컷 & 자막 (Whisper)</span>
+                    <span class="pane-chip chip-purple">AI 텍스트 컷</span>
+                  </div>
+                  <div class="status-row"><span>Whisper AI</span><span class="status-val">로컬 GPU 가속 받아쓰기</span></div>
                   <div class="status-row"><span>자막 기반 컷</span><span class="status-val">자막 고르고 Del 누르면 컷</span></div>
-                  <div class="status-row"><span>스마트 탐지</span><span class="status-val">헛말·침묵 자동 감지 제거</span></div>
+                  <div class="status-row"><span>문서형 대본</span><span class="status-val">워드프로세서처럼 보며 컷</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">파형을 더듬을 필요 없이 글자를 보며 말 단위로 자릅니다.</div>
                 </div>
+
                 <div class="pane-card">
-                  <div class="pane-card-header"><span>F4 롱폼·숏폼 동시 추출</span></div>
+                  <div class="pane-card-header">
+                    <span>F4 롱폼·숏폼 동시 추출</span>
+                    <span class="pane-chip chip-green">쇼츠 3분할</span>
+                  </div>
                   <div class="status-row"><span>숏폼 세로 분할</span><span class="status-val">캠+게임+채팅 3분할 템플릿</span></div>
                   <div class="status-row"><span>길이 제한 체크</span><span class="status-val">2분 59초 초과 경고 알림</span></div>
                   <div class="status-row"><span>유튜브 스튜디오</span><span class="status-val">예약 공개 일괄 업로드</span></div>
+                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">롱폼 편집본에서 하이라이트만 바로 숏폼으로 뽑아냅니다.</div>
                 </div>
               </div>
             </div>
@@ -1081,72 +1321,303 @@
     </div>
   </section>
 
-  <!-- Key Unique Features for Streamers -->
-  <section id="daily-tools" class="section" style="background:#090c13;">
+  <!-- Complete Feature Master List -->
+  <section id="features" class="section" style="background:#090c13;">
     <div class="container">
       <div class="section-header">
-        <span class="section-eyebrow">Unique for Streamers</span>
-        <h2 class="section-title">생방송의 모든 번거로움을 해결하는 6대 도구</h2>
+        <span class="section-eyebrow">All-In-One Toolkit</span>
+        <h2 class="section-title">방송 준비부터 송출·정리·편집까지, 모든 실전 기능</h2>
         <p class="section-desc">
-          단순한 영상 편집기를 넘어, 매일 생방송을 켜고 정리하는 1인 크리에이터의 손발이 되어 줍니다.
+          사운드 제어, 스트림덱 매크로, 데일리 생방 운영, AI 편집, 특화 컨텐츠까지 스트리머가 매일 쓰는 모든 기능을 하나도 빠짐없이 담았습니다.
         </p>
       </div>
 
-      <div class="features-grid">
-        <!-- Feat 1 -->
-        <div class="feat-card">
-          <span class="feat-badge-top">생방 실시간</span>
-          <h3 class="feat-title">OBS 장면 연동 치지직 카테고리 자동 변경</h3>
-          <p class="feat-desc">
-            방송 중 OBS에서 게임 장면으로 전환하면 치지직 공식 API를 통해 방송 카테고리, 제목, 태그가 즉시 자동 변경됩니다. 노션 일정과 연동되어 수동 조작이 전혀 필요 없습니다.
-          </p>
+      <!-- Category 1: Sound Control & Audio Routing -->
+      <div class="feat-category">
+        <div class="feat-cat-header">
+          <span class="feat-cat-badge cat-audio">사운드 & 오디오</span>
+          <h3 class="feat-cat-title">🎙️ 사운드 제어 & 멀티트랙 라우팅 엔진</h3>
+          <span class="feat-cat-desc">마이크·게임·디코·알림·BGM 완전 분리 및 실시간 원격 조작</span>
         </div>
-
-        <!-- Feat 2 -->
-        <div class="feat-card">
-          <span class="feat-badge-top">투컴 자동화</span>
-          <h3 class="feat-title">송출컴 녹화본 자동 이동 (SMB 동기화)</h3>
-          <p class="feat-desc">
-            방송 종료를 OBS WebSocket으로 감지하는 즉시, 송출 PC의 원본 녹화 파일을 편집 PC의 보관 폴더로 백그라운드 복사합니다. 파일 크기와 표본 해시 검증으로 무결성을 보장합니다.
-          </p>
-        </div>
-
-        <!-- Feat 3 -->
-        <div class="feat-card">
-          <span class="feat-badge-top">1초 완성</span>
-          <h3 class="feat-title">썸네일 간편 생산기 (Thumbnail Maker)</h3>
-          <p class="feat-desc">
-            다시보기와 편집본 규격에 맞춘 템플릿 엔진을 내장했습니다. 게임별 로고, 다시보기 도장, 회차 번호(⑦)를 조합해 배경과 제목만 넣으면 고화질 썸네일(PNG)이 1초 만에 완성됩니다.
-          </p>
-        </div>
-
-        <!-- Feat 4 -->
-        <div class="feat-card">
-          <span class="feat-badge-top">공지 자동화</span>
-          <h3 class="feat-title">주간 일정표 생성 & 카페·디스코드 원클릭 게시</h3>
-          <p class="feat-desc">
-            노션 방송 일정 DB에서 한 주간 일정을 읽어 16:9 주간 일정표 카드를 자동 렌더링합니다. 네이버 카페, 디스코드 웹후크, 유튜브 커뮤니티로 글과 이미지를 한 번에 공지할 수 있습니다.
-          </p>
-        </div>
-
-        <!-- Feat 5 -->
-        <div class="feat-card">
-          <span class="feat-badge-top">종료 후 원클릭</span>
-          <h3 class="feat-title">다시보기 채널 유튜브 자동 업로드 (Wrapup)</h3>
-          <p class="feat-desc">
-            방송 정리 마법사(Wrapup)가 파일명을 규칙대로 일괄 정리하고(예: 채널명 26.11.13 게임명 다시보기 ①.mp4), 지정한 다시보기 유튜브 채널로 재생목록과 예약 설정을 맞춰 자동 업로드합니다.
-          </p>
-        </div>
-
-        <!-- Feat 6 -->
-        <div class="feat-card">
-          <span class="feat-badge-top">편집 혁신</span>
-          <h3 class="feat-title">멀티트랙 무손실 분리 & Whisper 자막 컷</h3>
-          <p class="feat-desc">
-            마이크(T1)를 잘라도 게임 BGM(T2)은 끊김 없이 이어지는 스마트 브릿지를 제공합니다. Whisper로 추출한 자막을 보면서 단축키 Del 하나로 말 단위 정밀 컷을 끝낼 수 있습니다.
-          </p>
+        <div class="features-grid">
+          <div class="feat-card">
+            <span class="feat-badge-top">멀티트랙</span>
+            <h4 class="feat-title">T1~T5 멀티트랙 무손실 분리 녹화</h4>
+            <p class="feat-desc">
+              마이크(T1), 게임 사운드(T2), 디스코드 손님(T3), 시스템 알림(T4), BGM(T5)을 무손실 개별 트랙으로 완벽히 분리 녹화해 편집 시 필요한 소리만 정밀 제어합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">BGM 스마트 브릿지</span>
+            <h4 class="feat-title">솔로 내레이션 모드 (게임 소리 유지)</h4>
+            <p class="feat-desc">
+              말실수나 불필요한 마이크 구간을 잘라내도 게임 BGM과 효과음은 끊김 없이 자연스럽게 이어 붙여 오디오 공백이나 튀는 현상을 원천 방지합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">합방 최적화</span>
+            <h4 class="feat-title">디스코드 화자별 음량 자동 평준화 (Normalizer)</h4>
+            <p class="feat-desc">
+              합방 멤버마다 제각각인 마이크 크기를 자동으로 분석해 균일한 볼륨으로 평준화하고, 말할 때 화면에 캐릭터 바운스 반응을 띄웁니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">스마트 BGM</span>
+            <h4 class="feat-title">배경음악 스마트 마디 마커 & 길이 맞춤</h4>
+            <p class="feat-desc">
+              음악이 영상 끝에서 뚝 끊기지 않고 곡의 원래 마디와 엔딩 멜로디에 맞춰 자연스럽게 페이드아웃되도록 곡 길이를 자동으로 조절합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">저챗 원격 제어</span>
+            <h4 class="feat-title">송출컴 유튜브뮤직 원격 제어 (YTM-Remote)</h4>
+            <p class="feat-desc">
+              저챗 방송 중 게임컴에서 송출컴 크롬의 유튜브뮤직을 HTTP 8787 포트로 재생, 정지, 다음 곡, 볼륨 조절까지 딜레이 없이 원격 조작합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">오디오 라우팅</span>
+            <h4 class="feat-title">Voicemeeter 원격 API 직결 제어</h4>
+            <p class="feat-desc">
+              OBS 송출용 마이크와 디스코드 통화용 마이크를 원클릭으로 분리 토글하고, 게임컴 노래방 반주를 디스코드로 즉시 라우팅합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">사적 알림 차단</span>
+            <h4 class="feat-title">송출컴 사운드 레인 분리 (Not Stream)</h4>
+            <p class="feat-desc">
+              카카오톡, 라인, 윈도우 사적 시스템 알림 소리를 방송 송출과 녹화에서 원천 차단하여 방송 사고 위험을 제로로 만듭니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">AI 오디오</span>
+            <h4 class="feat-title">AI 목소리 복원 & 노이즈 캔슬링</h4>
+            <p class="feat-desc">
+              작은 로컬 딥러닝 모델을 내장하여 키보드 타건음, 마우스 클릭음, 주변 소음을 제거하고 목소리 톤을 또렷하게 복원합니다.
+            </p>
+          </div>
         </div>
       </div>
+
+      <!-- Category 2: Stream Deck Hub & Macros -->
+      <div class="feat-category">
+        <div class="feat-cat-header">
+          <span class="feat-cat-badge cat-deck">스트림덱 & 매크로</span>
+          <h3 class="feat-cat-title">🕹️ 스트림덱 단일 허브 & 크로스-PC 매크로</h3>
+          <span class="feat-cat-desc">외부 플러그인 Zero, 단일 CLI와 게임별 자동 인식 핫키</span>
+        </div>
+        <div class="features-grid">
+          <div class="feat-card">
+            <span class="feat-badge-top">허브 단일화</span>
+            <h4 class="feat-title">플러그인 3종을 하나로 (CastEdit 스트림덱 허브)</h4>
+            <p class="feat-desc">
+              VBANDeck, Multi-OBS, WebRequests 플러그인을 깔 필요 없이, CastEdit 단일 실행 파일 명령(CastEdit.exe deck &lt;기능&gt;) 하나로 통합 호출합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">투컴 제어</span>
+            <h4 class="feat-title">게임컴에서 송출컴 OBS·사운드 완벽 제어</h4>
+            <p class="feat-desc">
+              게임컴 스트림덱 버튼 하나로 송출컴 OBS 장면 전환, 소스 토글, 마이크 음소거, 녹화 챕터 마커 생성을 실시간 원격 실행합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">게임 자동 감지</span>
+            <h4 class="feat-title">활성 게임 인식 매크로 & 무손실 스크린샷</h4>
+            <p class="feat-desc">
+              현재 실행 중인 게임을 자동으로 판별해 인게임 UI 숨김 → 스크린샷 캡처 → UI 복원 매크로를 실행하고 게임별 전용 폴더에 자동 분류합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">원클릭 전환</span>
+            <h4 class="feat-title">원클릭 라이브 노래 모드 전환</h4>
+            <p class="feat-desc">
+              버튼 하나로 목소리에 감성 보컬 리버브를 켜고, 게임컴 노래방 반주를 디스코드 멤버에게 즉시 들려주는 노래 모드로 전환합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">생성기 내장</span>
+            <h4 class="feat-title">스트림덱 버튼 코드 원클릭 생성기</h4>
+            <p class="feat-desc">
+              앱 메뉴(도구 → 스트림덱 버튼 만들기)에서 원하는 기능을 선택하면 스트림덱에 바로 붙여넣을 수 있는 실행 명령어를 즉시 클립보드에 복사합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">다이얼 조작</span>
+            <h4 class="feat-title">스트림덱 플러스 다이얼 볼륨 정밀 조절</h4>
+            <p class="feat-desc">
+              스트림덱 로터리 다이얼을 돌려 마이크 볼륨, 인게임 소리, 배경음악 크기를 ±2dB 단위로 세밀하게 조절합니다.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category 3: Daily Live Stream Ops -->
+      <div class="feat-category">
+        <div class="feat-cat-header">
+          <span class="feat-cat-badge cat-ops">생방 운영 자동화</span>
+          <h3 class="feat-cat-title">⚡ 데일리 생방송 운영 도구 (Stream Ops)</h3>
+          <span class="feat-cat-desc">치지직 카테고리 연동, 투컴 녹화본 이동, 썸네일·일정표 생산</span>
+        </div>
+        <div class="features-grid">
+          <div class="feat-card">
+            <span class="feat-badge-top">치지직 직결</span>
+            <h4 class="feat-title">OBS 장면 연동 치지직 카테고리 자동 변경</h4>
+            <p class="feat-desc">
+              방송 중 OBS에서 게임 장면으로 전환하면 치지직 공식 API를 통해 방송 카테고리, 제목, 태그가 즉시 자동 변경되어 수동 변경이 필요 없습니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">투컴 자동화</span>
+            <h4 class="feat-title">송출컴 녹화본 자동 이동 (SMB 동기화)</h4>
+            <p class="feat-desc">
+              방송 종료를 OBS WebSocket으로 감지하는 즉시, 송출 PC의 원본 녹화 파일을 편집 PC의 보관 폴더로 백그라운드 복사하고 표본 해시로 무결성을 검증합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">1초 완성</span>
+            <h4 class="feat-title">템플릿 기반 썸네일 간편 생산기</h4>
+            <p class="feat-desc">
+              게임별 로고, 다시보기 도장, 회차 번호(⑦)를 조합해 배경과 제목만 넣으면 16:9 고화질 썸네일(1280×720 PNG)이 1초 만에 완성됩니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">공지 동시 배포</span>
+            <h4 class="feat-title">노션 기반 주간 일정표 & 커뮤니티 원클릭 게시</h4>
+            <p class="feat-desc">
+              노션 방송 일정 DB에서 한 주간 일정을 읽어 16:9 주간 일정표 카드를 렌더링하고, 네이버 카페, 디스코드 웹후크, 유튜브 커뮤니티로 동시 공지합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">종료 후 마법사</span>
+            <h4 class="feat-title">방송 정리 마법사 (Stream Wrapup)</h4>
+            <p class="feat-desc">
+              방송 종료 후 원본 파일명을 규칙대로 일괄 정리하고(예: 채널명 26.11.13 게임명 다시보기 ①.mp4), 다시보기 유튜브 채널로 재생목록·예약 공개 자동 업로드를 진행합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">보안 보호</span>
+            <h4 class="feat-title">Windows 자격 증명 관리자로 API 토큰 보호</h4>
+            <p class="feat-desc">
+              유튜브 OAuth, 치지직 API 토큰, 디스코드 웹후크 주소 등 민감 정보를 평문 파일이 아닌 Windows Credential Manager에 안전하게 암호화 보관합니다.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category 4: Professional Video Editing & AI -->
+      <div class="feat-category">
+        <div class="feat-cat-header">
+          <span class="feat-cat-badge cat-edit">영상 편집 & AI</span>
+          <h3 class="feat-cat-title">🎬 전문 영상 편집 & AI 자동화</h3>
+          <span class="feat-cat-desc">F1~F4 작업 공간, 로컬 Whisper 자막 컷, 숏폼 3분할, 하이라이트 탐지</span>
+        </div>
+        <div class="features-grid">
+          <div class="feat-card">
+            <span class="feat-badge-top">작업 공간</span>
+            <h4 class="feat-title">F1~F4 작업 공간 분리 워크플로우</h4>
+            <p class="feat-desc">
+              대구간 선택(F1), 정밀 컷 & 자막(F2), 세부 효과(F3), 내보내기(F4)로 분리되어 편집 단계별로 최적화된 화면 배치와 도구를 제공합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">로컬 AI</span>
+            <h4 class="feat-title">Whisper AI 로컬 음성인식 받아쓰기</h4>
+            <p class="feat-desc">
+              NVIDIA GPU 가속으로 몇 시간짜리 방송 음성을 자막으로 빠르게 변환하며, 고유명사 사전 교정 기능으로 게임 용어를 오타 없이 처리합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">혁신적 편집</span>
+            <h4 class="feat-title">자막 기반 말 단위 컷 & 문서형 대본 편집</h4>
+            <p class="feat-desc">
+              복잡한 파형 대신 자막 텍스트나 문서형 대본을 보며 Del 키를 누르면 말 단위로 영상이 즉시 잘려 나갑니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">스마트 탐지</span>
+            <h4 class="feat-title">헛말·침묵 자동 탐지 및 무음 구간 일괄 컷</h4>
+            <p class="feat-desc">
+              "어", "음" 같은 불필요한 추임새, 말 반복, 어색한 긴 침묵 구간을 앱이 스스로 탐지하여 일괄 정리 후보로 제안합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">토큰 0원</span>
+            <h4 class="feat-title">로컬 하이라이트 탐지 (!클립 연동)</h4>
+            <p class="feat-desc">
+              API 비용 없이 채팅 폭발 지점, 오디오 데시벨 피크, 웃음소리, 시청자 !클립 명령어를 분석해 쇼츠와 하이라이트 명장면을 자동으로 짚어냅니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">숏폼 특화</span>
+            <h4 class="feat-title">숏폼 3분할 캔버스 & 2분 59초 초과 경고</h4>
+            <p class="feat-desc">
+              캠+게임+채팅 3분할 템플릿으로 세로 쇼츠를 간편 배치하고, 쇼츠 한도(3분)에 맞춘 2분 59초 초과 알림 및 숏폼만 일괄 예약 업로드를 지원합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">전문 편집</span>
+            <h4 class="feat-title">프리미어급 전문 타임라인 & 가벼운 프록시</h4>
+            <p class="feat-desc">
+              잔물결 삭제, 롤링/리플 다듬기, J컷/L컷, 멀티 비디오 트랙(V1~V4), 키프레임 모션, 장시간 녹화도 버벅임 없는 libmpv 프록시 재생을 지원합니다.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Category 5: Interactive Contents & Novel Engine -->
+      <div class="feat-category">
+        <div class="feat-cat-header">
+          <span class="feat-cat-badge cat-novel">특화 방송 연출</span>
+          <h3 class="feat-cat-title">🎭 특화 컨텐츠 & 낭독회 비주얼 노벨 엔진</h3>
+          <span class="feat-cat-desc">인터랙티브 웹 슬라이드, 괴담/웹소설 낭독회 엔진, 대사창 자막 회피</span>
+        </div>
+        <div class="features-grid">
+          <div class="feat-card">
+            <span class="feat-badge-top">웹 인터랙션</span>
+            <h4 class="feat-title">설명회·토론회용 인터랙티브 웹 슬라이드</h4>
+            <p class="feat-desc">
+              방송 진행자가 웹 슬라이드를 넘기면 시청자 브라우저에서도 같은 슬라이드가 실시간으로 따라 넘어가며 참여 몰입도를 극대화합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">낭독 방송</span>
+            <h4 class="feat-title">텍스트-비주얼 노벨 낭독 엔진</h4>
+            <p class="feat-desc">
+              웹소설이나 괴담 텍스트를 넣으면 화자, 배경, 장면, 효과음 연출을 자동 분할하여 한 편의 비주얼 노벨 게임 화면으로 변환합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">AI 배역</span>
+            <h4 class="feat-title">AI 배역 & 지문 자동 분배</h4>
+            <p class="feat-desc">
+              등장인물의 성별과 대사 분량을 정밀 분석해 합방 참여자들에게 균형 있게 배역과 지문을 자동 배분합니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">실시간 합방</span>
+            <h4 class="feat-title">낭독회 웹 동시 송출 (브라우저 동기화)</h4>
+            <p class="feat-desc">
+              참여 멤버들이 각자의 브라우저로 같은 비주얼 노벨 화면과 전체 대본을 보며 실시간 합방 낭독을 진행할 수 있습니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">자막 지능</span>
+            <h4 class="feat-title">게임 대사창 영역 감지 자막 자동 회피</h4>
+            <p class="feat-desc">
+              인게임 대사창 위치를 지정하면 게임 대사가 출력되는 구간 동안 편집 자막이 화면 상단으로 자동 이동해 게임 대사를 가리지 않습니다.
+            </p>
+          </div>
+          <div class="feat-card">
+            <span class="feat-badge-top">보안 모자이크</span>
+            <h4 class="feat-title">키프레임 자유 다각형 모자이크 자동 추적</h4>
+            <p class="feat-desc">
+              사각·타원뿐 아니라 자유로운 다각형 모양으로 모자이크를 그리고, 회전하거나 크기가 바뀌는 대상을 Ctrl+Alt+M으로 자동 추적 가림 처리합니다.
+            </p>
+          </div>
+        </div>
+      </div>
+
     </div>
   </section>
 
@@ -1157,7 +1628,7 @@
         <span class="section-eyebrow">Comparison</span>
         <h2 class="section-title">일반 편집 툴 vs CastEdit 방송 통합 툴킷</h2>
         <p class="section-desc">
-          방송 시작 준비부터 종료 후 유튜브 아카이빙까지, 비교할 수 없는 효율을 제공합니다.
+          방송 시작 전 설정부터 송출, 종료 후 유튜브 아카이빙까지, 비교할 수 없는 효율을 제공합니다.
         </p>
       </div>
 
@@ -1165,41 +1636,56 @@
         <table class="compare-table">
           <thead>
             <tr>
-              <th style="width:25%;">구분</th>
-              <th style="width:37%;">일반 편집 툴 (프리미어, 다빈치 등)</th>
-              <th style="width:38%;" class="highlight-col">✨ CastEdit 데스크톱 툴킷</th>
+              <th style="width:22%;">구분</th>
+              <th style="width:38%;">일반 편집 툴 (프리미어, 다빈치 등)</th>
+              <th style="width:40%;" class="highlight-col">✨ CastEdit 데스크톱 툴킷</th>
             </tr>
           </thead>
           <tbody>
             <tr>
               <td>치지직 카테고리 변경</td>
               <td><span class="badge-bad">✕ 지원 안 함</span> (스튜디오 웹 열고 매번 수동 변경)</td>
-              <td class="highlight-col"><span class="badge-good">✓ OBS 장면 전환 시 공식 API 자동 변경</span></td>
+              <td class="highlight-col"><span class="badge-good">✓ OBS 장면 전환 시 공식 API 실시간 자동 변경</span></td>
             </tr>
             <tr>
               <td>투컴 녹화 파일 이동</td>
               <td><span class="badge-bad">✕ 수동 작업</span> (탐색기 공유 폴더 열고 기다렸다 복사)</td>
-              <td class="highlight-col"><span class="badge-good">✓ 방송 종료 감지 즉시 자동 복사 & 해시 검증</span></td>
+              <td class="highlight-col"><span class="badge-good">✓ 방송 종료 감지 즉시 자동 복사 & 해시 무결성 검증</span></td>
+            </tr>
+            <tr>
+              <td>멀티트랙 사운드 제어</td>
+              <td><span class="badge-bad">✕ 수동 믹싱</span> (마이크 컷마다 게임 소리 뚝 끊김)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 솔로 모드 스마트 BGM 브릿지로 게임 소리 매끄럽게 유지</span></td>
+            </tr>
+            <tr>
+              <td>스트림덱 허브 매크로</td>
+              <td><span class="badge-bad">✕ 플러그인 3종 필요</span> (VBAN, Multi-OBS 등 설정 복잡)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 단일 CLI 허브 + 활성 게임 인식 무UI 캡처 매크로</span></td>
             </tr>
             <tr>
               <td>주간 일정표 공지</td>
               <td><span class="badge-bad">✕ 포토샵 제작</span> (이미지 만들고 카페·디코 따로 작성)</td>
-              <td class="highlight-col"><span class="badge-good">✓ 노션 연동 카드 생성 & 원클릭 동시 포스팅</span></td>
+              <td class="highlight-col"><span class="badge-good">✓ 노션 연동 16:9 카드 생성 & 카페·디코·유튜브 동시 포스팅</span></td>
             </tr>
             <tr>
               <td>다시보기 썸네일</td>
               <td><span class="badge-bad">✕ 매번 디자인</span> (외주 템플릿에서 텍스트 수동 배치)</td>
-              <td class="highlight-col"><span class="badge-good">✓ 규격 템플릿 엔진으로 1초 만에 자동 생성</span></td>
+              <td class="highlight-col"><span class="badge-good">✓ 게임별 로고 + 도장 + 회차 템플릿으로 1초 만에 자동 생성</span></td>
             </tr>
             <tr>
               <td>다시보기 유튜브 업로드</td>
               <td><span class="badge-bad">✕ 수동 렌더 & 업로드</span> (파일 옮기고 유튜브에서 설정)</td>
-              <td class="highlight-col"><span class="badge-good">✓ 정리 마법사로 재생목록·예약 공개 직결</span></td>
+              <td class="highlight-col"><span class="badge-good">✓ 정리 마법사로 날짜 규칙 명명 & 재생목록·예약 공개 직결</span></td>
             </tr>
             <tr>
-              <td>멀티트랙 BGM 유지</td>
-              <td><span class="badge-bad">✕ 수동 믹싱</span> (마이크 컷마다 게임 소리 끊김)</td>
-              <td class="highlight-col"><span class="badge-good">✓ 솔로 내레이션 모드로 게임 BGM 매끄럽게 유지</span></td>
+              <td>자막 기반 컷 편집</td>
+              <td><span class="badge-bad">✕ 오디오 파형 수동 컷</span> (시간 과다 소요)</td>
+              <td class="highlight-col"><span class="badge-good">✓ Whisper 자막 보며 Del 키 하나로 말 단위 즉시 컷</span></td>
+            </tr>
+            <tr>
+              <td>쇼츠 및 하이라이트 탐지</td>
+              <td><span class="badge-bad">✕ 전체 영상 수동 다시보기</span></td>
+              <td class="highlight-col"><span class="badge-good">✓ 채팅 !클립 및 오디오 피크 기반 로컬 하이라이트 자동 탐지</span></td>
             </tr>
           </tbody>
         </table>
