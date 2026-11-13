@@ -1,0 +1,1541 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CastEdit — 인터넷 방송인을 위한 올인원 영상 편집기</title>
+  <meta name="description" content="방송 녹화 원본부터 유튜브 롱폼·쇼츠 발행까지. 멀티트랙 무손실 분리, Whisper 텍스트 컷 편집, 토큰 비용 0원의 로컬 지능형 하이라이트 탐지까지 한 앱에서.">
+  <link rel="icon" type="image/png" href="/castedit-icon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #07090e;
+      --bg-surface: #0e121b;
+      --bg-surface-elevated: #151b27;
+      --bg-glass: rgba(18, 23, 34, 0.75);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-bright: rgba(255, 255, 255, 0.18);
+      --border-glow: rgba(139, 92, 246, 0.45);
+      
+      --accent-purple: #8b5cf6;
+      --accent-purple-light: #a78bfa;
+      --accent-indigo: #6366f1;
+      --accent-cyan: #06b6d4;
+      --accent-emerald: #10b981;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --text-dim: #64748b;
+
+      --font-sans: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      background-color: var(--bg-base);
+      color: var(--text-main);
+      font-family: var(--font-sans);
+      line-height: 1.6;
+      overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Background Atmospheric Gradients */
+    .ambient-bg {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+    .orb-1 {
+      position: absolute;
+      top: -10%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 900px;
+      height: 600px;
+      background: radial-gradient(ellipse at center, rgba(139, 92, 246, 0.16) 0%, rgba(99, 102, 241, 0.08) 45%, transparent 70%);
+      filter: blur(80px);
+    }
+    .orb-2 {
+      position: absolute;
+      top: 45%;
+      left: -10%;
+      width: 700px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(6, 182, 212, 0.09) 0%, transparent 65%);
+      filter: blur(90px);
+    }
+    .orb-3 {
+      position: absolute;
+      bottom: 5%;
+      right: -10%;
+      width: 800px;
+      height: 700px;
+      background: radial-gradient(circle, rgba(139, 92, 246, 0.12) 0%, transparent 70%);
+      filter: blur(90px);
+    }
+    .grid-overlay {
+      position: absolute;
+      inset: 0;
+      background-image: 
+        linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(circle at 50% 30%, black 40%, transparent 80%);
+    }
+
+    /* Container */
+    .container {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Navbar */
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      background: rgba(7, 9, 14, 0.8);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .nav-inner {
+      height: 70px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      text-decoration: none;
+      color: inherit;
+    }
+    .nav-logo {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      background: #1e1b4b;
+      box-shadow: 0 0 16px rgba(139, 92, 246, 0.3);
+      display: block;
+    }
+    .nav-title {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+      background: linear-gradient(135deg, #fff 0%, #cbd5e1 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .version-pill {
+      font-size: 11px;
+      font-family: var(--font-mono);
+      font-weight: 600;
+      color: var(--accent-purple-light);
+      background: rgba(139, 92, 246, 0.15);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      padding: 2px 8px;
+      border-radius: 20px;
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 28px;
+      list-style: none;
+    }
+    .nav-link {
+      color: var(--text-muted);
+      text-decoration: none;
+      font-size: 14px;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+    .nav-link:hover {
+      color: #fff;
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn-cal {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-muted);
+      text-decoration: none;
+      padding: 8px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background: rgba(255, 255, 255, 0.03);
+      transition: all 0.2s;
+    }
+    .btn-cal:hover {
+      color: #fff;
+      border-color: var(--border-bright);
+      background: rgba(255, 255, 255, 0.07);
+    }
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #fff;
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+      box-shadow: 0 4px 20px rgba(124, 58, 237, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 28px rgba(124, 58, 237, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+      filter: brightness(1.08);
+    }
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-main);
+      text-decoration: none;
+      padding: 10px 20px;
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      backdrop-filter: blur(8px);
+      transition: all 0.2s;
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-bright);
+      transform: translateY(-2px);
+    }
+
+    /* Hero Section */
+    .hero {
+      padding: 90px 0 70px;
+      text-align: center;
+    }
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #c4b5fd;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+      padding: 6px 16px;
+      border-radius: 30px;
+      margin-bottom: 28px;
+      box-shadow: 0 0 20px rgba(139, 92, 246, 0.15);
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #a78bfa;
+      box-shadow: 0 0 8px #a78bfa;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+    .hero-title {
+      font-size: 56px;
+      font-weight: 800;
+      letter-spacing: -1.5px;
+      line-height: 1.15;
+      margin-bottom: 24px;
+    }
+    .gradient-text {
+      background: linear-gradient(135deg, #ffffff 10%, #c4b5fd 50%, #818cf8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .hero-subtitle {
+      font-size: 18px;
+      color: var(--text-muted);
+      max-width: 740px;
+      margin: 0 auto 38px;
+      font-weight: 400;
+      line-height: 1.65;
+      word-break: keep-all;
+    }
+    .hero-cta-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 40px;
+    }
+    .hero-cta-group .btn-primary {
+      padding: 14px 28px;
+      font-size: 16px;
+      border-radius: 12px;
+    }
+    .hero-cta-group .btn-secondary {
+      padding: 14px 24px;
+      font-size: 15px;
+      border-radius: 12px;
+    }
+    .hero-badges {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      color: var(--text-dim);
+      font-size: 13px;
+      flex-wrap: wrap;
+    }
+    .hero-badge-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* App UI Showcase Window */
+    .showcase {
+      margin-top: 30px;
+      position: relative;
+    }
+    .window-frame {
+      background: #0d111a;
+      border: 1px solid var(--border-bright);
+      border-radius: 16px;
+      box-shadow: 
+        0 25px 60px -15px rgba(0, 0, 0, 0.8),
+        0 0 50px -10px rgba(124, 58, 237, 0.25);
+      overflow: hidden;
+      position: relative;
+    }
+    .window-header {
+      background: #131926;
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .window-dots {
+      display: flex;
+      gap: 7px;
+    }
+    .dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+    }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #f59e0b; }
+    .dot-green { background: #10b981; }
+    .window-title {
+      font-size: 12px;
+      font-family: var(--font-mono);
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .window-status {
+      font-size: 11px;
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      padding: 1px 8px;
+      border-radius: 12px;
+    }
+
+    /* Showcase Tabs */
+    .workspace-tabs-bar {
+      background: #090c13;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      padding: 6px 14px 0;
+      gap: 4px;
+      overflow-x: auto;
+    }
+    .ws-tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-dim);
+      padding: 9px 18px;
+      font-size: 13px;
+      font-weight: 600;
+      font-family: var(--font-sans);
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s;
+      border: 1px solid transparent;
+      border-bottom: none;
+    }
+    .ws-tab-btn .key-badge {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      color: var(--text-muted);
+    }
+    .ws-tab-btn:hover {
+      color: var(--text-main);
+      background: rgba(255, 255, 255, 0.03);
+    }
+    .ws-tab-btn.active {
+      color: #fff;
+      background: #111724;
+      border-color: var(--border-subtle);
+      border-top: 2px solid var(--accent-purple);
+    }
+    .ws-tab-btn.active .key-badge {
+      background: var(--accent-purple);
+      color: #fff;
+    }
+
+    /* Showcase Content Viewport */
+    .showcase-body {
+      background: #0b0f17;
+      min-height: 480px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      position: relative;
+    }
+    .tab-pane {
+      display: none;
+      flex-direction: column;
+      gap: 14px;
+      animation: fadeIn 0.3s ease;
+    }
+    .tab-pane.active {
+      display: flex;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* Mockup Grid Inside F2 View (Main Highlight) */
+    .mock-split {
+      display: grid;
+      grid-template-columns: 320px 1fr 280px;
+      gap: 12px;
+      min-height: 380px;
+    }
+    @media (max-width: 960px) {
+      .mock-split { grid-template-columns: 1fr; }
+    }
+    .mock-col {
+      background: #111724;
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .mock-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-dim);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      padding-bottom: 8px;
+    }
+    .mock-header-badge {
+      font-size: 10px;
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--accent-purple-light);
+      padding: 2px 6px;
+      border-radius: 4px;
+    }
+
+    /* Subtitle Editor Mock */
+    .sub-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow: hidden;
+      font-size: 12px;
+    }
+    .sub-item {
+      padding: 7px 10px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .sub-item.active {
+      background: rgba(139, 92, 246, 0.14);
+      border-color: rgba(139, 92, 246, 0.4);
+    }
+    .sub-item.deleted {
+      background: rgba(239, 68, 68, 0.08);
+      border-color: rgba(239, 68, 68, 0.25);
+      text-decoration: line-through;
+      color: #f87171;
+    }
+    .sub-time {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .sub-action-chip {
+      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 3px;
+      font-weight: 600;
+    }
+    .chip-del { background: rgba(239, 68, 68, 0.2); color: #fca5a5; }
+    .chip-filler { background: rgba(245, 158, 11, 0.2); color: #fcd34d; }
+
+    /* Video Player Mock */
+    .mock-player {
+      background: #000;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      min-height: 250px;
+      background: radial-gradient(circle at center, #1b2235 0%, #080b12 100%);
+    }
+    .player-visual {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      text-align: center;
+      padding: 20px;
+    }
+    .player-overlay-tag {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(0, 0, 0, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #38bdf8;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .player-subtitle-overlay {
+      position: absolute;
+      bottom: 24px;
+      background: rgba(0, 0, 0, 0.82);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      max-width: 90%;
+      text-align: center;
+    }
+    .player-subtitle-overlay span {
+      color: #a78bfa;
+    }
+
+    /* Timeline Mock */
+    .mock-timeline {
+      background: #0e1420;
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 10px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .tl-track {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      height: 26px;
+    }
+    .tl-label {
+      width: 70px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--text-dim);
+      flex-shrink: 0;
+    }
+    .tl-lane {
+      flex: 1;
+      height: 100%;
+      background: rgba(255, 255, 255, 0.03);
+      border-radius: 4px;
+      position: relative;
+      display: flex;
+      align-items: center;
+      padding: 0 4px;
+      gap: 4px;
+      overflow: hidden;
+    }
+    .tl-clip {
+      height: 18px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      padding: 0 6px;
+      color: rgba(255, 255, 255, 0.9);
+    }
+    .clip-mic { background: linear-gradient(90deg, #7c3aed, #6366f1); flex: 3; }
+    .clip-cut { background: rgba(239, 68, 68, 0.3); border: 1px dashed #ef4444; color: #fca5a5; flex: 1; }
+    .clip-game { background: linear-gradient(90deg, #0284c7, #06b6d4); flex: 5; }
+    .clip-discord { background: linear-gradient(90deg, #4f46e5, #7c3aed); flex: 4; }
+
+    /* Right Sidebar Mock */
+    .tool-widget {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .tool-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .tool-val {
+      font-family: var(--font-mono);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Section Styles */
+    .section {
+      padding: 100px 0;
+      position: relative;
+    }
+    .section-header {
+      text-align: center;
+      max-width: 680px;
+      margin: 0 auto 60px;
+    }
+    .section-eyebrow {
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent-purple-light);
+      margin-bottom: 12px;
+      display: block;
+    }
+    .section-title {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.8px;
+      line-height: 1.25;
+      margin-bottom: 16px;
+    }
+    .section-desc {
+      font-size: 16px;
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    /* 4 Workspaces Step Grid */
+    .workflow-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 20px;
+    }
+    @media (max-width: 1024px) {
+      .workflow-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .workflow-grid { grid-template-columns: 1fr; }
+    }
+    .wf-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 24px 20px;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      transition: all 0.25s ease;
+    }
+    .wf-card:hover {
+      transform: translateY(-4px);
+      border-color: var(--border-bright);
+      box-shadow: 0 16px 32px rgba(0, 0, 0, 0.4);
+    }
+    .wf-card-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 800;
+      background: rgba(139, 92, 246, 0.15);
+      color: var(--accent-purple-light);
+      border: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    .wf-card-title {
+      font-size: 18px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .wf-card-desc {
+      font-size: 13.5px;
+      color: var(--text-muted);
+      line-height: 1.6;
+      word-break: keep-all;
+    }
+    .wf-card-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      font-size: 12.5px;
+      color: #cbd5e1;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      padding-top: 14px;
+      margin-top: auto;
+    }
+    .wf-card-features li {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+    }
+    .wf-card-features li::before {
+      content: "✓";
+      color: var(--accent-emerald);
+      font-weight: 800;
+    }
+
+    /* Killer Features 6-Grid */
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 960px) {
+      .features-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 640px) {
+      .features-grid { grid-template-columns: 1fr; }
+    }
+    .feat-card {
+      background: linear-gradient(180deg, rgba(21, 27, 39, 0.8) 0%, rgba(14, 18, 27, 0.95) 100%);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 28px 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      transition: all 0.25s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    .feat-card::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, rgba(139, 92, 246, 0.4), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+    .feat-card:hover {
+      transform: translateY(-4px);
+      border-color: rgba(139, 92, 246, 0.35);
+      box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5), 0 0 24px rgba(124, 58, 237, 0.15);
+    }
+    .feat-card:hover::before {
+      opacity: 1;
+    }
+    .feat-icon {
+      width: 46px;
+      height: 46px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      background: rgba(139, 92, 246, 0.12);
+      border: 1px solid rgba(139, 92, 246, 0.25);
+    }
+    .feat-title {
+      font-size: 19px;
+      font-weight: 700;
+      color: #fff;
+    }
+    .feat-desc {
+      font-size: 14px;
+      color: var(--text-muted);
+      line-height: 1.65;
+      word-break: keep-all;
+    }
+
+    /* Comparison Table Section */
+    .compare-wrap {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+    }
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+      text-align: left;
+    }
+    .compare-table th, .compare-table td {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .compare-table th {
+      background: #111723;
+      font-weight: 700;
+      color: var(--text-muted);
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .compare-table th.highlight-col {
+      color: #fff;
+      background: #192033;
+      border-left: 1px solid rgba(139, 92, 246, 0.3);
+      border-right: 1px solid rgba(139, 92, 246, 0.3);
+    }
+    .compare-table td.highlight-col {
+      background: rgba(139, 92, 246, 0.05);
+      border-left: 1px solid rgba(139, 92, 246, 0.2);
+      border-right: 1px solid rgba(139, 92, 246, 0.2);
+      font-weight: 600;
+      color: #f1f5f9;
+    }
+    .compare-table tr:last-child td {
+      border-bottom: none;
+    }
+    .badge-bad {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #f87171;
+      font-size: 13px;
+    }
+    .badge-good {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: #34d399;
+      font-size: 13.5px;
+      font-weight: 700;
+    }
+
+    /* Download Box / Banner */
+    .download-card {
+      background: radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.25) 0%, rgba(17, 24, 39, 0.95) 75%);
+      border: 1px solid rgba(139, 92, 246, 0.4);
+      border-radius: 24px;
+      padding: 60px 40px;
+      text-align: center;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 50px rgba(124, 58, 237, 0.25);
+      position: relative;
+      overflow: hidden;
+    }
+    .dl-title {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin-bottom: 16px;
+    }
+    .dl-desc {
+      font-size: 16px;
+      color: var(--text-muted);
+      max-width: 600px;
+      margin: 0 auto 36px;
+      line-height: 1.6;
+    }
+    .dl-buttons {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      margin-bottom: 30px;
+    }
+    .dl-btn-main {
+      padding: 16px 36px;
+      font-size: 16px;
+      border-radius: 12px;
+      font-weight: 800;
+    }
+    .dl-notice {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      padding: 14px 20px;
+      max-width: 680px;
+      margin: 0 auto;
+      font-size: 12.5px;
+      color: #cbd5e1;
+      text-align: left;
+      line-height: 1.6;
+    }
+    .dl-notice strong {
+      color: #fbbf24;
+    }
+
+    /* Footer */
+    .footer {
+      border-top: 1px solid var(--border-subtle);
+      padding: 50px 0 40px;
+      background: #05070a;
+      font-size: 13px;
+      color: var(--text-dim);
+    }
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .footer-links {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+    .footer-links a {
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+    .footer-links a:hover {
+      color: #fff;
+    }
+
+    /* Mobile adjustments */
+    @media (max-width: 768px) {
+      .hero-title { font-size: 36px; }
+      .section-title { font-size: 28px; }
+      .nav-links { display: none; }
+      .download-card { padding: 40px 20px; }
+      .dl-title { font-size: 28px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Background Ambiance -->
+  <div class="ambient-bg">
+    <div class="orb-1"></div>
+    <div class="orb-2"></div>
+    <div class="orb-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <!-- Navbar -->
+  <header class="navbar">
+    <div class="container nav-inner">
+      <a href="/castedit" class="nav-brand">
+        <img src="/castedit-icon.png" alt="CastEdit Logo" class="nav-logo" onerror="this.style.display='none'">
+        <span class="nav-title">CastEdit</span>
+        <span class="version-pill">v0.82.0</span>
+      </a>
+
+      <ul class="nav-links">
+        <li><a href="#workflow" class="nav-link">워크플로우</a></li>
+        <li><a href="#features" class="nav-link">주요 기능</a></li>
+        <li><a href="#compare" class="nav-link">비교 우위</a></li>
+        <li><a href="#download" class="nav-link">다운로드</a></li>
+      </ul>
+
+      <div class="nav-actions">
+        <a href="/" class="btn-cal" title="서브컬처 캘린더로 이동">
+          <span>🗓️</span> 캘린더 보기
+        </a>
+        <a href="https://github.com/gamecompiler/castedit-release/releases/latest" target="_blank" rel="noreferrer" class="btn-primary">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          다운로드
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-eyebrow">
+        <span class="pulse-dot"></span>
+        인터넷 방송인을 위해 처음부터 다시 설계된 올인원 영상 편집기
+      </div>
+
+      <h1 class="hero-title">
+        방송 녹화부터 유튜브 발행까지,<br>
+        <span class="gradient-text">단 하나의 앱에서 완벽하게.</span>
+      </h1>
+
+      <p class="hero-subtitle">
+        LosslessCut, 프리미어, Subtitle Edit, 오디오 마스터링 툴을 오가며 지치셨나요?<br>
+        멀티트랙 무손실 분리, Whisper 텍스트 컷 편집, 토큰 비용 0원의 로컬 하이라이트 탐지까지<br>
+        1인 크리에이터의 작업 시간을 절반 이상 단축해 드립니다.
+      </p>
+
+      <div class="hero-cta-group">
+        <a href="https://github.com/gamecompiler/castedit-release/releases/latest/download/CastEdit-Setup-0.82.0.164.exe" class="btn-primary" title="Windows 인스톨러 직접 다운로드">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.901-1.752"/></svg>
+          Windows 인스톨러 받기 (v0.82)
+        </a>
+        <a href="https://github.com/gamecompiler/castedit-release/releases/latest" target="_blank" rel="noreferrer" class="btn-secondary">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
+          GitHub 릴리즈 페이지
+        </a>
+      </div>
+
+      <div class="hero-badges">
+        <span class="hero-badge-item">⚡ Windows 10/11 64-bit 전용</span>
+        <span class="hero-badge-item">🚀 NVIDIA NVENC & CUDA 초고속 가속</span>
+        <span class="hero-badge-item">🔒 100% 오프라인 로컬 구동 (토큰 비용 0원)</span>
+        <span class="hero-badge-item">🎙️ T1~T5 멀티트랙 무손실 직결</span>
+      </div>
+
+      <!-- Interactive App UI Showcase -->
+      <div class="showcase">
+        <div class="window-frame">
+          <div class="window-header">
+            <div class="window-dots">
+              <span class="dot dot-red"></span>
+              <span class="dot dot-yellow"></span>
+              <span class="dot dot-green"></span>
+            </div>
+            <div class="window-title">
+              <span>CastEdit v0.82.0</span>
+              <span style="opacity:0.4;">—</span>
+              <span style="color:#94a3b8;">[2026-11-13_명조_방송_T1-T5.mkv]</span>
+            </div>
+            <div class="window-status">● 2초 자동 저장됨</div>
+          </div>
+
+          <!-- 4 Workspace Tabs -->
+          <div class="workspace-tabs-bar">
+            <button class="ws-tab-btn" onclick="switchTab('f1', this)">
+              <span class="key-badge">F1</span> 구간 선택 (Lossless)
+            </button>
+            <button class="ws-tab-btn active" onclick="switchTab('f2', this)">
+              <span class="key-badge">F2</span> 정밀 컷 & 자막 (Whisper)
+            </button>
+            <button class="ws-tab-btn" onclick="switchTab('f3', this)">
+              <span class="key-badge">F3</span> 시각 효과 & 키프레임
+            </button>
+            <button class="ws-tab-btn" onclick="switchTab('f4', this)">
+              <span class="key-badge">F4</span> 롱폼·쇼츠 분할 & 업로드
+            </button>
+          </div>
+
+          <!-- Tab Contents -->
+          <div class="showcase-body">
+
+            <!-- F1 Pane -->
+            <div id="pane-f1" class="tab-pane">
+              <div class="mock-split" style="grid-template-columns: 280px 1fr;">
+                <div class="mock-col">
+                  <div class="mock-header">
+                    <span>구간 목록 (IN / OUT)</span>
+                    <span class="mock-header-badge">LosslessCut 모드</span>
+                  </div>
+                  <div class="sub-list">
+                    <div class="sub-item active">
+                      <div class="sub-time"><span>#1 오프닝 토크</span><span>00:04:12 - 00:28:40</span></div>
+                      <div>모드: 솔로 내레이션 (게임 BGM 유지)</div>
+                    </div>
+                    <div class="sub-item">
+                      <div class="sub-time"><span>#2 1막 보스전</span><span>00:32:10 - 01:15:05</span></div>
+                      <div>모드: 솔로 플레이 (게임 소리 동기화)</div>
+                    </div>
+                    <div class="sub-item">
+                      <div class="sub-time"><span>#3 윤치 님 합방</span><span>01:20:00 - 02:40:15</span></div>
+                      <div>모드: 합방 (디스코드 트랙 분리)</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mock-col" style="justify-content:center; align-items:center;">
+                  <div class="player-visual">
+                    <div style="font-size:32px;">⚡</div>
+                    <div style="font-size:18px; font-weight:700;">인코딩 없이 0초 만에 대용량 녹화 분할</div>
+                    <div style="font-size:13px; color:var(--text-muted); max-width:440px;">
+                      단축키 I(시작)와 O(끝)로 원하는 구간만 지정하세요. 원본 녹화본을 훼손하지 않고 중간 병합 파일도 생성하지 않습니다.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- F2 Pane (Active) -->
+            <div id="pane-f2" class="tab-pane active">
+              <div class="mock-split">
+                <!-- Col 1: Whisper Subtitle Script -->
+                <div class="mock-col">
+                  <div class="mock-header">
+                    <span>문서형 대본 편집 (Whisper)</span>
+                    <span class="mock-header-badge">Del로 컷</span>
+                  </div>
+                  <div class="sub-list">
+                    <div class="sub-item">
+                      <div class="sub-time"><span>00:14:02.100</span><span class="sub-action-chip chip-filler">헛말 감지</span></div>
+                      <div class="sub-text">어... 음... 그러니까 이번 스토리에서</div>
+                    </div>
+                    <div class="sub-item deleted">
+                      <div class="sub-time"><span>00:14:05.400</span><span class="sub-action-chip chip-del">삭제됨 (컷)</span></div>
+                      <div class="sub-text">잠깐 물 한 모금만 마시고 올게요.</div>
+                    </div>
+                    <div class="sub-item active">
+                      <div class="sub-time"><span>00:14:09.800</span><span style="color:#a78bfa;">재생 중 ▶</span></div>
+                      <div class="sub-text">여기서 앤젤라의 독백이 진짜 소름 돋는 부분입니다.</div>
+                    </div>
+                    <div class="sub-item">
+                      <div class="sub-time"><span>00:14:14.200</span><span>자막 동기화</span></div>
+                      <div class="sub-text">100만 년 동안 갇혀 있으면서 느꼈을 고독감이 드러나죠.</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Col 2: Real-time Player -->
+                <div class="mock-col" style="padding:0; background:transparent; border:none;">
+                  <div class="mock-player">
+                    <div class="player-overlay-tag">
+                      <span>🔴 LIVE REC</span>
+                      <span style="color:var(--text-dim);">|</span>
+                      <span>1920×1080 60fps</span>
+                    </div>
+                    <div class="player-visual">
+                      <div style="width:80px; height:80px; border-radius:50%; background:rgba(139,92,246,0.2); display:flex; align-items:center; justify-content:center; border:2px solid var(--accent-purple); box-shadow:0 0 25px rgba(139,92,246,0.4);">
+                        <span style="font-size:32px;">🎙️</span>
+                      </div>
+                      <div style="font-weight:700; font-size:16px;">컴파일러 스토리 분석 방송</div>
+                    </div>
+                    <div class="player-subtitle-overlay">
+                      여기서 <span>앤젤라의 독백</span>이 진짜 소름 돋는 부분입니다.
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Col 3: Side Inspector -->
+                <div class="mock-col">
+                  <div class="mock-header">
+                    <span>지능형 스마트 탐지</span>
+                    <span class="mock-header-badge" style="background:#059669; color:#6ee7b7;">비용 0원</span>
+                  </div>
+                  <div class="tool-widget">
+                    <div class="tool-row"><span>채팅 폭발 하이라이트</span><span class="tool-val">14개 발견</span></div>
+                    <div class="tool-row"><span>헛말 / 더듬기 자동 감지</span><span class="tool-val">28개 정리</span></div>
+                    <div class="tool-row"><span>침묵 구간(0.8초 이상)</span><span class="tool-val">42개 컷 가능</span></div>
+                    <div class="tool-row"><span>디스코드 화자 겹침</span><span class="tool-val">자동 레벨링</span></div>
+                  </div>
+                  <div class="tool-widget" style="margin-top:auto;">
+                    <div class="tool-row"><span>Whisper AI 엔진</span><span class="tool-val" style="color:#a78bfa;">Large-v3 (CUDA)</span></div>
+                    <div class="tool-row"><span>고유명사 사전</span><span class="tool-val">128단어 등록</span></div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Bottom Timeline -->
+              <div class="mock-timeline">
+                <div class="tl-track">
+                  <div class="tl-label">T1 마이크</div>
+                  <div class="tl-lane">
+                    <div class="tl-clip clip-mic">말소리 파형</div>
+                    <div class="tl-clip clip-cut">침묵 컷</div>
+                    <div class="tl-clip clip-mic">말소리 파형</div>
+                  </div>
+                </div>
+                <div class="tl-track">
+                  <div class="tl-label">T2 게임 BGM</div>
+                  <div class="tl-lane">
+                    <div class="tl-clip clip-game" style="flex:1;">끊김 없는 게임 배경음 무손실 유지 (솔로 내레이션 모드)</div>
+                  </div>
+                </div>
+                <div class="tl-track">
+                  <div class="tl-label">T3 손님(디코)</div>
+                  <div class="tl-lane">
+                    <div class="tl-clip clip-discord" style="flex:1;">합방 파트너 트랙 자동 정규화 & 개별 색상 자막</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- F3 Pane -->
+            <div id="pane-f3" class="tab-pane">
+              <div class="mock-split" style="grid-template-columns: 1fr 1fr;">
+                <div class="mock-col" style="justify-content:center; align-items:center; text-align:center;">
+                  <div style="font-size:36px; margin-bottom:12px;">🎨</div>
+                  <div style="font-size:18px; font-weight:700;">재생하면서 실시간으로 확인하는 효과</div>
+                  <div style="font-size:13px; color:var(--text-muted); max-width:400px; margin-top:8px;">
+                    펀치 줌, 카메라 무빙, 서서히 확대, 화이트 플래시, 흑백 회상 필터가 평소 재생 화면에서 그대로 보이고 들립니다.
+                  </div>
+                </div>
+                <div class="mock-col">
+                  <div class="mock-header"><span>주요 시각 효과 목록</span></div>
+                  <div class="sub-list">
+                    <div class="sub-item"><span>🔍 자유 모양 모자이크 & 움직이는 대상 자동 추적 (Ctrl+Alt+M)</span></div>
+                    <div class="sub-item"><span>⚡ 게임 대사창 인식 시 자막 위치 자동 상단 이동</span></div>
+                    <div class="sub-item"><span>🎵 배경음악 길이 맞추기 & 마디 마커 스냅</span></div>
+                    <div class="sub-item"><span>🎬 챕터 카드 & 용어 설명 팝업 템플릿</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- F4 Pane -->
+            <div id="pane-f4" class="tab-pane">
+              <div class="mock-split" style="grid-template-columns: 1fr 1fr;">
+                <div class="mock-col">
+                  <div class="mock-header">
+                    <span>롱폼 & 숏폼 분할 파이프라인</span>
+                    <span class="mock-header-badge">2분 59초 자동 체크</span>
+                  </div>
+                  <div class="sub-list">
+                    <div class="sub-item active">
+                      <div class="sub-time"><span>롱폼 #1 (32분 10초)</span><span>유튜브 1080p 60fps</span></div>
+                      <div>챕터 마커 포함, 인트로/아웃트로 자동 결합</div>
+                    </div>
+                    <div class="sub-item">
+                      <div class="sub-time"><span>쇼츠 #1 [클립 타임스탬프]</span><span style="color:#10b981;">00:58 / 2:59 ✓</span></div>
+                      <div>캠 상단 + 게임 중앙 + 자막 하단 세로 3분할 템플릿</div>
+                    </div>
+                    <div class="sub-item">
+                      <div class="sub-time"><span>쇼츠 #2 [보스전 명장면]</span><span style="color:#10b981;">01:42 / 2:59 ✓</span></div>
+                      <div>치지직 !클립 마커 기반 원클릭 생성</div>
+                    </div>
+                  </div>
+                </div>
+                <div class="mock-col" style="justify-content:center; align-items:center; text-align:center;">
+                  <div style="font-size:36px; margin-bottom:12px;">📤</div>
+                  <div style="font-size:18px; font-weight:700;">유튜브 스튜디오 예약 업로드 직결</div>
+                  <div style="font-size:13px; color:var(--text-muted); max-width:400px; margin-top:8px;">
+                    롱폼과 쇼츠를 개별 설정할 필요 없이 한 번에 렌더링하고, 설정된 간격대로 유튜브에 자동 예약 업로드합니다.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- 4 Workspaces Step Grid -->
+  <section id="workflow" class="section" style="background:#090c13;">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow">Seamless Pipeline</span>
+        <h2 class="section-title">하나의 프로젝트, 4개의 전문 작업 공간</h2>
+        <p class="section-desc">
+          파일을 변환하고 프로그램을 갈아탈 필요가 없습니다. 단축키 F1부터 F4까지 누르는 것만으로 완벽한 영상이 완성됩니다.
+        </p>
+      </div>
+
+      <div class="workflow-grid">
+        <!-- Step 1 -->
+        <div class="wf-card">
+          <div class="wf-card-num">F1</div>
+          <h3 class="wf-card-title">구간 선택</h3>
+          <p class="wf-card-desc">
+            대용량 원본 녹화본에서 방송에 쓸 알짜 구간을 인코딩 없이 무손실로 빠르게 추려냅니다.
+          </p>
+          <ul class="wf-card-features">
+            <li>LosslessCut 수준의 0초 분할</li>
+            <li>디스크 용량을 아끼는 원본 비파괴 방식</li>
+            <li>게임 소리 처리 모드 (솔로/내레이션/합방)</li>
+          </ul>
+        </div>
+
+        <!-- Step 2 -->
+        <div class="wf-card">
+          <div class="wf-card-num">F2</div>
+          <h3 class="wf-card-title">정밀 컷 & 자막</h3>
+          <p class="wf-card-desc">
+            로컬 Whisper 엔진이 생성한 자막을 읽으며, 대본을 다듬듯 텍스트를 지워 영상을 정밀하게 자릅니다.
+          </p>
+          <ul class="wf-card-features">
+            <li>Delete 키 하나로 대사·영상 동시 삭제</li>
+            <li>어/음 헛말, 말더듬, 침묵 자동 감지</li>
+            <li>Subtitle Edit 단축키 완벽 호환</li>
+          </ul>
+        </div>
+
+        <!-- Step 3 -->
+        <div class="wf-card">
+          <div class="wf-card-num">F3</div>
+          <h3 class="wf-card-title">시각 효과</h3>
+          <p class="wf-card-desc">
+            재생 중인 화면 그대로 효과를 얹고 확인합니다. 키프레임과 자동 추적 모자이크를 지원합니다.
+          </p>
+          <ul class="wf-card-features">
+            <li>펀치 줌, 카메라 무빙, 화이트 플래시</li>
+            <li>자유 모양 모자이크 & 피사체 추적</li>
+            <li>게임 대사창 인식 자막 회피</li>
+          </ul>
+        </div>
+
+        <!-- Step 4 -->
+        <div class="wf-card">
+          <div class="wf-card-num">F4</div>
+          <h3 class="wf-card-title">내보내기 & 숏폼</h3>
+          <p class="wf-card-desc">
+            롱폼 영상 분할과 2분 59초 쇼츠를 한 타임라인에서 동시에 뽑아 유튜브로 직결합니다.
+          </p>
+          <ul class="wf-card-features">
+            <li>세로 3분할 쇼츠 템플릿 원클릭 적용</li>
+            <li>치지직 !클립 채팅 연동 마커</li>
+            <li>유튜브 예약 공개 및 메타데이터 전송</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 Killer Features Grid -->
+  <section id="features" class="section">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow">Built for Streamers</span>
+        <h2 class="section-title">스트리머의 고충을 누구보다 잘 아는 기능들</h2>
+        <p class="section-desc">
+          시중의 범용 편집 툴로는 해결하기 어려웠던 인터넷 방송 특유의 워크플로우를 완벽하게 해결합니다.
+        </p>
+      </div>
+
+      <div class="features-grid">
+        <!-- Feat 1 -->
+        <div class="feat-card">
+          <div class="feat-icon">🎙️</div>
+          <h3 class="feat-title">멀티트랙 오디오 독립 제어</h3>
+          <p class="feat-desc">
+            마이크를 잘라내도 게임 BGM이나 디스코드 대화는 끊김 없이 이어집니다. T1~T5 스템 오디오 녹화본의 특성을 살려 매끄러운 오디오 전환을 보장합니다.
+          </p>
+        </div>
+
+        <!-- Feat 2 -->
+        <div class="feat-card">
+          <div class="feat-icon">📝</div>
+          <h3 class="feat-title">문서형 대본 편집 (Text-Cut)</h3>
+          <p class="feat-desc">
+            타임라인 파형을 보며 자르는 대신, 워드 문서처럼 자막 텍스트를 읽으며 불필요한 문장을 Delete 키로 지우세요. 영상과 오디오가 마법처럼 함께 정리됩니다.
+          </p>
+        </div>
+
+        <!-- Feat 3 -->
+        <div class="feat-card">
+          <div class="feat-icon">📱</div>
+          <h3 class="feat-title">원클릭 세로 쇼츠 재배치</h3>
+          <p class="feat-desc">
+            캠, 게임 화면, 실시간 채팅창을 각각 영역 지정해 9:16 세로 화면에 자유롭게 배치하세요. 2분 59초 길이 초과 경고와 템플릿 저장 기능으로 쇼츠 제작이 5분 만에 끝납니다.
+          </p>
+        </div>
+
+        <!-- Feat 4 -->
+        <div class="feat-card">
+          <div class="feat-icon">🧠</div>
+          <h3 class="feat-title">비용 0원 로컬 지능형 탐지</h3>
+          <p class="feat-desc">
+            비싼 클라우드 AI 토큰을 결제할 필요가 없습니다. 로컬 엔진이 채팅 폭발 지점, 시청자 웃음 반응, 오디오 피크를 분석해 하이라이트 구간을 자동으로 추천합니다.
+          </p>
+        </div>
+
+        <!-- Feat 5 -->
+        <div class="feat-card">
+          <div class="feat-icon">👥</div>
+          <h3 class="feat-title">디스코드 합방 완벽 지원</h3>
+          <p class="feat-desc">
+            디스코드 통화자마다 목소리 크기가 달라 고생하셨나요? 화자별 음량 자동 정규화(Normalizer), 게스트 전용 자막 색상, 말할 때 반응하는 캐릭터 오버레이까지 기본 제공합니다.
+          </p>
+        </div>
+
+        <!-- Feat 6 -->
+        <div class="feat-card">
+          <div class="feat-icon">🚀</div>
+          <h3 class="feat-title">방송 운영(Ops) 통합 허브</h3>
+          <p class="feat-desc">
+            송출컴과 게임컴 동기화, 스트림덱 원클릭 핫키, 치지직 카테고리/제목 실시간 변경, 낭독회 웹 연동까지 방송 송출과 사후 편집을 하나의 생태계로 묶습니다.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Comparison Table -->
+  <section id="compare" class="section" style="background:#090c13;">
+    <div class="container">
+      <div class="section-header">
+        <span class="section-eyebrow">Why CastEdit</span>
+        <h2 class="section-title">기존 5단계 편집 방식 vs CastEdit</h2>
+        <p class="section-desc">
+          여러 프로그램을 번갈아 가며 낭비되던 시간과 저장 공간을 획기적으로 줄여드립니다.
+        </p>
+      </div>
+
+      <div class="compare-wrap">
+        <table class="compare-table">
+          <thead>
+            <tr>
+              <th style="width:25%;">비교 항목</th>
+              <th style="width:37%;">기존 방식 (LosslessCut + Premiere + etc.)</th>
+              <th style="width:38%;" class="highlight-col">✨ CastEdit (올인원)</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>필요한 프로그램</td>
+              <td><span class="badge-bad">✕ 4~5개</span> (LosslessCut, Premiere, Subtitle Edit, Izotope 등)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 단 1개의 데스크톱 앱</span></td>
+            </tr>
+            <tr>
+              <td>중간 생성 파일 용량</td>
+              <td><span class="badge-bad">✕ 수십~수백 GB</span> (구간별 인코딩본, 프록시, 캐시 등)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 0 Byte</span> (원본 비파괴 메타데이터 방식)</td>
+            </tr>
+            <tr>
+              <td>자막과 컷 연동</td>
+              <td><span class="badge-bad">✕ 분리됨</span> (컷 편집 후 자막 싱크가 틀어져 재작업 빈번)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 100% 동기화</span> (자막 지우면 영상 즉시 컷)</td>
+            </tr>
+            <tr>
+              <td>멀티트랙 BGM 처리</td>
+              <td><span class="badge-bad">✕ 수동 페이드</span> (마이크 컷마다 게임 소리 잘려 수동 조절)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 스마트 브릿지</span> (마이크 컷과 무관하게 BGM 지속)</td>
+            </tr>
+            <tr>
+              <td>유튜브 쇼츠 제작</td>
+              <td><span class="badge-bad">✕ 새 프로젝트 생성</span> (타임라인 새로 파서 3분할 수동 배치)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 원클릭 동시 추출</span> (롱폼 컷 기반 9:16 자동 생성)</td>
+            </tr>
+            <tr>
+              <td>AI 분석 비용</td>
+              <td><span class="badge-bad">✕ 매월 정기 구독료</span> (클라우드 API 토큰 비용 지속 발생)</td>
+              <td class="highlight-col"><span class="badge-good">✓ 100% 무료</span> (로컬 Whisper & 로컬 탐지 엔진)</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Download Section -->
+  <section id="download" class="section">
+    <div class="container">
+      <div class="download-card">
+        <h2 class="dl-title">지금 바로 더 빠른 편집을 경험해 보세요</h2>
+        <p class="dl-desc">
+          관리자 권한 없이 즉시 설치되며, 새 버전이 나오면 앱이 알아서 알려 드립니다.
+        </p>
+
+        <div class="dl-buttons">
+          <a href="https://github.com/gamecompiler/castedit-release/releases/latest/download/CastEdit-Setup-0.82.0.164.exe" class="btn-primary dl-btn-main">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.901-1.752"/></svg>
+            CastEdit-Setup-0.82.0.exe 다운로드 (278MB)
+          </a>
+          <a href="https://github.com/gamecompiler/castedit-release/releases/download/cast-edit-v0.82.0.164/CastEdit-0.82.0.164-windows.zip" class="btn-secondary">
+            📦 무설치 포터블 (.zip · 314MB)
+          </a>
+          <a href="https://github.com/gamecompiler/castedit-release/releases/latest" target="_blank" rel="noreferrer" class="btn-secondary">
+            🐙 전체 릴리즈 내역
+          </a>
+        </div>
+
+        <div class="dl-notice">
+          <strong>💡 설치 팁:</strong> 개인 제작 프로그램 특성상 설치 시 <em>"Windows의 PC 보호"</em> 알림창이 뜰 수 있습니다. <strong>[추가 정보] → [실행]</strong>을 누르시면 정상적으로 설치가 진행됩니다.<br>
+          <span style="opacity:0.8; font-size:11.5px;">* 권장 환경: Windows 10/11 64-bit · NVIDIA 그래픽카드 권장 (CPU 환경에서도 정상 동작합니다).</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="container footer-inner">
+      <div>
+        <strong style="color:#fff;">CastEdit</strong> — 인터넷 방송인을 위한 올인원 영상 편집기
+        <div style="margin-top:4px; font-size:12px;">만든 사람: 스트리머 컴파일러 (@gamecompiler) · "당신이 사랑하는 세계에 대한 새로운 해석기"</div>
+      </div>
+      <div class="footer-links">
+        <a href="/">🗓️ 서브컬처 캘린더</a>
+        <a href="https://github.com/gamecompiler/castedit-release" target="_blank" rel="noreferrer">GitHub 저장소</a>
+        <a href="https://chzzk.naver.com" target="_blank" rel="noreferrer">치지직 방송</a>
+        <a href="https://youtube.com/@gamecompiler" target="_blank" rel="noreferrer">유튜브 @gamecompiler</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    function switchTab(tabKey, btn) {
+      document.querySelectorAll('.ws-tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      const target = document.getElementById('pane-' + tabKey);
+      if (target) target.classList.add('active');
+    }
+  </script>
+</body>
+</html>

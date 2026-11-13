@@ -2,6 +2,10 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "rewrites": [
     {
+      "source": "/castedit",
+      "destination": "/castedit.html"
+    },
+    {
       "source": "/",
       "destination": "/subcal.html"
     },
