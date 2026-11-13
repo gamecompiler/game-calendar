@@ -79,6 +79,9 @@
   #msg{ position:fixed; left:50%; bottom:22px; transform:translateX(-50%); padding:9px 18px; border-radius:999px; background:rgba(17,24,39,.92);
         font:600 15px var(--font); opacity:0; transition:opacity .3s; z-index:50; pointer-events:none; }
   #msg.on{ opacity:1; }
+#music{display:none;position:fixed;left:12px;bottom:64px;z-index:30;background:rgba(10,12,18,.85);border:1px solid #333;border-radius:10px;padding:6px;width:220px}
+#music #mtitle{font-size:12px;color:#aab;margin:4px 2px 2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#music input{width:100%}
 </style>
 </head>
 <body>
@@ -89,6 +92,7 @@
   <div id="box"><div id="name"></div><div id="rname"></div><div id="text"></div><div id="next"></div></div>
   <div id="cover">불러오는 중…</div>
 </div></div>
+<div id="music"><div id="ytp"></div><div id="mtitle"></div><input id="mvol" type="range" min="0" max="100" title="음악 크기"></div>
 <div id="ui">
   <span class="pill" id="where"></span>
   <select id="eps" title="회차"></select>
@@ -97,6 +101,7 @@
   <button id="b-script" title="전체 대본을 다른 창으로">전체 대본</button>
   <button id="b-host" title="진행 암호를 넣으면 내가 넘기는 대로 모두가 따라온다">진행</button>
   <button id="b-sound" title="효과음 켜기·끄기">🔊</button>
+  <button id="b-music" title="진행자와 같은 음악을 유튜브로 (기본 꺼짐 — 진행자 방송이나 디코 화면 공유로 이미 들리면 끈 채로 두세요)">🎵 음악</button>
   <button id="b-minus" title="글자 작게 (−)">A−</button><button id="b-plus" title="글자 크게 (=)">A+</button>
   <button id="b-full" title="전체 화면 (F)">전체 화면</button>
 </div>
@@ -238,8 +243,9 @@
     if(nx){ var ns = speakerOf(nx); $("next").innerHTML = "다음: " + esc(ns.who && ns.who !== "지문" ? ns.who : "지문") + (rname(ns.reader) ? ' · <b style="color:' + color(ns.reader) + '">' + esc(rname(ns.reader)) + "</b>" : ""); }
     else $("next").textContent = "이 화 끝";
     $("cover").style.display = "none";
-    $("where").textContent = (ep.title || (epNo + "화")) + " · " + (beat + 1) + " / " + beats.length;
+    $("where").textContent = epLabel({no: epNo, title: ep.title}) + " · " + (beat + 1) + " / " + beats.length;
     if(fire) fireFx(ep, beat);
+    musicAt(ep, beat);
     preload(ep, beat + 1);
   }
   function fireFx(ep, i){
@@ -250,6 +256,49 @@
       if(c.sfx && sound){ var u = fileUrl("snd", c.sfx); if(u){ try{ var a = new Audio(u); a.volume = Math.min(1, ((work.sounds || {})[c.sfx] || {}).vol || 0.8); a.play().catch(function(){}); }catch(e){} } }
     });
   }
+  // ── 음악 (유튜브 — 켠 사람만. 진행자 방송·디코 화면 공유로 이미 들리면 끈 채로) ─────────
+  var musicOn = keep("read:music") === "1", yt = null, ytReady = false, ytWant = null, ytCur = "", ytPool = [], ytTitle = "";
+  function musicFor(ep, i){
+    var last = null;
+    (ep.cues || []).forEach(function(c){ if((c.at | 0) <= i && c.music !== undefined) last = c.music || null; });
+    return last || (work.episode_music || {})[String(epNo)] || null;          // 화 중간 전환 > 화 음악 > 기본 목록
+  }
+  function ytKey(m){ return m ? (m.id || "") + "|" + (m.list || "") : "pool"; }
+  function nextPool(){
+    if(!ytPool.length){ ytPool = (work.music || []).slice(); for(var i = ytPool.length - 1; i > 0; i--){ var j = Math.floor(Math.random() * (i + 1)); var t = ytPool[i]; ytPool[i] = ytPool[j]; ytPool[j] = t; } }
+    return ytPool.shift() || null;
+  }
+  function ytLoad(m){
+    if(!yt || !ytReady) return;
+    if(!m){ var t = nextPool(); if(!t){ yt.stopVideo(); return; } ytTitle = t.title || ""; yt.loadVideoById({videoId: t.id}); }
+    else if(m.list && !m.id) yt.loadPlaylist({list: m.list, listType: "playlist"});
+    else { ytTitle = ""; yt.loadVideoById({videoId: m.id, startSeconds: m.start || 0}); }
+    $("mtitle").textContent = ytTitle;
+  }
+  function musicAt(ep, i){
+    if(!musicOn || !work) return;
+    var m = musicFor(ep, i), k = ytKey(m);
+    if(k === ytCur) return;
+    ytCur = k; ytWant = m;
+    ensureYT(); ytLoad(m);
+  }
+  function ensureYT(){
+    if(yt) return;
+    $("music").style.display = "block";
+    window.onYouTubeIframeAPIReady = function(){
+      yt = new YT.Player("ytp", {width: 220, height: 124, playerVars: {playsinline: 1, rel: 0},
+        events: {onReady: function(){ ytReady = true; yt.setVolume(parseInt(keep("read:mvol") || "40", 10)); ytLoad(ytWant); },
+                 onStateChange: function(e){ if(e.data === 0){ if(ytWant && ytWant.id){ yt.seekTo(ytWant.start || 0); yt.playVideo(); } else ytLoad(null); } }}});
+    };
+    var sc = document.createElement("script"); sc.src = "https://www.youtube.com/iframe_api"; document.head.appendChild(sc);
+  }
+  function setMusic(on){
+    musicOn = on; keep("read:music", on ? "1" : "0"); $("b-music").textContent = on ? "🎵 음악 켬" : "🎵 음악";
+    $("b-music").classList.toggle("on", on);
+    if(!on){ ytCur = ""; if(yt && ytReady) yt.stopVideo(); $("music").style.display = "none"; }
+    else { $("music").style.display = "block"; if(work && eps[epNo]) musicAt(eps[epNo], beat); }
+  }
+
   function preload(ep, i){
     var st = stateAt(ep.cues, i);
     SLOTS.forEach(function(k){ if(st[k]){ var im = new Image(); im.src = fileUrl("img", st[k]); } });
@@ -284,16 +333,17 @@
     }).catch(function(){});
   }
   function paintFollow(){ $("b-follow").classList.toggle("on", follow); $("s-follow").classList.toggle("on", follow); }
+  function epLabel(e){ var n = (e.no < 10 ? "0" : "") + e.no + "화"; return e.title ? n + "  " + e.title : n; }   // 회차 번호는 늘 (제목만 나오던 것)
   function fillEps(){
     [$("eps"), $("s-eps")].forEach(function(sel){
-      sel.innerHTML = (work.episodes || []).map(function(e){ return '<option value="' + e.no + '"' + (e.no === epNo ? " selected" : "") + ">" + esc(e.title || (e.no + "화")) + "</option>"; }).join("");
+      sel.innerHTML = (work.episodes || []).map(function(e){ return '<option value="' + e.no + '"' + (e.no === epNo ? " selected" : "") + ">" + esc(epLabel(e)) + "</option>"; }).join("");
     });
   }
 
   // ── 전체 대본 ───────────────────────────────────────
   function drawScript(){
     var ep = eps[epNo]; if(!ep) return;
-    $("s-title").textContent = ep.title || (epNo + "화");
+    $("s-title").textContent = epLabel({no: epNo, title: ep.title});
     var html = (ep.beats || []).map(function(p, i){
       var mine = me && (p.segs || []).some(function(s){ return s.reader === me; });
       var fx = (ep.cues || []).filter(function(c){ return (c.at | 0) === i && (c.sfx || c.fx); }).map(function(c){ return c.sfx ? "♪ " + c.sfx : "✦ " + ({shake:"흔들기", flash:"번쩍", dark:"잠깐 어둡게"}[c.fx] || c.fx); }).join(" · ");
@@ -365,6 +415,10 @@
   $("b-script").onclick = function(){ window.open(workUrl(ID, "script"), "read-script-" + ID, "width=760,height=900"); };
   $("b-sound").onclick = function(){ sound = !sound; keep("read:sound", sound ? "1" : "0"); $("b-sound").textContent = sound ? "🔊" : "🔇"; };
   $("b-sound").textContent = sound ? "🔊" : "🔇";
+  $("b-music").onclick = function(){ setMusic(!musicOn); };
+  setMusic(musicOn);
+  $("mvol").value = keep("read:mvol") || "40";
+  $("mvol").oninput = function(){ keep("read:mvol", this.value); if(yt && ytReady) yt.setVolume(parseInt(this.value, 10)); };
   $("b-minus").onclick = function(){ fs = Math.max(18, fs - 2); keep("read:fs", fs); draw(false); };
   $("b-plus").onclick = function(){ fs = Math.min(72, fs + 2); keep("read:fs", fs); draw(false); };
   $("s-minus").onclick = function(){ sfs = Math.max(14, sfs - 1); keep("read:sfs", sfs); drawScript(); };
