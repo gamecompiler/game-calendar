@@ -118,11 +118,70 @@ function parseFeed(raw, locale) {
   return result;
 }
 
+// ── 영문 Convene(픽업) 공지 → 한국어 일정 제목 ────────────────────────────────
+// 한국어 피드는 버전 픽업(Convene) 공지를 거의 올리지 않아 캘린더에 픽업 일정이 비어 버린다.
+// 영문 피드의 Convene 공지를 제목만 한국어 일정 형태로 바꿔 보강한다 (없는 정보를 만들지 않음).
+const PHASE_KO = { "Ⅰ": 1, "I": 1, "Ⅱ": 2, "II": 2, "Ⅲ": 3, "III": 3, "Ⅳ": 4, "IV": 4 };
+const KIND_KO = { "resonator/weapon": "공명자·무기", "resonator": "공명자", "weapon": "무기" };
+
+function koConveneTitle(title) {
+  let m = String(title).match(/\[\s*Version\s+([\d.]+)\s+Featured\s+(Resonator\/Weapon|Resonator|Weapon)\s+Convene(?:[:\s]*(Phase\s*[ⅠⅡⅢⅣIV]+))?\s*\]/i);
+  if (m) {
+    const kind = KIND_KO[m[2].toLowerCase()] || m[2];
+    const ph = String(m[3] || "").replace(/Phase/i, "").replace(/\s+/g, "").trim();
+    const n = PHASE_KO[ph];
+    return `${m[1]} 픽업 소환${n ? ` ${n}단계` : ""} (${kind})`;
+  }
+  m = String(title).match(/\[\s*([^\]]+?)\s*\]\s*(Featured|Reverb|Collab)\s+(Resonator\/Weapon|Resonator|Weapon)\s+Convene/i);
+  if (m) {
+    const kind = KIND_KO[m[3].toLowerCase()] || m[3];
+    const pre = { featured: "", reverb: "리버브 ", collab: "콜라보 " }[m[2].toLowerCase()];
+    return `${m[1]} — ${pre}${kind} 픽업`;
+  }
+  return String(title);
+}
+
+// 소급 보강 범위(일). 캘린더는 6개월 전까지 보여 주므로 여유를 두고 400일.
+const MERGE_DAYS = 400;
+
+function dayNum(ds) {
+  const t = Date.parse(String(ds) + "T00:00:00Z");
+  return Number.isNaN(t) ? null : Math.floor(t / 86400000);
+}
+
+// 한국어 결과에 없는 영문 픽업만 덧붙인다.
+// 같은 픽업으로 보는 기준: 버전이 같거나, 날짜가 ±3일 안쪽(한국어 공지는 제목에 버전이 없는 경우가 많다).
+function mergeEnPickups(base, en) {
+  const picks = base.filter((r) => r.type === "픽업");
+  const pickVers = new Set(picks.map((r) => r.version).filter(Boolean));
+  const pickDays = picks.map((r) => dayNum(r.date)).filter((x) => x !== null);
+  const cutoff = dayNum(new Date(Date.now() - MERGE_DAYS * 86400000).toISOString().slice(0, 10));
+  const added = [], seen = new Set();
+  for (const r of en) {
+    if (r.type !== "픽업") continue;
+    const key = `${r.title}|${r.date}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (r.version && pickVers.has(r.version)) continue;
+    const d = dayNum(r.date);
+    if (d === null) continue;
+    if (cutoff !== null && d < cutoff) continue;
+    if (pickDays.some((x) => Math.abs(x - d) <= 3)) continue;
+    added.push({ ...r, title: koConveneTitle(r.title), titleEn: r.title });
+  }
+  if (!added.length) return base;
+  const out = base.concat(added);
+  out.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
+  return out;
+}
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.setHeader("Access-Control-Allow-Methods", "GET,OPTIONS");
   if (req.method === "OPTIONS") return res.status(204).end();
 
+  // 1) 한국어 피드 우선(실패하면 영어 피드로 폴백 — 기존과 동일)
+  let base = null;
   for (const { locale, url } of FEEDS) {
     try {
       const r = await fetch(url, { headers: FETCH_HEADERS });
@@ -131,13 +190,34 @@ export default async function handler(req, res) {
       const out = parseFeed(raw, locale);
       if (out === null) { console.log(`[wuwa] 예상과 다른 응답(article 배열 없음): ${url}`); continue; }
       console.log(`[wuwa] ${locale} 피드 OK → ${out.length}개`);
-      res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=600");
-      return res.status(200).json(out);
+      base = { locale, out };
+      break;
     } catch (e) {
       console.log(`[wuwa] 실패 ${url}: ${e.message}`);
     }
   }
 
-  console.log("[wuwa] 모든 피드 실패 → 빈 배열");
-  return res.status(200).json([]);
+  if (!base) {
+    console.log("[wuwa] 모든 피드 실패 → 빈 배열");
+    return res.status(200).json([]);
+  }
+
+  // 2) 한국어 기준일 때만 영문 Convene(픽업) 공지를 겹쳐 읽어 빠진 픽업을 보강
+  let out = base.out;
+  if (base.locale === "kr") {
+    try {
+      const r = await fetch(FEEDS[1].url, { headers: FETCH_HEADERS });
+      if (r.ok) {
+        const enOut = parseFeed(await r.json(), "en");
+        if (enOut) out = mergeEnPickups(out, enOut);
+      } else {
+        console.log(`[wuwa] 영문 피드 HTTP ${r.status} — 픽업 보강 생략`);
+      }
+    } catch (e) {
+      console.log(`[wuwa] 영문 피드 실패 — 픽업 보강 생략: ${e.message}`);
+    }
+  }
+
+  res.setHeader("Cache-Control", "s-maxage=3600, stale-while-revalidate=600");
+  return res.status(200).json(out);
 }

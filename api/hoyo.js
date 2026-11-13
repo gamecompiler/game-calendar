@@ -28,7 +28,9 @@ export default async function handler(req, res) {
     });
     const data = await r.json();
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate');
+    // CDN 엣지 캐시 유지력 강화 — 만료 뒤에도 하루 동안은 옛 응답을 먼저 주고 뒤에서 갱신
+    // (대용량 피드 첫 로딩이 느려 "미수집"으로 보이던 문제 완화)
+    res.setHeader('Cache-Control', 's-maxage=3600, stale-while-revalidate=86400');
     return res.status(r.status).json(data);
   } catch (e) {
     return res.status(502).json({ error: e.message });

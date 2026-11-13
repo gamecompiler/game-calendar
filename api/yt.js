@@ -57,7 +57,7 @@ export default async function handler(req, res) {
     return res.status(204).end();
   }
 
-  const { type, channel, chzzk } = req.query;
+  const { type, channel, chzzk, ids } = req.query;
   res.setHeader('Access-Control-Allow-Origin', '*');
 
   // ── YouTube RSS → JSON 배열 (HTML이 r.json() 으로 기대) ───────
@@ -132,5 +132,48 @@ export default async function handler(req, res) {
     }
   }
 
-  return res.status(400).json({ error: 'type required (rss|icon|chzzk)' });
+  // ── Chzzk 라이브(ON AIR) 상태 — 여러 채널 한 번에 ────────────
+  // /api/yt?type=chzzk_live&ids=채널ID,채널ID → { 채널ID: {status,title,viewers} }
+  // proxy.py _handle_chzzk_live 와 동일 출력
+  if (type === 'chzzk_live') {
+    const raw = String(ids || chzzk || '');
+    const list = [...new Set(raw.split(',').map((s) => s.trim()).filter(Boolean))].slice(0, 30);
+    const out = {};
+    const one = async (cid) => {
+      try {
+        const r = await fetch(
+          `https://api.chzzk.naver.com/polling/v2/channels/${encodeURIComponent(cid)}/live-status`,
+          {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36',
+              'Accept': 'application/json, text/plain, */*',
+              'Accept-Language': 'ko-KR,ko;q=0.9',
+              'Referer': 'https://chzzk.naver.com/',
+            },
+          }
+        );
+        const d = await r.json();
+        const c = (d && d.content) || {};
+        const isOpen = String(c.status || '').toUpperCase() === 'OPEN';
+        return {
+          status: isOpen ? 'OPEN' : 'CLOSE',
+          title: isOpen ? (c.liveTitle || '') : '',
+          viewers: isOpen ? (Number(c.concurrentUserCount) || 0) : 0,
+        };
+      } catch (e) {
+        return { status: 'CLOSE', title: '', viewers: 0 };
+      }
+    };
+    // 입력 순서를 유지해 결과 순서를 proxy.py 와 같게 유지
+    for (let i = 0; i < list.length; i += 8) {
+      const chunk = list.slice(i, i + 8);
+      const vals = await Promise.all(chunk.map(one));
+      chunk.forEach((cid, j) => { out[cid] = vals[j]; });
+    }
+    res.setHeader('Cache-Control', 'no-store, max-age=0');
+    res.setHeader('Content-Type', 'application/json; charset=utf-8');
+    return res.status(200).json(out);
+  }
+
+  return res.status(400).json({ error: 'type required (rss|icon|chzzk|chzzk_live)' });
 }

@@ -26,6 +26,9 @@
 .ecard{border-radius:6px;overflow:hidden;cursor:pointer;margin-bottom:4px;transition:opacity .12s;background:var(--bi)}.ecard:hover{opacity:.8}
 @keyframes spin{to{transform:rotate(360deg)}}.spin{animation:spin .8s linear infinite;display:inline-block}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}.pulse{animation:pulse 1.2s ease-in-out infinite}
+/* 원스동 멤버 치지직 라이브(ON AIR) — 아바타 테두리 빨간 펄스 */
+@keyframes livePulse{0%{box-shadow:0 0 0 0 rgba(255,59,48,.9)}70%{box-shadow:0 0 0 5px rgba(255,59,48,0)}100%{box-shadow:0 0 0 0 rgba(255,59,48,0)}}
+.live-ring{animation:livePulse 1.6s ease-out infinite;border-color:#FF3B30 !important}
 @keyframes bar{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}.fetchbar{animation:bar 1.4s linear infinite;height:2px;background:#378ADD;border-radius:1px;width:60%}
 ::-webkit-scrollbar{width:4px;height:4px}::-webkit-scrollbar-thumb{background:rgba(128,128,128,.3);border-radius:2px}
 .ib{background:none;border:none;cursor:pointer;color:var(--ts);padding:3px 5px;line-height:1;border-radius:5px;display:inline-flex;align-items:center;font-size:14px;font-family:inherit}.ib:hover{background:var(--bh);color:var(--tp)}
@@ -446,7 +449,7 @@ function getYtId(url) {
 }
 
 async function fetchJSON(url, logs) {
-  const TIMEOUT = 12000; // 12초 타임아웃
+  const TIMEOUT = 20000; // 20초 타임아웃 (HoYoLAB 대용량 피드 첫 로딩이 12초를 넘겨 "미수집"으로 보이던 문제)
 
   // localhost URL은 proxy 루프 방지 - 직접 접속
   if(url.startsWith("http://localhost")||url.startsWith("http://127.0.0.1")){
@@ -971,6 +974,130 @@ function WeeklyPlanModal({member,onClose}){
   );
 }
 
+/* ── 이번 주 방송 일정표 카드 (16:9 · 클립보드 복사/PNG) ──────────────────────
+   노션 방송일정을 월~일 7칸으로 그려 카페·디스코드 공지에 바로 붙여넣을 수 있게 한다. */
+const WKC_W=1920, WKC_H=1080;
+const WKC_DOW=["월","화","수","목","금","토","일"];
+const WKC_COL=["#F0A03C","#F0A03C","#F0A03C","#F0A03C","#F0A03C","#6C8CE8","#E0688E"];
+function wkcMonday(d){const x=new Date(d.getFullYear(),d.getMonth(),d.getDate());x.setDate(x.getDate()-((x.getDay()+6)%7));return x;}
+function wkcIso(d){return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;}
+function wkcSave(blob){
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(blob);
+  a.download=`방송일정_${wkcIso(wkcMonday(new Date())).replace(/-/g,"")}.png`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+}
+function wkcDraw(cv,{items,clashes}){
+  items=items||{}; clashes=clashes||{};
+  const g=cv.getContext("2d");
+  cv.width=WKC_W; cv.height=WKC_H;
+  const F="Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif";
+  const panel="#1E1E2E", ink="#E6EBFF", sub="#A6ADC8", mute="#585B70", accent="#FFB432";
+  const rr=(x,y,w,h,r)=>{g.beginPath();g.roundRect(x,y,w,h,r);};
+  const grad=g.createLinearGradient(0,0,WKC_W,WKC_H);
+  grad.addColorStop(0,"#171725"); grad.addColorStop(1,"#0F0F17");
+  g.fillStyle=grad; g.fillRect(0,0,WKC_W,WKC_H);
+  g.save(); g.globalAlpha=.10; g.fillStyle=accent; g.beginPath(); g.arc(WKC_W-90,40,250,0,Math.PI*2); g.fill(); g.restore();
+  g.beginPath(); g.moveTo(0,WKC_H-6); g.lineTo(WKC_W,WKC_H-6); g.lineWidth=6; g.strokeStyle=accent; g.stroke();
+  // 글자 크기 맞춤 / 줄바꿈
+  const fitTxt=(text,px,maxW,wt=900)=>{ const s=String(text||""); let p=px; g.font=`${wt} ${p}px ${F}`;
+    while(p>11&&g.measureText(s).width>maxW){p-=1;g.font=`${wt} ${p}px ${F}`;}
+    if(g.measureText(s).width<=maxW) return s;
+    let cut=s; while(cut.length>1&&g.measureText(cut+"…").width>maxW) cut=cut.slice(0,-1);
+    return cut+"…"; };
+  const wrapTxt=(text,maxW,px,wt=500,maxLines=2)=>{
+    g.font=`${wt} ${px}px ${F}`;
+    const words=String(text||"").split(/\s+/).filter(Boolean);
+    const lines=[]; let cur="", rest=false;
+    for(const w of words){
+      const t=cur?cur+" "+w:w;
+      if(g.measureText(t).width<=maxW){ cur=t; continue; }
+      if(!cur){ // 한 단어가 폭보다 김 → 글자 단위로 자름
+        let s=w; while(s.length>1&&g.measureText(s+"…").width>maxW) s=s.slice(0,-1);
+        lines.push(s+"…"); return lines.slice(0,maxLines);
+      }
+      lines.push(cur); cur=w;
+      if(lines.length>=maxLines){ rest=true; break; }
+    }
+    if(lines.length<maxLines){ if(cur) lines.push(cur); } else if(cur) rest=true;
+    if(rest&&lines.length){
+      let s=lines[lines.length-1];
+      while(s.length>1&&g.measureText(s+"…").width>maxW) s=s.slice(0,-1);
+      lines[lines.length-1]=s+"…";
+    }
+    return lines.slice(0,maxLines);
+  };
+  const mon=wkcMonday(new Date());
+  const sun=new Date(mon); sun.setDate(sun.getDate()+6);
+  // 머리
+  g.textAlign="left"; g.textBaseline="alphabetic";
+  g.fillStyle=accent; g.font=`900 24px ${F}`; g.fillText("COMPILER · SUB-CULTURE CALENDAR", 60, 72);
+  g.fillStyle=ink; g.font=`900 60px ${F}`; g.fillText("이번 주 방송 일정", 60, 142);
+  g.fillStyle=sub; g.font=`600 29px ${F}`;
+  g.fillText(`${mon.getFullYear()}. ${mon.getMonth()+1}. ${mon.getDate()} (월) ~ ${sun.getMonth()+1}. ${sun.getDate()} (일)`, 62, 190);
+  g.textAlign="right";
+  g.fillStyle=ink; g.font=`900 40px ${F}`; g.fillText("컴파일러", 1860, 98);
+  g.fillStyle=sub; g.font=`600 21px ${F}`; g.fillText("@gamecompiler · sub-cal.vercel.app", 1860, 138);
+  g.strokeStyle="rgba(205,214,244,.14)"; g.lineWidth=2; g.beginPath(); g.moveTo(60,214); g.lineTo(1860,214); g.stroke();
+
+  const top=238, bottom=1008, gap=14, W=(1860-60-6*gap)/7;
+  const todayIso=wkcIso(new Date());
+  for(let i=0;i<7;i++){
+    const d=new Date(mon); d.setDate(d.getDate()+i);
+    const iso=wkcIso(d), x=60+i*(W+gap), isToday=iso===todayIso;
+    rr(x,top,W,68,18); g.fillStyle=WKC_COL[i]; g.fill();
+    if(isToday){ g.lineWidth=4; g.strokeStyle="#00C9A7"; g.stroke(); }
+    g.textAlign="center"; g.textBaseline="middle"; g.fillStyle="#fff"; g.font=`900 26px ${F}`;
+    g.fillText(`${WKC_DOW[i]}  ${String(d.getMonth()+1).padStart(2,"0")}.${String(d.getDate()).padStart(2,"0")}`, x+W/2, top+35);
+    if(isToday){ g.textAlign="right"; g.font=`900 16px ${F}`; g.fillStyle="#08281F"; g.fillText("오늘", x+W-14, top+18); }
+    const by=top+78, bh=bottom-by;
+    rr(x,by,W,bh,16); g.fillStyle=panel; g.fill();
+    g.lineWidth=isToday?3:2; g.strokeStyle=isToday?"rgba(0,201,167,.8)":"rgba(205,214,244,.10)"; g.stroke();
+    let y=by+12;
+    const cl=clashes[iso];
+    if(cl&&((cl.sp&&cl.sp.length)||(cl.up&&cl.up.length))){
+      let cx=x+12; g.textAlign="left"; g.textBaseline="middle";
+      const tag=(txt,fg,bgc)=>{ g.font=`800 15px ${F}`; const w=g.measureText(txt).width+14;
+        rr(cx,y,w,24,8); g.fillStyle=bgc; g.fill(); g.fillStyle=fg; g.fillText(txt,cx+7,y+12); cx+=w+5; };
+      if(cl.sp&&cl.sp.length) tag("⚡ 특방","#ffc266","rgba(255,183,77,.18)");
+      if(cl.up&&cl.up.length) tag("⚠️ 업데이트","#8fcaf8","rgba(100,181,246,.18)");
+      y+=32;
+    }
+    const list=items[iso]||[];
+    if(!list.length){
+      g.textAlign="center"; g.textBaseline="middle"; g.fillStyle=mute; g.font=`900 38px ${F}`;
+      g.fillText("휴방", x+W/2, by+bh/2+10);
+      continue;
+    }
+    const per=138;
+    const room=Math.max(1,Math.floor((by+bh-y-6)/per));
+    const shown=list.slice(0,room);
+    shown.forEach((it,k)=>{
+      const iy=y+k*per;
+      g.fillStyle=it.color||accent; rr(x+14,iy+4,5,per-22,2.5); g.fill();
+      g.textAlign="left";
+      g.fillStyle=accent; g.font=`900 21px ${F}`;
+      g.fillText(fitTxt(it.timeStr||"",21,W-52,900), x+30, iy+28);
+      g.fillStyle=ink; g.font=`900 24px ${F}`;
+      g.fillText(fitTxt(it.game||it.content||"",24,W-52,900), x+30, iy+62);
+      g.fillStyle=sub;
+      const lines=wrapTxt(it.content||"", W-56, 18, 500, 2);
+      lines.forEach((ln,j)=>{ g.font=`500 18px ${F}`; g.fillText(ln, x+30, iy+90+j*23); });
+      const tags=[];
+      if(it.collab) tags.push("합방");
+      if(it.episode) tags.push(it.episode+"화");
+      if(tags.length){ g.font=`800 15px ${F}`; g.fillStyle="#E0688E"; g.fillText(tags.join(" · "), x+30, iy+90+lines.length*23+6); }
+    });
+    if(list.length>shown.length){
+      g.textAlign="center"; g.fillStyle=accent; g.font=`800 16px ${F}`;
+      g.fillText(`+${list.length-shown.length}개 더`, x+W/2, by+bh-14);
+    }
+  }
+  g.textAlign="left"; g.textBaseline="alphabetic"; g.fillStyle=mute; g.font=`600 17px ${F}`;
+  g.fillText("컴파일러의 서브컬쳐 캘린더", 60, WKC_H-24);
+}
+
 /* ── 액자 모드 (/frame · ?frame) ─────────────────────────────────────────────
    태블릿을 화면보호기처럼: 내 폴더의 일러스트가 일정 시간마다 바뀌고, 달력(방송일정·게임 일정)이 한쪽에 뜬다.
    그림은 이 기기의 폴더에서 직접 읽는다 — 서버로 올라가지 않는다. 설정·즐겨찾기·제외·재생목록은 이 브라우저에만 저장. */
@@ -1352,6 +1479,7 @@ function App() {
   const [noteEvs,     setNoteEvs]     = useState([]); // 노션 노트 목록
   const [notePage,    setNotePage]    = useState(0);  // 문서 목록 페이지
   const [members,     setMembers]     = useState([]); // 원스동 멤버 명단 (서버에서 안전 필드만)
+  const [liveMap,     setLiveMap]     = useState({}); // 치지직 라이브 상태 { 채널ID: {status,title,viewers} }
   const [selMember,   setSelMember]   = useState(null); // 멤버 바: 선택 시 확장
   const [weekMember,  setWeekMember]  = useState(null); // 주간 일정표를 연 멤버 (노션 연동한 멤버만)
   const [hiddenMembers,setHiddenMembers]=useState(()=>new Set()); // 추적 끈 스트리머 id → 페이지에서 완전 제거
@@ -1378,6 +1506,7 @@ function App() {
   },[]);
   // 모바일 아젠다: 로드/월변경 시 오늘로 스크롤 포커싱 (1회)
   const agendaTodayRef=React.useRef(null);
+  const weekCardRef=React.useRef(null); // 이번 주 일정표 카드(캔버스, 화면엔 안 보임)
   const didFocusToday=React.useRef(false);
   useEffect(()=>{
     if(!isMobile||view!=="cal"){didFocusToday.current=false;return;}
@@ -1481,6 +1610,26 @@ function App() {
       (m.youtube||[]).forEach(u=>{ if(u) fetch(`${API}/api/yt?type=icon&channel=${encodeURIComponent(u)}`)
         .then(r=>r.json()).then(d=>{if(d.url)setChanIcons(p=>({...p,["y_"+u]:d.url}));}).catch(()=>{}); });
     });
+  },[members]);
+  // 원스동 멤버 치지직 라이브(ON AIR) 상태 — 1분마다 한 번에 조회 (탭이 가려져 있으면 건너뜀)
+  useEffect(()=>{
+    const ids=[...new Set(members.map(m=>m.chzzk).filter(Boolean))];
+    if(!ids.length){ setLiveMap({}); return; }
+    let alive=true, timer=null;
+    const poll=async()=>{
+      if(document.hidden) return;
+      try{
+        const r=await fetch(`${API}/api/yt?type=chzzk_live&ids=${encodeURIComponent(ids.join(","))}`);
+        if(!r.ok) return;
+        const d=await r.json();
+        if(alive&&d&&typeof d==="object"&&!Array.isArray(d)) setLiveMap(d);
+      }catch(e){ /* 라이브 상태는 없어도 되는 정보 — 조용히 넘어감 */ }
+    };
+    poll();
+    timer=setInterval(poll,60000);
+    const onVis=()=>{ if(!document.hidden) poll(); };
+    document.addEventListener("visibilitychange",onVis);
+    return()=>{alive=false;clearInterval(timer);document.removeEventListener("visibilitychange",onVis);};
   },[members]);
   // 게임 아이콘: 정적 icon 없는 게임(붕3rd, 명조)은 YouTube 채널 아이콘으로 로드
   // 컴파일러/통파일러 채널 아이콘과 100% 동일한 방식
@@ -1913,6 +2062,60 @@ function App() {
   // 안 들어가고 매 렌더 시 events에서 파생 — 실제 이벤트가 수집되면 자동으로 대체(아래서 중복 제외).
   const predictedEvents=React.useMemo(()=>predictFutureEvents(events,games,todayStr),[events,games,todayStr]);
   const displayEvents=React.useMemo(()=>[...events,...predictedEvents],[events,predictedEvents]);
+  // 내 방송일정 ↔ 공식 대형 일정(특별 방송·업데이트) 겹침 — 날짜별로 모아 둔다.
+  // 업데이트는 공지 게시일이 아니라 적용일(applyDate) 기준. 예측 일정은 predicted로 표시.
+  const clashByDs=(()=>{
+    const m={};
+    for(const e of displayEvents){
+      if(e.type!=="특별 방송"&&e.type!=="업데이트") continue;
+      if(!active.has(e.gameId)) continue;
+      const ds=(e.type==="업데이트"&&e.applyDate)?e.applyDate:e.date;
+      if(!ds) continue;
+      const g=games.find(x=>x.id===e.gameId);
+      const slot=(e.type==="특별 방송")?"sp":"up";
+      if(!m[ds]) m[ds]={sp:[],up:[]};
+      m[ds][slot].push({game:g?g.name:"",title:e.title,version:e.version||"",predicted:!!e.predicted});
+    }
+    return m;
+  })();
+
+  // 이번 주(월~일) 방송 일정표를 16:9 카드로 그려 클립보드에 이미지로 복사(Shift+클릭은 PNG 저장)
+  async function copyWeekCard(forSave){
+    const mon=wkcMonday(new Date());
+    const items={}, clashes={};
+    for(let i=0;i<7;i++){ const d=new Date(mon); d.setDate(d.getDate()+i); items[wkcIso(d)]=[]; }
+    const gameCol={};
+    games.forEach(gg=>{ gameCol[gg.name]=gg.color; });
+    broadcastEvs.slice().sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.timeStr||"").localeCompare(String(b.timeStr||"")))
+      .forEach(ev=>{
+        if(!items[ev.date]) return;
+        items[ev.date].push({
+          timeStr:ev.timeStr||"",
+          game:(ev.gameNames||[]).join(" · "),
+          content:ev.title||"",
+          episode:ev.episode||null,
+          collab:!!ev.isCollab,
+          color:(ev.gameNames&&ev.gameNames[0]&&gameCol[ev.gameNames[0]])||null,
+        });
+      });
+    Object.keys(items).forEach(k=>{ if(clashByDs[k]) clashes[k]=clashByDs[k]; });
+    if(!Object.values(items).some(a=>a.length)){ showToast("이번 주 방송 일정이 없습니다 (노션 방송일정 기준)"); return; }
+    const cv=weekCardRef.current;
+    if(!cv){ showToast("일정표를 그리지 못했습니다 — 새로고침 후 다시 시도해주세요"); return; }
+    try{ if(document.fonts&&document.fonts.ready) await document.fonts.ready; }catch(e){}
+    wkcDraw(cv,{items,clashes});
+    cv.toBlob(blob=>{
+      if(!blob){ showToast("이미지를 만들지 못했습니다"); return; }
+      if(forSave){ wkcSave(blob); showToast("이번 주 일정표를 PNG로 저장했습니다"); return; }
+      const fallback=()=>{ wkcSave(blob); showToast("클립보드 복사가 안 돼 PNG로 저장했습니다"); };
+      try{
+        if(!navigator.clipboard||!window.ClipboardItem){ fallback(); return; }
+        navigator.clipboard.write([new ClipboardItem({"image/png":blob})])
+          .then(()=>showToast("이번 주 일정표 복사됨 ✓  Ctrl+V로 붙여넣기 (PNG 저장은 Shift+클릭)"))
+          .catch(fallback);
+      }catch(e){ fallback(); }
+    },"image/png");
+  }
   const cellEvs=cell=>{
     // 게임 이벤트 (모든 소식은 게시일 기준)
     const gameRaw=displayEvents.filter(e=>{
@@ -1988,6 +2191,9 @@ function App() {
 
       {/* Toast */}
       {toast&&<div key={toast.id} className="toast toast-in">{toast.msg}</div>}
+
+      {/* 이번 주 일정표 카드 — 화면엔 안 보이고, 복사/저장할 때만 캔버스에 그린다 */}
+      <canvas ref={weekCardRef} width={WKC_W} height={WKC_H} style={{display:"none"}}/>
 
       {/* 전체 로그 모달 */}
       {showAllLogs&&(
@@ -2074,15 +2280,23 @@ function App() {
             return [...members].reverse().filter(m=>!hiddenMembers.has(m.id)).map(m=>{
             const col=m.color||"#888888";
             const expanded=selMember===m.id;
+            // 치지직 라이브(ON AIR) — status OPEN이면 아바타 테두리 펄스 + 🔴 LIVE
+            const lv=m.chzzk?liveMap[m.chzzk]:null;
+            const isLive=!!(lv&&lv.status==="OPEN");
+            const chHref=isLive?`https://chzzk.naver.com/live/${m.chzzk}`:`https://chzzk.naver.com/${m.chzzk}`;
+            const chTip=isLive
+              ?`🔴 방송 중${lv.title?" — "+lv.title:""}${lv.viewers>0?` (시청자 ${lv.viewers.toLocaleString()}명)`:``}`
+              :"치지직";
             return(
               <div key={m.id} onClick={()=>setSelMember(expanded?null:m.id)} title={m.name}
                 style={{display:"flex",alignItems:"center",gap:isMobile?4:5,padding:isMobile?"2px 8px":"3px 10px",borderRadius:20,background:expanded?col+"2A":col+"1A",border:`.5px solid ${expanded?col:col+"66"}`,whiteSpace:"nowrap",flexShrink:0,cursor:"pointer"}}>
                 {/* 이름 옆 원: 치지직 프로필(테두리=퍼스널컬러), 클릭 시 치지직 이동. 없으면 퍼스널컬러 원 */}
                 {m.chzzk
-                  ?<a href={`https://chzzk.naver.com/${m.chzzk}`} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" title="치지직" style={{display:"inline-flex",flexShrink:0}}>
-                    <div style={{width:18,height:18,borderRadius:"50%",overflow:"hidden",border:`2px solid ${col}`,background:col,display:"flex",alignItems:"center",justifyContent:"center"}}>
+                  ?<a href={chHref} onClick={e=>e.stopPropagation()} target="_blank" rel="noreferrer" title={chTip} style={{display:"inline-flex",flexShrink:0,position:"relative"}}>
+                    <div className={isLive?"live-ring":undefined} style={{width:18,height:18,borderRadius:"50%",overflow:"hidden",border:`2px solid ${col}`,background:col,display:"flex",alignItems:"center",justifyContent:"center"}}>
                       {chanIcons["c_"+m.chzzk]&&<img src={chanIcons["c_"+m.chzzk]} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}} onError={e=>e.target.style.display="none"}/>}
                     </div>
+                    {isLive&&<span title="치지직 방송 중" style={{position:"absolute",right:-3,bottom:-3,width:8,height:8,borderRadius:"50%",background:"#FF3B30",border:"1.5px solid var(--bc)",boxSizing:"content-box"}}/>}
                   </a>
                   :<span style={{width:8,height:8,borderRadius:"50%",background:col,flexShrink:0}} />}
                 {/* 확장 시 치지직 바로 옆에 유튜브 채널들 (치지직 → 유튜브 1,2,3 순) */}
@@ -2094,8 +2308,11 @@ function App() {
                   </a>
                 ))}
                 <span style={{fontSize:11,fontWeight:600,color:"var(--tp)"}}>{m.name}</span>
+                {isLive&&<span onClick={e=>{e.stopPropagation();window.open(chHref,"_blank","noreferrer");}} title={chTip}
+                  style={{fontSize:8,fontWeight:800,letterSpacing:".2px",padding:"1px 5px",borderRadius:8,background:"#FF3B30",color:"#fff",flexShrink:0,cursor:"pointer"}}>🔴 LIVE</span>}
                 {m.id===nearestId&&<span title="가장 가까운 생일" style={{fontSize:12,flexShrink:0}}>🎂</span>}
                 {expanded&&<>
+                  {isLive&&lv.title&&<span title={lv.title} style={{fontSize:9,fontWeight:600,color:"#FF6B60",maxWidth:200,overflow:"hidden",textOverflow:"ellipsis"}}>🔴 {lv.title}</span>}
                   {(m.classes||[]).map(c=><span key={c} style={{fontSize:8,padding:"1px 5px",borderRadius:8,background:col+"22",color:col}}>{c}</span>)}
                   {m.birthday&&<span style={{fontSize:11,fontWeight:600,color:"var(--ts)"}}>🎂 {m.birthday.slice(5).replace("-","/")}</span>}
                   {m.schedule&&<span onClick={e=>{e.stopPropagation();setWeekMember(m);}} title="이번 주 방송 일정"
@@ -2120,6 +2337,9 @@ function App() {
         <button className="ib" onClick={()=>goMonth(1)} style={{fontSize:16}}>{">"}</button></>}
         {isMobile&&<span style={{fontSize:14,fontWeight:600,color:"var(--tp)",whiteSpace:"nowrap",marginRight:2}}>{now.getMonth()+1}월 {now.getDate()}일</span>}
         <button className="ib" style={{fontSize:11,padding:"3px 8px"}} onClick={()=>{setYr(now.getFullYear());setMo(now.getMonth());didFocusToday.current=false;if(isMobile){setTimeout(()=>{if(agendaTodayRef.current)agendaTodayRef.current.scrollIntoView({block:"start"});},120);}else{setTimeout(()=>smoothScrollToRow(todayRowIdx),100);}}}>오늘</button>
+        {!isMobile&&<button className="pill" title="이번 주(월~일) 방송 일정을 16:9 이미지로 복사 — Shift+클릭은 PNG 저장"
+          onClick={e=>copyWeekCard(e.shiftKey)}
+          style={{background:"rgba(255,180,50,.12)",color:"#FFB432",border:".5px solid rgba(255,180,50,.4)",fontWeight:700}}>📋 이번 주 일정표</button>}
         <div style={{marginLeft:"auto",display:"flex",gap:5,alignItems:"center"}}>
           <button className="pill" onClick={()=>setFilterOpen(o=>!o)}
             style={{background:filterOpen?"rgba(55,138,221,.15)":"transparent",color:filterOpen?"#378ADD":"var(--ts)",border:".5px solid "+(filterOpen?"rgba(55,138,221,.4)":"var(--br)")}}>필터 {filterOpen?"▲":"▼"}</button>
@@ -2434,7 +2654,7 @@ function App() {
                           {!any&&<span style={{marginLeft:"auto",fontSize:10,color:"var(--tm)"}}>예정된 일정 없음</span>}
                           {notionTok&&<button onClick={()=>setQuickAdd({date:cell.ds})} style={{marginLeft:any?"auto":8,width:22,height:22,borderRadius:"50%",background:"#378ADD",color:"#fff",border:"none",cursor:"pointer",fontSize:15,lineHeight:"22px",padding:0,flexShrink:0}}>+</button>}
                         </div>
-                        {bc.map(ev=><BroadcastCard key={ev.id} ev={ev} rules={tagColors} onClick={()=>setSel(ev)}/>)}
+                        {bc.map(ev=><BroadcastCard key={ev.id} ev={ev} rules={tagColors} clash={clashByDs[ev.date]} onClick={()=>setSel(ev)}/>)}
                         {nt.map(note=>(
                           <div key={note.id} onClick={()=>setSelNote(note)} style={{background:"rgba(120,80,255,.08)",border:".5px solid rgba(120,80,255,.25)",borderRadius:5,padding:"5px 8px",marginBottom:3,cursor:"pointer"}}>
                             <div style={{display:"flex",alignItems:"center",gap:4}}>
@@ -2503,7 +2723,7 @@ function App() {
                             </div>
                             {/* 방송 일정 */}
                             {showBcastInCal&&bcEvs.map(ev=>(
-                              <BroadcastCard key={ev.id} ev={ev} rules={tagColors} onClick={e=>{e.stopPropagation();setSel(ev);}}/>
+                              <BroadcastCard key={ev.id} ev={ev} rules={tagColors} clash={clashByDs[ev.date]} onClick={e=>{e.stopPropagation();setSel(ev);}}/>
                             ))}
                             {/* 노트 (showNotesInCal이 true일 때만 표시) */}
                             {showNotesInCal&&noteEvsCel.map(note=>(
@@ -3060,7 +3280,7 @@ function GameNewsList({events, gameId, onSel}) {
   );
 }
 
-function BroadcastCard({ev,onClick,rules}){
+function BroadcastCard({ev,onClick,rules,clash}){
   // 강조 태그 규칙(설정) 매칭: ev.tags 중 규칙 match와 일치하는 첫 규칙 → 카드 색/뱃지
   const rule=(rules||[]).find(r=>r.match&&(ev.tags||[]).includes(r.match));
   // 색상: 매칭 규칙의 rgb, 없으면 내 방송 기본(주황)
@@ -3085,6 +3305,19 @@ function BroadcastCard({ev,onClick,rules}){
       <div style={{fontSize:11,fontWeight:600,color:"var(--tp)",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:secondary?1:2}}>{primary}</div>
       {/* 컨텐츠명 (보조) */}
       {secondary&&<div style={{fontSize:8,color:`rgba(${C.r},.8)`,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",marginBottom:2}}>{secondary}</div>}
+      {/* 공식 대형 일정(특별 방송·업데이트)과 같은 날 겹침 — 방송 준비에 영향 */}
+      {clash&&(clash.sp.length>0||clash.up.length>0)&&(()=>{
+        const tip=list=>list.map(x=>`${x.game||""}${x.version?" "+x.version:""}${x.predicted?" (예측)":""}`.trim()).filter(Boolean).join(" · ");
+        const chip=(bg,fg)=>Object.assign({display:"inline-block",fontSize:8,fontWeight:700,padding:"0 4px",borderRadius:3,lineHeight:"13px",whiteSpace:"nowrap"},{background:bg,color:fg});
+        return (<div style={{display:"flex",gap:3,flexWrap:"wrap",marginBottom:2}}>
+          {clash.sp.length>0&&<span title={"특별 방송 겹침\n"+tip(clash.sp)} style={chip("rgba(255,183,77,.18)","#ffc266")}>
+            ⚡ {clash.sp.every(x=>x.predicted)?"특방 예상":"특방 겹침"}
+          </span>}
+          {clash.up.length>0&&<span title={"업데이트 겹침\n"+tip(clash.up)} style={chip("rgba(100,181,246,.18)","#8fcaf8")}>
+            ⚠️ {clash.up.every(x=>x.predicted)?"업데이트 예상":"업데이트 겹침"}
+          </span>}
+        </div>);
+      })()}
       {/* 기타 태그 */}
       {otherTags.length>0&&<div style={{display:"flex",gap:3,flexWrap:"wrap"}}>
         {otherTags.slice(0,3).map(t=><span key={t} style={{fontSize:8,color:`rgba(${C.r},.7)`,background:`rgba(${C.r},.08)`,padding:"0 4px",borderRadius:3,lineHeight:"14px"}}>{t}</span>)}

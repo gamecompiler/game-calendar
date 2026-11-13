@@ -129,6 +129,8 @@ class Handler(SimpleHTTPRequestHandler):
             t = qs.get("type", [""])[0]
             if t == "rss":
                 self._handle_yt_rss_new(qs)
+            elif t == "chzzk_live":
+                self._handle_chzzk_live(qs)
             elif t in ("icon", "chzzk"):
                 self.path = "/yt-icon?" + urllib.parse.urlencode({
                     ("chzzk" if t == "chzzk" else "channel"): qs.get("chzzk" if t == "chzzk" else "channel", [""])[0]
@@ -234,6 +236,8 @@ class Handler(SimpleHTTPRequestHandler):
             self._handle_notion_pages()
         elif self.path.startswith("/yt-icon"):
             self._handle_yt_icon()
+        elif self.path.startswith("/chzzk-live"):
+            self._handle_chzzk_live()
         elif self.path.startswith("/notion-search"):
             self._handle_notion_search()
         elif self.path.startswith("/notion-db"):
@@ -249,6 +253,64 @@ class Handler(SimpleHTTPRequestHandler):
         # 기존 핸들러 재활용을 위해 path 변환
         self.path = f"/yt-rss?channel={urllib.parse.quote(channel)}"
         self._handle_yt_rss()
+
+    def _handle_chzzk_live(self, qs=None):
+        """치지직 라이브(ON AIR) 상태 — /api/yt?type=chzzk_live&ids=ID,ID (또는 ?chzzk=ID,ID)
+        → { 채널ID: {status:"OPEN"|"CLOSE", title, viewers} }  (api/yt.js 와 동일 출력)
+        여러 명을 한 번에 조회하며, 실시간 값이라 캐시하지 않는다."""
+        import json as _j
+        from concurrent.futures import ThreadPoolExecutor
+        try:
+            if qs is None:
+                qs = urllib.parse.parse_qs(self.path.split("?", 1)[1] if "?" in self.path else "")
+            raw = (qs.get("ids", [""])[0] or qs.get("chzzk", [""])[0] or "")
+            ids = [x.strip() for x in str(raw).split(",") if x.strip()][:30]
+
+            def one(cid):
+                try:
+                    url = ("https://api.chzzk.naver.com/polling/v2/channels/"
+                           + urllib.parse.quote(cid, safe="") + "/live-status")
+                    req = urllib.request.Request(url, headers={
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
+                        "Accept": "application/json, text/plain, */*",
+                        "Accept-Language": "ko-KR,ko;q=0.9",
+                        "Referer": "https://chzzk.naver.com/",
+                    })
+                    with urllib.request.urlopen(req, timeout=6, context=ctx) as r:
+                        d = _j.loads(r.read().decode("utf-8"))
+                    c = (d or {}).get("content") or {}
+                    is_open = str(c.get("status") or "").upper() == "OPEN"
+                    return cid, {
+                        "status": "OPEN" if is_open else "CLOSE",
+                        "title": (c.get("liveTitle") or "") if is_open else "",
+                        "viewers": int(c.get("concurrentUserCount") or 0) if is_open else 0,
+                    }
+                except Exception as e:
+                    print(f"CHZZK-LIVE 실패 {cid[:8]}: {type(e).__name__} {e}")
+                    return cid, {"status": "CLOSE", "title": "", "viewers": 0}
+
+            out = {}
+            if ids:
+                with ThreadPoolExecutor(max_workers=min(8, len(ids))) as ex:
+                    for cid, val in ex.map(one, ids):
+                        out[cid] = val
+            print("CHZZK-LIVE " + (" / ".join(f"{k[:6]}={v['status']}" for k, v in out.items()) or "(요청 없음)"))
+            body = _j.dumps(out, ensure_ascii=False).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store, max-age=0")
+            self.end_headers()
+            self.wfile.write(body)
+        except Exception as e:
+            try:
+                self.send_response(502)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Access-Control-Allow-Origin", "*")
+                self.end_headers()
+                self.wfile.write(_j.dumps({"error": str(e)}, ensure_ascii=False).encode("utf-8"))
+            except Exception:
+                pass
 
     def _handle_img_proxy(self):
         """이미지 CDN proxy - 로컬 캐시 우선, CDN 실패시 fallback"""
@@ -426,7 +488,7 @@ class Handler(SimpleHTTPRequestHandler):
         출력 형식은 그대로 [{title,date,type,version,img,url}, ...] (api/wuwa.js 와 동일).
         """
         import json as _j, re as _re
-        from datetime import datetime, timezone
+        from datetime import datetime, timezone, timedelta
 
         # 공식 홈페이지 뉴스 피드 (한국어 우선, 실패 시 영어) — 상세 링크도 같은 언어판으로 만든다
         FEEDS = [
@@ -570,7 +632,66 @@ class Handler(SimpleHTTPRequestHandler):
             result.sort(key=lambda r: r["date"], reverse=True)
             return result
 
-        # ── 피드 조회 → 파싱 ──────────────────────────────────────────────────
+        # ── 영문 Convene(픽업) 보강 ──────────────────────────────────────────
+        # 한국어 피드는 버전 픽업(Convene) 공지를 거의 올리지 않아 픽업 일정이 비어 버린다.
+        # 영문 피드의 Convene 공지를 제목만 한국어 일정 형태로 바꿔 보강한다 (api/wuwa.js 와 동일 규칙).
+        PHASE_KO = {"Ⅰ": 1, "I": 1, "Ⅱ": 2, "II": 2, "Ⅲ": 3, "III": 3, "Ⅳ": 4, "IV": 4}
+        KIND_KO = {"resonator/weapon": "공명자·무기", "resonator": "공명자", "weapon": "무기"}
+        MERGE_DAYS = 400   # 소급 보강 범위(일) — 캘린더는 6개월 전까지 보여줌
+
+        def ko_convene_title(title):
+            t = str(title)
+            m = _re.search(r"\[\s*Version\s+([\d.]+)\s+Featured\s+(Resonator/Weapon|Resonator|Weapon)\s+Convene(?:[:\s]*(Phase\s*[ⅠⅡⅢⅣIV]+))?\s*\]", t, _re.I)
+            if m:
+                kind = KIND_KO.get(m.group(2).lower(), m.group(2))
+                ph = _re.sub(r"\s+", "", _re.sub(r"Phase", "", m.group(3) or "", flags=_re.I))
+                n = PHASE_KO.get(ph)
+                return f"{m.group(1)} 픽업 소환{f' {n}단계' if n else ''} ({kind})"
+            m = _re.search(r"\[\s*([^\]]+?)\s*\]\s*(Featured|Reverb|Collab)\s+(Resonator/Weapon|Resonator|Weapon)\s+Convene", t, _re.I)
+            if m:
+                kind = KIND_KO.get(m.group(3).lower(), m.group(3))
+                pre = {"featured": "", "reverb": "리버브 ", "collab": "콜라보 "}.get(m.group(2).lower(), "")
+                return f"{m.group(1)} — {pre}{kind} 픽업"
+            return t
+
+        def day_num(ds):
+            try:
+                y, mo_, d_ = str(ds).split("-")
+                return datetime(int(y), int(mo_), int(d_)).toordinal()
+            except Exception:
+                return None
+
+        def merge_en_pickups(base, en):
+            """한국어 결과에 없는 영문 픽업만 덧붙인다.
+            같은 픽업 판정: 버전이 같거나, 날짜가 ±3일 안쪽(한국어 공지는 제목에 버전이 없는 경우가 많다)."""
+            picks = [r for r in base if r["type"] == "픽업"]
+            pick_vers = {r.get("version") for r in picks if r.get("version")}
+            pick_days = [x for x in (day_num(r["date"]) for r in picks) if x is not None]
+            cutoff = (datetime.now(timezone.utc) - timedelta(days=MERGE_DAYS)).date().toordinal()
+            added, seen = [], set()
+            for r in en:
+                if r["type"] != "픽업":
+                    continue
+                key = (r["title"], r["date"])
+                if key in seen:
+                    continue
+                seen.add(key)
+                if r.get("version") and r["version"] in pick_vers:
+                    continue
+                d = day_num(r["date"])
+                if d is None or d < cutoff:
+                    continue
+                if any(abs(x - d) <= 3 for x in pick_days):
+                    continue
+                added.append({**r, "title": ko_convene_title(r["title"]), "titleEn": r["title"]})
+            if not added:
+                return base
+            out = list(base) + added
+            out.sort(key=lambda r: r["date"], reverse=True)
+            return out
+
+        # ── 피드 조회 → 파싱 (한국어 우선, 실패 시 영어 폴백) ──────────────────
+        base = None
         for locale, url in FEEDS:
             try:
                 raw = fetch_url(url)
@@ -581,20 +702,36 @@ class Handler(SimpleHTTPRequestHandler):
                 print(f"[wuwa] 실패 {type(e).__name__}: {url} ({e})")
                 continue
             try:
-                out = parse_feed(raw, locale)
+                parsed = parse_feed(raw, locale)
             except Exception as e:
                 print(f"[wuwa] 파싱 실패 {type(e).__name__}: {url} ({e})")
-                out = None
-            if out is None:
+                parsed = None
+            if parsed is None:
                 print(f"[wuwa] 예상과 다른 응답(article 배열 없음): {url}")
                 continue
-            print(f"[wuwa] {locale} 피드 OK → {len(out)}개 "
-                  f"(타입 있음: {sum(1 for r in out if r['type'] != '이벤트')}개)")
-            send_json(out)
+            print(f"[wuwa] {locale} 피드 OK → {len(parsed)}개 "
+                  f"(타입 있음: {sum(1 for r in parsed if r['type'] != '이벤트')}개)")
+            base = (locale, parsed)
+            break
+
+        if base is None:
+            print("[wuwa] 모든 피드 실패 — 빈 배열 반환")
+            send_json([])
             return
 
-        print("[wuwa] 모든 피드 실패 — 빈 배열 반환")
-        send_json([])
+        locale, out = base
+        if locale == "kr":
+            try:
+                en_raw = fetch_url(FEEDS[1][1])
+                en_out = parse_feed(en_raw, "en")
+                if en_out:
+                    before = len(out)
+                    out = merge_en_pickups(out, en_out)
+                    print(f"[wuwa] 영문 픽업 보강: {before}개 → {len(out)}개")
+            except Exception as e:
+                print(f"[wuwa] 영문 피드 실패 — 픽업 보강 생략: {type(e).__name__} ({e})")
+
+        send_json(out)
 
     def _handle_notion_pages(self):
         """여러 Notion 페이지의 제목을 일괄 조회 (relation 필드 resolve용)"""
