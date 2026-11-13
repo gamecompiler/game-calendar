@@ -336,10 +336,33 @@ function detectType(title, tag) {
 }
 
 /* ── 다음 업데이트/특별방송 예측 ──────────────────────────────────────────
-   나무위키 등 외부 스크래핑 대신, 이미 수집한 HoYoLAB 공식 히스토리(events)에서
-   게임별 버전 업데이트 간격을 계산해 다음 일정을 추정한다. HoYoverse 4종
-   (kind:"bbs")은 실측상 ~42일(6주) 전후로 꽤 규칙적이라 유의미하지만, 명조(CDN
-   데이터라 히스토리가 짧음)는 대상에서 제외. */
+   나무위키 등 외부 스크래핑 대신, 이미 수집한 공식 공지 히스토리(events)에서
+   게임별 버전 업데이트 간격을 계산해 다음 일정을 추정한다.
+
+   게임별 정기 일정 규칙(2026-11 확정):
+     · 원신 · 붕괴: 스타레일 · 젠레스 존 제로 → 업데이트 수요일, 특별 방송 D-12 금요일
+     · 붕괴3rd · 명조                          → 업데이트 목요일, 특별 방송 D-13 금요일
+   공지일은 '사전 다운로드 안내'(월·화요일)나 '점검 사전 공지'(최대 일주일 전)라서
+   실제 패치일과 어긋난다. 그래서 간격 계산 전에 공지일을 패치 요일로 스냅 보정한다.
+   (보정 없이 42일을 더하면 다음 업데이트가 월요일로 밀리고, 특별 방송이 D-12를 거쳐
+    수요일로 잘못 표시됐다 — ZZZ 3.4 특방이 11/18(수)로 나오던 문제.) */
+const PATCH_WEEKDAY = { "def_1":3, "def_2":3, "def_3":3, "def_0":4, "def_4":4 }; // 0:일 1:월 2:화 3:수 4:목 5:금 6:토
+const SP_OFFSET = { 3:12, 4:13 };   // 수요일 패치 → D-12 금요일 / 목요일 패치 → D-13 금요일
+const SP_WEEKDAY = 5;               // 특별 방송은 항상 금요일
+const WD_KO = ["일","월","화","수","목","금","토"];
+
+// 가장 가까운 targetDay(0~6)로 스냅 (±3일 이내)
+function snapToWeekday(dateStr, targetDay){
+  const d=new Date(dateStr+"T00:00:00");
+  let diff=targetDay-d.getDay();
+  if(diff>3) diff-=7;
+  else if(diff<-3) diff+=7;
+  d.setDate(d.getDate()+diff);
+  return lDS(d);
+}
+function dayGapStr(a,b){
+  return Math.abs(Math.round((new Date(a+"T00:00:00")-new Date(b+"T00:00:00"))/86400000));
+}
 function addDaysStr(dateStr, n){
   const d=new Date(dateStr); d.setDate(d.getDate()+n);
   return lDS(d);
@@ -348,12 +371,22 @@ function predictFutureEvents(events, games, todayStr){
   const out=[];
   for(const g of games){
     const cfg=HOYO_CFGS.find(c=>c.id===g.id);
-    if(!cfg||cfg.kind!=="bbs") continue; // 예측 대상: HoYoverse 4종만
-    // 버전별 최초 등장일로 정제(같은 버전의 중복 공지 제거)
-    const ups=events.filter(e=>e.gameId===g.id&&e.type==="업데이트"&&e.version&&/^\d+(\.\d+)?$/.test(e.version));
+    if(!cfg) continue;
+    const patchDay=PATCH_WEEKDAY[g.id];
+    if(patchDay===undefined) continue; // 정기 요일 규칙을 아는 게임만 예측(HoYoverse 4종 + 명조)
+    // 버전별 대표일 = 패치 요일에 가장 가까운 공지(같으면 더 늦은 공지)
+    // → '사전 다운로드 안내'·'점검 사전 공지'보다 실제 패치일과 가까운 공지를 고른다.
+    // 명조는 같은 버전 번호가 붙은 다른 공지(점검 공지 등)가 섞여 있어 '버전' 표기가 있는 업데이트 공지만 사용.
+    const ups=events.filter(e=>e.gameId===g.id&&e.type==="업데이트"&&e.version&&/^\d+(\.\d+)?$/.test(e.version)&&
+      (cfg.kind==="bbs"||String(e.title||"").indexOf("버전")>=0));
     const byVer=new Map();
-    for(const e of ups){ if(!byVer.has(e.version)||e.date<byVer.get(e.version)) byVer.set(e.version,e.date); }
-    const clean=[...byVer.entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+    for(const e of ups){
+      const snapped=snapToWeekday(e.date,patchDay);
+      const gap=dayGapStr(e.date,snapped);
+      const cur=byVer.get(e.version);
+      if(!cur||gap<cur.gap||(gap===cur.gap&&e.date>cur.raw)) byVer.set(e.version,{raw:e.date,date:snapped,gap});
+    }
+    const clean=[...byVer.entries()].map(([v,o])=>[v,o.date]).sort((a,b)=>a[1].localeCompare(b[1]));
     if(clean.length<2) continue; // 예측하기엔 히스토리 부족
     const deltas=[];
     for(let i=1;i<clean.length;i++){
@@ -364,7 +397,8 @@ function predictFutureEvents(events, games, todayStr){
     const recent=deltas.slice(-4).sort((a,b)=>a-b);
     const cadence=recent[Math.floor(recent.length/2)]; // 최근 최대 4개 간격의 중앙값
     const [lastVer,lastDate]=clean[clean.length-1];
-    const nextDate=addDaysStr(lastDate,cadence);
+    // 다음 업데이트는 항상 그 게임의 정기 패치 요일(수/목)
+    const nextDate=snapToWeekday(addDaysStr(lastDate,cadence),patchDay);
     if(nextDate<=todayStr) continue; // 이미 지났으면(데이터 공백 등) 예측 의미 없음
     const nextVer=(parseFloat(lastVer)+0.1).toFixed(1);
     // 이미 실제 이벤트로 확정됐으면(버전 일치 또는 날짜 근접) 예측 생략
@@ -375,18 +409,12 @@ function predictFutureEvents(events, games, todayStr){
         id:"pred_up_"+g.id+"_"+nextVer, gameId:g.id, gameName:g.name, gameColor:g.color,
         type:"업데이트", title:`${nextVer} 버전 업데이트`, version:nextVer,
         date:nextDate, endDate:nextDate, character:null, characterImg:null, detail:null, youtubeUrl:null,
-        predicted:true, predictedBasis:`최근 업데이트 간격(${cadence}일) 기준 예측입니다. 실제 공지 전까지는 추정치예요.`,
+        predicted:true, predictedBasis:`최근 업데이트 간격(${cadence}일)과 정기 업데이트 요일(${WD_KO[patchDay]}) 기준 예측입니다. 실제 공지 전까지는 추정치예요.`,
       });
     }
-    // 특별방송: 과거 특별방송→다음 업데이트 오프셋 평균(히스토리 부족하면 기본 D-12)
-    const sps=events.filter(e=>e.gameId===g.id&&e.type==="특별 방송");
-    const offs=[];
-    for(const sp of sps){
-      const nu=clean.find(([,d])=>d>=sp.date);
-      if(nu){ const off=Math.round((new Date(nu[1])-new Date(sp.date))/86400000); if(off>=3&&off<=25) offs.push(off); }
-    }
-    const offset=offs.length?Math.round(offs.reduce((a,b)=>a+b,0)/offs.length):12;
-    const spDate=addDaysStr(nextDate,-offset);
+    // 특별방송: 정기 업데이트일 기준 D-12(수요일 패치)·D-13(목요일 패치) → 항상 금요일
+    const offset=SP_OFFSET[patchDay]||12;
+    const spDate=snapToWeekday(addDaysStr(nextDate,-offset),SP_WEEKDAY);
     if(spDate>todayStr){
       const alreadyRealSp=events.some(e=>e.gameId===g.id&&e.type==="특별 방송"&&
         Math.abs((new Date(e.date)-new Date(spDate))/86400000)<=5);
@@ -395,7 +423,7 @@ function predictFutureEvents(events, games, todayStr){
           id:"pred_sp_"+g.id+"_"+nextVer, gameId:g.id, gameName:g.name, gameColor:g.color,
           type:"특별 방송", title:`${nextVer} 버전 특별 방송`, version:null,
           date:spDate, endDate:spDate, character:null, characterImg:null, detail:null, youtubeUrl:null,
-          predicted:true, predictedBasis:`예측 업데이트일 기준 D-${offset} 추정(과거 평균 오프셋)입니다.`,
+          predicted:true, predictedBasis:`정기 업데이트일(${WD_KO[patchDay]}요일) 기준 D-${offset} ${WD_KO[SP_WEEKDAY]}요일 규칙으로 예측했습니다.`,
         });
       }
     }
