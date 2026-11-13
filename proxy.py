@@ -189,6 +189,11 @@ class Handler(SimpleHTTPRequestHandler):
                 self.wfile.write(str(e).encode())
         elif self.path.startswith("/api/slide"):
             self._handle_slide("GET")
+        elif self.path.startswith("/api/reading"):
+            self._handle_read("GET")
+        elif self.path == "/read" or self.path.startswith("/read/") or self.path.startswith("/read?"):
+            self.path = "/reading.html"                     # 배포의 /read/<작품> → reading.html (vercel.json rewrite)와 같게
+            super().do_GET()
         elif self.path == "/slide" or self.path.startswith("/slide/") or self.path.startswith("/slide?"):
             self.path = "/slide.html"                       # 배포의 /slide/<덱> → slide.html (vercel.json rewrite)와 같게
             super().do_GET()
@@ -1145,6 +1150,8 @@ class Handler(SimpleHTTPRequestHandler):
     def do_POST(self):
         if self.path.startswith("/api/slide"):
             return self._handle_slide("POST")
+        if self.path.startswith("/api/reading"):
+            return self._handle_read("POST")
         # ── /api/notion?path=... (새 경로) ──────────────────────────────────
         if self.path.startswith("/api/notion") or self.path.startswith("/api/notion-setup"):
             qs = urllib.parse.parse_qs(self.path.split("?",1)[1] if "?" in self.path else "")
@@ -1259,7 +1266,7 @@ class Handler(SimpleHTTPRequestHandler):
         self.send_header("Content-Type", ctype + ("; charset=utf-8" if ctype == "application/json" else ""))
         self.send_header("Cache-Control", cache)
         self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type,X-Slide-Key")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type,X-Slide-Key,X-Read-Pass")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
@@ -1347,6 +1354,127 @@ class Handler(SimpleHTTPRequestHandler):
                 put("slide:index", [d for d in (get("slide:index") or []) if d.get("id") != sid])
                 return self._slide_send(200, {"ok": True})
             return self._slide_send(400, {"error": "op"})
+
+    # ── 낭독회 (api/reading.js 와 같은 주소·같은 응답) — 저장소는 웹 슬라이드와 같은 .slide-store.json ──
+    def _handle_read(self, method):
+        import base64, hashlib, json as _j, re, time
+        qs = urllib.parse.parse_qs(urllib.parse.urlparse(self.path).query)
+        op = qs.get("op", [""])[0]; wid = qs.get("id", [""])[0]
+        key = self.headers.get("X-Slide-Key", "") or ""
+        pw = self.headers.get("X-Read-Pass", "") or qs.get("k", [""])[0]
+        sha = lambda s: hashlib.sha256((s or "").encode("utf-8")).hexdigest()
+        send = self._slide_send
+        with _SLIDE_LOCK:
+            st = _slide_load()
+            def get(k):
+                v = st.get(k); return _j.loads(v) if v else None
+            def put(k, v):
+                st[k] = _j.dumps(v, ensure_ascii=False); _slide_save(st)
+            if op == "list" and method == "GET":
+                return send(200, {"works": get("read:index") or []})
+            if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,39}", wid):
+                return send(400, {"error": "id"})
+            rec = get(f"read:work:{wid}")
+            def owner(claim=False):
+                if not key: return False
+                cur = st.get("slide:owner")
+                if cur: return cur == sha(key)
+                if not claim: return False
+                st["slide:owner"] = sha(key); _slide_save(st); return True
+            host = lambda: bool(key) and ((rec and rec.get("hostHash") and rec.get("hostHash") == sha(key)) or owner())
+            def viewer():
+                if not rec: return False
+                if not rec.get("viewHash"): return True
+                if pw and (rec.get("viewHash") == sha(pw) or (rec.get("hostHash") and rec.get("hostHash") == sha(pw))): return True
+                return host()
+            name = qs.get("name", [""])[0]
+            name_ok = bool(re.fullmatch(r"[a-z0-9][a-z0-9._-]{0,79}", name))
+            if method == "GET":
+                if op == "state":
+                    first = ((rec or {}).get("episodes") or [{}])[0].get("no", 0) if rec else 0
+                    return send(200, get(f"read:state:{wid}") or {"ep": first, "beat": 0, "t": 0})
+                if not rec: return send(404, {"error": "없는 작품"})
+                if not viewer(): return send(403, {"error": "참여 암호가 맞지 않다", "need": "pass"})
+                if op == "work":
+                    pub = {k: v for k, v in rec.items() if k not in ("viewHash", "hostHash")}
+                    return send(200, {"id": wid, **pub, "isHost": bool(host())})
+                if op == "ep":
+                    try: no = int(qs.get("no", ["0"])[0])
+                    except ValueError: no = -1
+                    ep = get(f"read:ep:{wid}:{no}")
+                    if not ep: return send(404, {"error": "없는 회차"})
+                    return send(200, ep)
+                if op in ("img", "snd"):
+                    if not name_ok: return send(400, {"error": "name"})
+                    im = get(f"read:{op}:{wid}:{name}")
+                    if not im: return send(404, {"error": "없는 파일"})
+                    return send(200, base64.b64decode(im["data"]), im.get("type") or ("image/webp" if op == "img" else "audio/mpeg"),
+                                "private, max-age=31536000, immutable")
+                return send(400, {"error": "op"})
+            n = int(self.headers.get("Content-Length", 0) or 0)
+            try:
+                body = _j.loads(self.rfile.read(n) or b"{}")
+            except ValueError:
+                return send(400, {"error": "json"})
+            if op == "page":
+                if not rec: return send(404, {"error": "없는 작품"})
+                if not host(): return send(403, {"error": "진행 암호가 맞지 않다"})
+                nos = [e.get("no") for e in rec.get("episodes") or []]
+                try: ep = int(body.get("ep"))
+                except (TypeError, ValueError): ep = None
+                if ep not in nos: ep = nos[0] if nos else 0
+                try: beat = max(0, int(body.get("beat", 0)))
+                except (TypeError, ValueError): beat = 0
+                state = {"ep": ep, "beat": beat, "t": int(time.time() * 1000)}
+                put(f"read:state:{wid}", state)
+                return send(200, state)
+            if not owner(op == "work"):
+                return send(403, {"error": "주인 열쇠가 맞지 않다"})
+            if op == "work":
+                w = body.get("work")
+                if not isinstance(w, dict) or not isinstance(w.get("episodes"), list):
+                    return send(400, {"error": "work.episodes"})
+                updated = int(time.time() * 1000)
+                keep = lambda k: (rec or {}).get(k) or "" if k not in body else str(body.get(k) or "")
+                put(f"read:work:{wid}", {**w, "viewHash": keep("viewHash"), "hostHash": keep("hostHash"), "updated": updated})
+                index = [d for d in (get("read:index") or []) if d.get("id") != wid]
+                index.insert(0, {"id": wid, "title": str(w.get("title") or wid), "kind": str(w.get("kind") or ""),
+                                 "episodes": len(w["episodes"]), "updated": updated})
+                put("read:index", index[:200])
+                return send(200, {"ok": True, "id": wid, "updated": updated})
+            if op == "ep":
+                try: no = int(body.get("no"))
+                except (TypeError, ValueError): no = None
+                if no is None or not isinstance(body.get("beats"), list): return send(400, {"error": "no · beats"})
+                put(f"read:ep:{wid}:{no}", body)
+                return send(200, {"ok": True, "no": no})
+            if op == "cues":
+                try: no = int(body.get("no"))
+                except (TypeError, ValueError): no = None
+                ep = get(f"read:ep:{wid}:{no}")
+                if not ep: return send(404, {"error": "없는 회차"})
+                ep["cues"] = body.get("cues") if isinstance(body.get("cues"), list) else []
+                put(f"read:ep:{wid}:{no}", ep)
+                return send(200, {"ok": True, "no": no})
+            if op in ("img", "snd"):
+                if not name_ok or not body.get("data"): return send(400, {"error": "name · data"})
+                if len(body["data"]) > 1_300_000: return send(413, {"error": "파일이 너무 크다 (1MB 이하로)"})
+                put(f"read:{op}:{wid}:{name}", {"type": str(body.get("type") or ""), "data": body["data"]})
+                return send(200, {"ok": True, "name": name})
+            if op == "has":
+                kind = "snd" if body.get("kind") == "snd" else "img"
+                names = [x for x in (body.get("names") or []) if isinstance(x, str)][:500]
+                return send(200, {"have": [x for x in names if f"read:{kind}:{wid}:{x}" in st]})
+            if op == "remove":
+                keys = [f"read:work:{wid}", f"read:state:{wid}"]
+                keys += [f"read:ep:{wid}:{e.get('no')}" for e in (rec or {}).get("episodes") or []]
+                files = (rec or {}).get("files") or {}
+                keys += [f"read:img:{wid}:{x}" for x in files.get("img") or []] + [f"read:snd:{wid}:{x}" for x in files.get("snd") or []]
+                for k in keys:
+                    st.pop(k, None)
+                put("read:index", [d for d in (get("read:index") or []) if d.get("id") != wid])
+                return send(200, {"ok": True})
+            return send(400, {"error": "op"})
 
     def log_message(self, fmt, *args):
         pass  # 로그 억제

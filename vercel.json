@@ -16,6 +16,14 @@
     {
       "source": "/slide/:id",
       "destination": "/slide.html"
+    },
+    {
+      "source": "/read",
+      "destination": "/reading.html"
+    },
+    {
+      "source": "/read/:id",
+      "destination": "/reading.html"
     }
   ],
   "headers": [
@@ -32,7 +40,7 @@
         },
         {
           "key": "Access-Control-Allow-Headers",
-          "value": "Authorization,Content-Type,Notion-Version,X-Slide-Key"
+          "value": "Authorization,Content-Type,Notion-Version,X-Slide-Key,X-Read-Pass"
         }
       ]
     }
