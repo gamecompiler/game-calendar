@@ -332,340 +332,218 @@
       word-break: keep-all;
     }
 
-    /* Windows 11 App Showcase Window */
+    /* Real CastEdit Screenshot Showcase */
     .showcase {
-      max-width: 1040px;
+      max-width: 1060px;
       margin: 0 auto;
-      border-radius: 12px;
-      background: #090c13;
+      border-radius: 14px;
+      background: #0d111a;
       border: 1px solid rgba(255, 255, 255, 0.14);
-      box-shadow: 
+      box-shadow:
         0 25px 60px -15px rgba(0, 0, 0, 0.9),
-        0 0 50px rgba(124, 58, 237, 0.2);
+        0 0 50px rgba(124, 58, 237, 0.22);
       overflow: hidden;
       text-align: left;
     }
-    .win-titlebar {
-      background: #111622;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 0 12px;
-      user-select: none;
-    }
-    .win-title-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 12px;
-      font-weight: 500;
-      color: #cbd5e1;
-      min-width: 0;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-    .win-title-icon {
-      width: 16px;
-      height: 16px;
-      border-radius: 3px;
-      flex-shrink: 0;
-    }
-    .win-controls {
-      display: flex;
-      align-items: center;
-      flex-shrink: 0;
-    }
-    .win-btn {
-      width: 38px;
-      height: 36px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      color: #94a3b8;
-      cursor: pointer;
-      transition: background 0.15s, color 0.15s;
-    }
-    .win-btn:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: #fff;
-    }
-    .win-btn-close:hover {
-      background: #e81123 !important;
-      color: #fff !important;
-    }
-
-    /* PySide6 Menu Bar */
-    .win-menubar {
-      background: #0d111a;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-      padding: 4px 8px;
-      display: flex;
-      align-items: center;
-      gap: 2px;
-      font-size: 11.5px;
-      color: #cbd5e1;
-      overflow-x: auto;
-      white-space: nowrap;
-      -webkit-overflow-scrolling: touch;
-      scrollbar-width: none;
-    }
-    .win-menubar::-webkit-scrollbar { display: none; }
-    .win-menu-item {
-      padding: 2px 7px;
-      border-radius: 4px;
-      cursor: pointer;
-      flex-shrink: 0;
-      white-space: nowrap;
-      transition: background 0.15s, color 0.15s;
-    }
-    .win-menu-item:hover {
-      background: rgba(255, 255, 255, 0.08);
-      color: #fff;
-    }
-
-    /* Showcase Navigation Tabs */
-    .win-view-tabs {
-      background: #0d1119;
+    .screen-tabs {
+      background: #0b0e16;
       border-bottom: 1px solid rgba(255, 255, 255, 0.08);
       display: flex;
       align-items: center;
-      padding: 6px 8px 0;
+      padding: 8px 10px 0;
       gap: 4px;
       overflow-x: auto;
       white-space: nowrap;
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
     }
-    .win-view-tabs::-webkit-scrollbar { display: none; }
-    .v-tab-btn {
+    .screen-tabs::-webkit-scrollbar { display: none; }
+    .s-tab-btn {
       background: transparent;
       border: 1px solid transparent;
       border-bottom: none;
       color: var(--text-dim);
-      padding: 8px 13px;
-      font-size: 12px;
+      padding: 9px 14px;
+      font-size: 12.5px;
       font-weight: 600;
-      border-top-left-radius: 6px;
-      border-top-right-radius: 6px;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
       gap: 6px;
       transition: all 0.2s;
-      flex-shrink: 0 !important;
-      white-space: nowrap !important;
+      flex-shrink: 0;
+      white-space: nowrap;
     }
-    .v-tab-btn .tab-badge {
+    .s-tab-btn .s-step {
       font-family: var(--font-mono);
-      font-size: 9.5px;
-      padding: 1px 5px;
-      border-radius: 3px;
-      background: rgba(255, 255, 255, 0.08);
+      font-size: 10px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: rgba(255, 255, 255, 0.07);
       color: var(--text-muted);
     }
-    .v-tab-btn:hover {
+    .s-tab-btn:hover {
       color: var(--text-main);
       background: rgba(255, 255, 255, 0.04);
     }
-    .v-tab-btn.active {
+    .s-tab-btn.active {
       color: #fff;
-      background: #151b27;
+      background: #141925;
       border-color: rgba(255, 255, 255, 0.12);
       border-top: 2px solid var(--accent-purple);
     }
-    .v-tab-btn.active .tab-badge {
+    .s-tab-btn.active .s-step {
       background: var(--accent-purple);
       color: #fff;
     }
 
-    /* Showcase Body Container */
-    .win-body {
-      background: #0f131d;
-      min-height: 420px;
-      padding: 16px;
+    .screen-stage {
       position: relative;
-    }
-    .pane {
-      display: none;
-      animation: fadeIn 0.25s ease;
-      gap: 14px;
-      flex-direction: column;
-    }
-    .pane.active {
-      display: flex;
-    }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    /* Grid Layouts for Tabs */
-    .pane-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 14px;
-    }
-    @media (max-width: 900px) {
-      .pane-grid { grid-template-columns: 1fr; }
-    }
-    .pane-card {
-      background: #141925;
-      border: 1px solid rgba(255, 255, 255, 0.08);
-      border-radius: 8px;
-      padding: 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-    .pane-card-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-      padding-bottom: 8px;
-      font-size: 12px;
-      font-weight: 700;
-      color: #cbd5e1;
-    }
-    .pane-chip {
-      font-size: 10px;
-      font-family: var(--font-mono);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-weight: 600;
-    }
-    .chip-green { background: rgba(52, 211, 153, 0.15); color: #34d399; border: 1px solid rgba(52, 211, 153, 0.3); }
-    .chip-blue  { background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3); }
-    .chip-purple{ background: rgba(167, 139, 250, 0.15); color: #c4b5fd; border: 1px solid rgba(167, 139, 250, 0.3); }
-    .chip-red   { background: rgba(248, 113, 113, 0.15); color: #f87171; border: 1px solid rgba(248, 113, 113, 0.3); }
-
-    .status-row {
-      display: flex;
-      align-items: flex-start;
-      justify-content: space-between;
-      gap: 8px;
-      font-size: 11.5px;
-      color: #94a3b8;
-      border-bottom: 1px dashed rgba(255, 255, 255, 0.04);
-      padding-bottom: 5px;
-      word-break: keep-all;
-    }
-    .status-val {
-      font-family: var(--font-mono);
-      font-weight: 600;
-      color: #f1f5f9;
-      text-align: right;
-      word-break: break-all;
-    }
-
-    /* Redesigned 16:9 Thumbnail Mock */
-    .thumb-preview-box {
-      background: radial-gradient(circle at 75% 25%, #2e1065 0%, #0f172a 55%, #020617 100%);
-      border: 1px solid rgba(139, 92, 246, 0.45);
-      border-radius: 8px;
-      position: relative;
+      background: #07090e;
       aspect-ratio: 16 / 9;
       width: 100%;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-      padding: 10px 12px;
       overflow: hidden;
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6), inset 0 0 35px rgba(124, 58, 237, 0.2);
+      cursor: zoom-in;
     }
-    .thumb-deco-mesh {
+    .screen-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      display: block;
+      transition: opacity 0.18s ease;
+    }
+    .screen-nav-btn {
       position: absolute;
-      inset: 0;
-      background: linear-gradient(135deg, transparent 40%, rgba(139, 92, 246, 0.18) 70%, rgba(6, 182, 212, 0.15) 100%);
-      pointer-events: none;
-      z-index: 1;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(10, 14, 23, 0.78);
+      color: #f8fafc;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background 0.15s, transform 0.15s;
+      z-index: 3;
     }
-    .thumb-top-row {
+    .screen-nav-btn:hover {
+      background: rgba(124, 58, 237, 0.85);
+      transform: translateY(-50%) scale(1.06);
+    }
+    .screen-prev { left: 12px; }
+    .screen-next { right: 12px; }
+
+    .screen-zoom-btn {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      padding: 6px 11px;
+      border-radius: 6px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      background: rgba(10, 14, 23, 0.82);
+      color: #e2e8f0;
+      font-size: 11.5px;
+      font-weight: 600;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      z-index: 3;
+      transition: background 0.15s;
+    }
+    .screen-zoom-btn:hover {
+      background: rgba(124, 58, 237, 0.88);
+      color: #fff;
+    }
+
+    .screen-caption-bar {
+      background: #111622;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      padding: 13px 18px;
       display: flex;
       align-items: center;
       justify-content: space-between;
-      z-index: 2;
+      gap: 16px;
     }
-    .thumb-game-tag {
-      font-size: 9.5px;
-      font-weight: 800;
-      letter-spacing: 0.5px;
-      color: #38bdf8;
-      background: rgba(15, 23, 42, 0.85);
-      border: 1px solid rgba(56, 189, 248, 0.4);
-      padding: 2px 7px;
-      border-radius: 4px;
-      backdrop-filter: blur(4px);
-    }
-    .thumb-archive-badge {
-      font-size: 9px;
-      font-weight: 800;
-      color: #fff;
-      background: #dc2626;
-      padding: 2px 7px;
-      border-radius: 4px;
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      box-shadow: 0 2px 8px rgba(220, 38, 38, 0.5);
-    }
-    .thumb-archive-badge::before {
-      content: '';
-      width: 5px;
-      height: 5px;
-      background: #fff;
-      border-radius: 50%;
-      animation: pulse 1.5s infinite;
-    }
-    .thumb-center {
-      z-index: 2;
-      margin: auto 0 4px;
-    }
-    .thumb-subhead {
-      font-size: 11px;
-      font-weight: 800;
-      color: #facc15;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9);
-      letter-spacing: -0.3px;
+    .screen-caption-title {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #f8fafc;
       margin-bottom: 2px;
     }
-    .thumb-main-title {
-      font-size: 15px;
-      font-weight: 900;
-      color: #ffffff;
-      line-height: 1.25;
-      letter-spacing: -0.5px;
-      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.95), 0 0 20px rgba(139, 92, 246, 0.6);
+    .screen-caption-desc {
+      font-size: 12.5px;
+      color: var(--text-muted);
+      line-height: 1.45;
+      word-break: keep-all;
     }
-    .thumb-bottom-row {
-      display: flex;
-      align-items: flex-end;
-      justify-content: space-between;
-      z-index: 2;
-    }
-    .thumb-ep-badge {
-      font-size: 10px;
+    .screen-counter {
       font-family: var(--font-mono);
-      font-weight: 800;
-      color: #e2e8f0;
-      background: rgba(0, 0, 0, 0.7);
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      padding: 1px 6px;
-      border-radius: 3px;
-    }
-    .thumb-duration-pill {
-      font-size: 10px;
-      font-family: var(--font-mono);
+      font-size: 12px;
       font-weight: 700;
+      color: #c4b5fd;
+      background: rgba(124, 58, 237, 0.16);
+      border: 1px solid rgba(139, 92, 246, 0.35);
+      padding: 4px 10px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+
+    /* Lightbox Modal */
+    .lightbox-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 999;
+      background: rgba(3, 5, 10, 0.94);
+      backdrop-filter: blur(8px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .lightbox-modal.open {
+      display: flex;
+    }
+    .lightbox-img {
+      max-width: 96vw;
+      max-height: 84vh;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.16);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.9);
+      object-fit: contain;
+    }
+    .lightbox-footer {
+      margin-top: 14px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: #e2e8f0;
+      font-size: 13px;
+      text-align: center;
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 16px;
+      right: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      background: rgba(20, 26, 38, 0.85);
       color: #fff;
-      background: rgba(0, 0, 0, 0.85);
-      padding: 1px 5px;
-      border-radius: 3px;
-      letter-spacing: 0.5px;
+      font-size: 18px;
+      cursor: pointer;
+    }
+    @media (max-width: 640px) {
+      .screen-nav-btn { width: 32px; height: 32px; font-size: 15px; }
+      .screen-zoom-btn { font-size: 10.5px; padding: 4px 8px; top: 8px; right: 8px; }
+      .screen-caption-bar { flex-direction: column; align-items: flex-start; gap: 8px; padding: 12px 14px; }
     }
 
     /* Section Styles */
@@ -952,7 +830,7 @@
       <a href="/castedit" class="nav-brand">
         <img src="/castedit-icon.png" alt="CastEdit Logo" class="nav-logo" onerror="this.style.display='none'">
         <span class="nav-title">CastEdit</span>
-        <span class="version-pill">v0.82.0</span>
+        <span class="version-pill">v0.87.0</span>
       </a>
 
       <ul class="nav-links">
@@ -993,9 +871,9 @@
       </p>
 
       <div class="hero-cta-group">
-        <a href="https://github.com/gamecompiler/castedit-release/releases/latest/download/CastEdit-Setup-0.82.0.164.exe" class="btn-primary" title="Windows 인스톨러 직접 다운로드">
+        <a href="https://github.com/gamecompiler/castedit-release/releases/latest/download/CastEdit-Setup-0.87.0.172.exe" class="btn-primary" title="Windows 인스톨러 직접 다운로드">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.901-1.752"/></svg>
-          Windows 인스톨러 받기 (v0.82)
+          Windows 인스톨러 받기 (v0.87)
         </a>
         <a href="https://github.com/gamecompiler/castedit-release/releases/latest" target="_blank" rel="noreferrer" class="btn-secondary">
           <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
@@ -1011,310 +889,31 @@
         <span class="hero-badge-item">🎬 AI 자막 컷 편집 & 쇼츠 제작</span>
       </div>
 
-      <!-- Real Windows UI Showcase -->
+      <!-- Real CastEdit Screenshot Showcase -->
       <div class="showcase">
-        <div class="win-window">
-          <!-- Windows 11 Native Title Bar -->
-          <div class="win-titlebar">
-            <div class="win-title-left">
-              <img src="/castedit-icon.png" alt="" class="win-title-icon" onerror="this.style.display='none'">
-              <span>CastEdit v0.82.0 - [방송 운영 · 오디오 제어 · 스트림덱 · 영상 편집]</span>
-            </div>
-            <div class="win-controls">
-              <div class="win-btn" title="최소화">—</div>
-              <div class="win-btn" title="최대화">▢</div>
-              <div class="win-btn win-btn-close" title="닫기">✕</div>
-            </div>
+        <div class="screen-tabs" id="screenTabs">
+          <button class="s-tab-btn active" onclick="switchScreen(0)"><span class="s-step">HOME</span> 기본 화면</button>
+          <button class="s-tab-btn" onclick="switchScreen(1)"><span class="s-step">1</span> 무손실 구간 추출</button>
+          <button class="s-tab-btn" onclick="switchScreen(2)"><span class="s-step">2</span> 자막·AI 편집</button>
+          <button class="s-tab-btn" onclick="switchScreen(3)"><span class="s-step">3</span> 효과·프리셋 학습</button>
+          <button class="s-tab-btn" onclick="switchScreen(4)"><span class="s-step">4</span> 롱폼·쇼츠 내보내기</button>
+          <button class="s-tab-btn" onclick="switchScreen(5)"><span class="s-step">SHORTS</span> 쇼츠 화면 구성</button>
+          <button class="s-tab-btn" onclick="switchScreen(6)"><span class="s-step">THUMB</span> 빠른 썸네일</button>
+        </div>
+
+        <div class="screen-stage" onclick="openLightbox()">
+          <img id="screenImg" class="screen-img" src="/castedit-screens/0-main.webp" alt="CastEdit 기본 화면">
+          <button class="screen-nav-btn screen-prev" onclick="event.stopPropagation(); stepScreen(-1)" title="이전 화면">‹</button>
+          <button class="screen-nav-btn screen-next" onclick="event.stopPropagation(); stepScreen(1)" title="다음 화면">›</button>
+          <button class="screen-zoom-btn" onclick="event.stopPropagation(); openLightbox()">🔍 크게 보기</button>
+        </div>
+
+        <div class="screen-caption-bar">
+          <div>
+            <div class="screen-caption-title" id="screenTitle">기본 화면 — 방송 녹화를 영상으로</div>
+            <div class="screen-caption-desc" id="screenDesc">녹화 파일 끌어다 놓기부터 최근 작업, 방송 정리·디자인·아카이브·대사 검색까지 한 화면에서 바로 엽니다.</div>
           </div>
-
-          <!-- PySide6 Menu Bar -->
-          <div class="win-menubar">
-            <span class="win-menu-item">파일(F)</span>
-            <span class="win-menu-item">편집(E)</span>
-            <span class="win-menu-item">자막(S)</span>
-            <span class="win-menu-item">효과(X)</span>
-            <span class="win-menu-item">합방(C)</span>
-            <span class="win-menu-item">탐지(D)</span>
-            <span class="win-menu-item" style="color:#c4b5fd; font-weight:700;">방송 도구(B)</span>
-            <span class="win-menu-item" style="color:#38bdf8; font-weight:700;">사운드(A)</span>
-            <span class="win-menu-item" style="color:#34d399; font-weight:700;">방송 정리(W)</span>
-            <span class="win-menu-item">설정(P)</span>
-          </div>
-
-          <!-- Interactive View Tabs -->
-          <div class="win-view-tabs">
-            <button class="v-tab-btn active" onclick="switchWinTab('ops', this)">
-              <span class="tab-badge">OPS</span> 데일리 생방
-            </button>
-            <button class="v-tab-btn" onclick="switchWinTab('audio', this)">
-              <span class="tab-badge">AUDIO</span> 사운드 제어
-            </button>
-            <button class="v-tab-btn" onclick="switchWinTab('deck', this)">
-              <span class="tab-badge">DECK</span> 스트림덱 매크로
-            </button>
-            <button class="v-tab-btn" onclick="switchWinTab('wrapup', this)">
-              <span class="tab-badge">WRAPUP</span> 방송 정리·업로드
-            </button>
-            <button class="v-tab-btn" onclick="switchWinTab('creative', this)">
-              <span class="tab-badge">CARD</span> 썸네일·일정표
-            </button>
-            <button class="v-tab-btn" onclick="switchWinTab('edit', this)">
-              <span class="tab-badge">EDIT</span> 영상 편집·AI
-            </button>
-          </div>
-
-          <!-- Tab Pane Contents -->
-          <div class="win-body">
-
-            <!-- Pane 1: Daily Stream Tools (Active) -->
-            <div id="pane-ops" class="pane active">
-              <div class="pane-grid">
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>치지직 장면 연동 카테고리</span>
-                    <span class="pane-chip chip-green">실시간 연동 중</span>
-                  </div>
-                  <div class="status-row"><span>OBS 활성 씬</span><span class="status-val">[씬 2] 명조 인게임</span></div>
-                  <div class="status-row"><span>치지직 카테고리</span><span class="status-val" style="color:#38bdf8;">명조: 워더링 웨이브</span></div>
-                  <div class="status-row"><span>태그 자동 변경</span><span class="status-val">#명조 #스토리분석</span></div>
-                  <div class="status-row"><span>노션 일정 동기화</span><span class="status-val">11/13 명조 방송 매핑 ✓</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.5;">
-                    * OBS에서 게임 장면으로 넘기면 치지직 공식 API로 방송 제목과 카테고리가 딜레이 없이 즉시 자동 변경됩니다.
-                  </div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>송출컴 원격 제어 (투컴)</span>
-                    <span class="pane-chip chip-blue">WebSocket v5</span>
-                  </div>
-                  <div class="status-row"><span>송출 PC IP</span><span class="status-val">192.168.0.22</span></div>
-                  <div class="status-row"><span>연결 상태</span><span class="status-val" style="color:#34d399;">OBS 수신 정상 (초록불)</span></div>
-                  <div class="status-row"><span>전송 레이턴시</span><span class="status-val">0.02초 (로컬 네트워크)</span></div>
-                  <div class="status-row"><span>OBS 소스 제어</span><span class="status-val">캠·채팅·게임 영역 토글</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px; line-height:1.5;">
-                    * 송출컴에 추가 프로그램을 깔지 않고도 OBS 소스·마커 제어와 유튜브뮤직 원격 조작이 가능합니다.
-                  </div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>디스코드 합방 & 소스 좌표</span>
-                    <span class="pane-chip chip-purple">자동 분석</span>
-                  </div>
-                  <div class="status-row"><span>디스코드 화자 감지</span><span class="status-val">윤치 님 통화 중</span></div>
-                  <div class="status-row"><span>화자별 음량 보정</span><span class="status-val">자동 평준화 (Normalizer)</span></div>
-                  <div class="status-row"><span>OBS 소스 자동 인식</span><span class="status-val">캠·채팅·게임 영역 추출</span></div>
-                  <div class="status-row"><span>말할 때 캐릭터 반응</span><span class="status-val">바운스 오버레이 활성</span></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pane 2: Sound & Audio Routing -->
-            <div id="pane-audio" class="pane">
-              <div class="pane-grid">
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>T1~T5 멀티트랙 무손실 분리</span>
-                    <span class="pane-chip chip-blue">독립 트랙</span>
-                  </div>
-                  <div class="status-row"><span>T1 마이크</span><span class="status-val">SHURE MV7+ / DAW</span></div>
-                  <div class="status-row"><span>T2 인게임 소리</span><span class="status-val">Mobile IN (Game PC)</span></div>
-                  <div class="status-row"><span>T3 디코 손님</span><span class="status-val">Playback 1/2 (System)</span></div>
-                  <div class="status-row"><span>T4 사적 알림</span><span class="status-val" style="color:#f87171;">Not Stream (녹화/송출 제외)</span></div>
-                  <div class="status-row"><span>T5 크롬 BGM</span><span class="status-val" style="color:#38bdf8;">Music (송출 O / 녹화 제외)</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">방송 녹화 파일을 열면 5개 트랙이 각자의 역할로 자동 매핑됩니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>스마트 BGM 브릿지 & 라우팅</span>
-                    <span class="pane-chip chip-purple">솔로 모드</span>
-                  </div>
-                  <div class="status-row"><span>솔로 내레이션 모드</span><span class="status-val" style="color:#34d399;">BGM 끊김 방지 유지</span></div>
-                  <div class="status-row"><span>BGM 스마트 엔딩</span><span class="status-val">곡 끝부분 마디 맞춤</span></div>
-                  <div class="status-row"><span>Voicemeeter 연동</span><span class="status-val">B1(OBS) / B2(디코) 분리</span></div>
-                  <div class="status-row"><span>합방 노멀라이저</span><span class="status-val">손님별 볼륨 자동 평준화</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">마이크 말실수를 잘라도 게임 BGM은 끊김 없이 자연스럽게 이어붙입니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>YTM-Remote 유튜브뮤직 원격</span>
-                    <span class="pane-chip chip-green">HTTP 8787</span>
-                  </div>
-                  <div class="status-row"><span>서비스 포트</span><span class="status-val">0.0.0.0:8787</span></div>
-                  <div class="status-row"><span>원격 재생 제어</span><span class="status-val">재생 / 정지 / 이전 / 다음</span></div>
-                  <div class="status-row"><span>볼륨 단계 조절</span><span class="status-val">5% 단위 원격 다이얼</span></div>
-                  <div class="status-row"><span>대상 프로세스</span><span class="status-val">송출컴 크롬 PWA 세션</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">저챗 방송 중 게임컴에서 송출컴 배경음악을 자유자재로 원격 제어합니다.</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pane 3: Stream Deck Hub & Macros -->
-            <div id="pane-deck" class="pane">
-              <div class="pane-grid">
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>CastEdit 스트림덱 허브 (플러그인 Zero)</span>
-                    <span class="pane-chip chip-purple">단일 CLI</span>
-                  </div>
-                  <div class="status-row"><span>호출 방식</span><span class="status-val">CastEdit.exe deck &lt;기능&gt;</span></div>
-                  <div class="status-row"><span>대체 플러그인</span><span class="status-val">VBANDeck, Multi-OBS 통합</span></div>
-                  <div class="status-row"><span>크로스 PC 전송</span><span class="status-val">송출컴 도우미 직결</span></div>
-                  <div class="status-row"><span>버튼 코드 생성기</span><span class="status-val">도구 → 원클릭 복사 제공</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">마켓 플러그인 없이 기본 System → Open 하나로 모든 명령을 전달합니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>게임 자동 감지 매크로 & 스크린샷</span>
-                    <span class="pane-chip chip-green">핫키 매크로</span>
-                  </div>
-                  <div class="status-row"><span>활성 창 인식</span><span class="status-val">현재 포커스 게임 판별</span></div>
-                  <div class="status-row"><span>캡처 매크로</span><span class="status-val">UI 숨김 → 촬영 → UI 복원</span></div>
-                  <div class="status-row"><span>스크린샷 아카이브</span><span class="status-val">게임별 전용 폴더 자동 분류</span></div>
-                  <div class="status-row"><span>외부 캡처 수집</span><span class="status-val">스팀/지포스 캡처 자동 이관</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">버튼 한 번으로 깔끔한 무UI 고화질 게임 스크린샷을 즉시 남깁니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>원클릭 노래 모드 & 방송 마커</span>
-                    <span class="pane-chip chip-blue">라이브 제어</span>
-                  </div>
-                  <div class="status-row"><span>노래 모드 전환</span><span class="status-val">리버브 ON + 반주 디코 전송</span></div>
-                  <div class="status-row"><span>OBS 챕터 마커</span><span class="status-val">CreateRecordChapter 실행</span></div>
-                  <div class="status-row"><span>OBS 음소거 제어</span><span class="status-val">채팅/투네/후원 사운드 제어</span></div>
-                  <div class="status-row"><span>볼륨 로터리 다이얼</span><span class="status-val">마이크/BGM ±2dB 조절</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">스트림덱 다이얼과 버튼으로 복잡한 방송 설정 변경을 0초 만에 끝냅니다.</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pane 4: Stream Wrapup -->
-            <div id="pane-wrapup" class="pane">
-              <div class="pane-grid">
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>투컴 녹화본 자동 복사</span>
-                    <span class="pane-chip chip-blue">SMB 공유 감지</span>
-                  </div>
-                  <div class="status-row"><span>송출컴 공유 폴더</span><span class="status-val">\\송출PC\Record</span></div>
-                  <div class="status-row"><span>편집컴 보관 위치</span><span class="status-val">E:\Archive\_incoming</span></div>
-                  <div class="status-row"><span>무결성 검증</span><span class="status-val" style="color:#34d399;">표본 해시 검증 완료</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:6px;">방송 종료 즉시 백그라운드로 자동 복사되어 기다릴 필요가 없습니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>규칙 기반 파일명 자동 생성</span>
-                    <span class="pane-chip chip-purple">템플릿 규칙</span>
-                  </div>
-                  <div class="status-row"><span>생성 파일명</span><span class="status-val" style="color:#c4b5fd;">채널명 26.11.13 명조 다시보기 ①.mp4</span></div>
-                  <div class="status-row"><span>분류 폴더 매핑</span><span class="status-val">E:\Archive\명조\</span></div>
-                  <div class="status-row"><span>다시보기 설명문</span><span class="status-val">노션 일정 토큰 자동 치환</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:6px;">노션 방송 일정과 파일 개수를 읽어 회차와 부제를 스스로 결정합니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>다시보기 유튜브 자동 업로드</span>
-                    <span class="pane-chip chip-green">OAuth 직결</span>
-                  </div>
-                  <div class="status-row"><span>대상 채널</span><span class="status-val">다시보기 채널 (OAuth 연동)</span></div>
-                  <div class="status-row"><span>공개 설정</span><span class="status-val">일부 공개 / 예약 업로드</span></div>
-                  <div class="status-row"><span>재생목록 자동 분류</span><span class="status-val">명조 다시보기 목록 추가</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:6px;">정리 창에서 [확인]만 누르면 업로드부터 원본 정리까지 혼자 끝냅니다.</div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pane 5: Creative Maker (Thumbnails & Notion Calendar) -->
-            <div id="pane-creative" class="pane">
-              <div class="pane-grid">
-                <!-- Redesigned High-Quality Thumbnail Mock -->
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>썸네일 간편 생산기 (1초 완성)</span>
-                    <span class="pane-chip chip-purple">템플릿 엔진</span>
-                  </div>
-                  
-                  <div class="thumb-preview-box">
-                    <div class="thumb-deco-mesh"></div>
-                    <div class="thumb-top-row">
-                      <span class="thumb-game-tag">WUTHERING WAVES 3.8</span>
-                      <span class="thumb-archive-badge">다시보기</span>
-                    </div>
-                    <div class="thumb-center">
-                      <div class="thumb-subhead">메인 스토리 완벽 해석</div>
-                      <div class="thumb-main-title">검은 해안의 진실과 떡밥</div>
-                    </div>
-                    <div class="thumb-bottom-row">
-                      <span class="thumb-ep-badge">EPISODE · 07</span>
-                      <span class="thumb-duration-pill">▶ 3:48:12</span>
-                    </div>
-                  </div>
-
-                  <div class="status-row"><span>템플릿 규칙</span><span class="status-val">게임별 로고 + 도장 + 회차 ⑦</span></div>
-                  <div class="status-row"><span>출력 포맷</span><span class="status-val">1280×720 PNG (16:9 규격)</span></div>
-                </div>
-
-                <!-- Schedule Publisher -->
-                <div class="pane-card" style="grid-column: span 2;">
-                  <div class="pane-card-header">
-                    <span>노션 기반 주간 일정표 자동 생성 & 커뮤니티 원클릭 게시</span>
-                    <span class="pane-chip chip-green">API 게시</span>
-                  </div>
-                  <div class="status-row"><span>노션 데이터</span><span class="status-val">이번 주 방송 일정 월~일 7칸 자동 파싱</span></div>
-                  <div class="status-row"><span>16:9 일정표 카드</span><span class="status-val">1920×1080 고화질 캔버스 이미지 생성</span></div>
-                  <div class="status-row"><span>네이버 카페 게시</span><span class="status-val" style="color:#34d399;">네이버 개발자 API로 전용 게시판 자동 포스팅</span></div>
-                  <div class="status-row"><span>디스코드 공지</span><span class="status-val" style="color:#38bdf8;">웹후크로 텍스트 + 일정표 이미지 동시 전송</span></div>
-                  <div class="status-row"><span>유튜브 커뮤니티</span><span class="status-val">클립보드 본문 복사 + 업로드 폴더 원클릭 열기</span></div>
-                </div>
-              </div>
-            </div>
-
-            <!-- Pane 6: Video Editing & AI -->
-            <div id="pane-edit" class="pane">
-              <div class="pane-grid">
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>F1 구간 선택 (Lossless)</span>
-                    <span class="pane-chip chip-blue">대구간 컷</span>
-                  </div>
-                  <div class="status-row"><span>처리 방식</span><span class="status-val">0초 무손실 인코딩 분할</span></div>
-                  <div class="status-row"><span>단축키</span><span class="status-val">I(시작) / O(끝) / B(분할)</span></div>
-                  <div class="status-row"><span>디스크 절약</span><span class="status-val">중간 인코딩 임시 파일 0 Byte</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">LosslessCut의 속도와 편의성을 그대로 구현했습니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>F2 정밀 컷 & 자막 (Whisper)</span>
-                    <span class="pane-chip chip-purple">AI 텍스트 컷</span>
-                  </div>
-                  <div class="status-row"><span>Whisper AI</span><span class="status-val">로컬 GPU 가속 받아쓰기</span></div>
-                  <div class="status-row"><span>자막 기반 컷</span><span class="status-val">자막 고르고 Del 누르면 컷</span></div>
-                  <div class="status-row"><span>자막 텍스트 컷</span><span class="status-val">자막 글자 보며 바로 컷</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">파형을 더듬을 필요 없이 글자를 보며 말 단위로 자릅니다.</div>
-                </div>
-
-                <div class="pane-card">
-                  <div class="pane-card-header">
-                    <span>F4 롱폼·숏폼 동시 추출</span>
-                    <span class="pane-chip chip-green">쇼츠 3분할</span>
-                  </div>
-                  <div class="status-row"><span>숏폼 세로 분할</span><span class="status-val">캠+게임+채팅 3분할 템플릿</span></div>
-                  <div class="status-row"><span>길이 제한 체크</span><span class="status-val">2분 59초 초과 경고 알림</span></div>
-                  <div class="status-row"><span>유튜브 스튜디오</span><span class="status-val">예약 공개 일괄 업로드</span></div>
-                  <div style="font-size:11px; color:#94a3b8; margin-top:4px;">롱폼 편집본에서 하이라이트만 바로 숏폼으로 뽑아냅니다.</div>
-                </div>
-              </div>
-            </div>
-
-          </div>
+          <div class="screen-counter" id="screenCounter">1 / 7</div>
         </div>
       </div>
 
@@ -1703,12 +1302,12 @@
         </p>
 
         <div class="dl-buttons">
-          <a href="https://github.com/gamecompiler/castedit-release/releases/latest/download/CastEdit-Setup-0.82.0.164.exe" class="btn-primary dl-btn-main">
+          <a href="https://github.com/gamecompiler/castedit-release/releases/latest/download/CastEdit-Setup-0.87.0.172.exe" class="btn-primary dl-btn-main">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.901-1.752"/></svg>
-            CastEdit-Setup-0.82.0.exe 다운로드 (278MB)
+            CastEdit-Setup-0.87.0.exe 다운로드 (266MB)
           </a>
-          <a href="https://github.com/gamecompiler/castedit-release/releases/download/cast-edit-v0.82.0.164/CastEdit-0.82.0.164-windows.zip" class="btn-secondary">
-            📦 무설치 포터블 (.zip · 314MB)
+          <a href="https://github.com/gamecompiler/castedit-release/releases/download/cast-edit-v0.87.0.172/CastEdit-0.87.0.172-windows.zip" class="btn-secondary">
+            📦 무설치 포터블 (.zip · 300MB)
           </a>
           <a href="https://github.com/gamecompiler/castedit-release/releases/latest" target="_blank" rel="noreferrer" class="btn-secondary">
             🐙 전체 릴리즈 내역
@@ -1739,14 +1338,95 @@
     </div>
   </footer>
 
+  <!-- Lightbox Modal -->
+  <div id="lightboxModal" class="lightbox-modal" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()" aria-label="닫기">✕</button>
+    <img id="lightboxImg" class="lightbox-img" src="" alt="" onclick="event.stopPropagation()">
+    <div class="lightbox-footer" onclick="event.stopPropagation()">
+      <strong id="lightboxTitle"></strong>
+      <span id="lightboxDesc" style="color:#94a3b8;"></span>
+    </div>
+  </div>
+
   <script>
-    function switchWinTab(tabKey, btn) {
-      document.querySelectorAll('.v-tab-btn').forEach(b => b.classList.remove('active'));
-      document.querySelectorAll('.pane').forEach(p => p.classList.remove('active'));
-      btn.classList.add('active');
-      const target = document.getElementById('pane-' + tabKey);
-      if (target) target.classList.add('active');
+    const SCREENS = [
+      {
+        src: '/castedit-screens/0-main.webp',
+        title: '기본 화면 — 방송 녹화를 영상으로',
+        desc: '녹화 파일 끌어다 놓기부터 최근 작업, 방송 정리·디자인·아카이브·대사 검색까지 한 화면에서 바로 엽니다.'
+      },
+      {
+        src: '/castedit-screens/1-extract.webp',
+        title: '1. 무손실 구간 추출 — 인코딩 없이 자르기',
+        desc: '긴 방송 녹화에서 쓸 구간만 인코딩 없이 0초 만에 골라내고, 마이크·게임·알림 소리 파형을 트랙별로 확인합니다.'
+      },
+      {
+        src: '/castedit-screens/2-edit.webp',
+        title: '2. 편집 — 위스퍼 자동 자막 · AI 맥락 분석 & 자동 컷',
+        desc: '고유명사 사전이 적용된 자동 자막과 AI 맥락 분석으로 불필요한 구간을 자막 지우듯 빠르게 정리합니다.'
+      },
+      {
+        src: '/castedit-screens/3-effect.webp',
+        title: '3. 효과 — 프리셋 묶음 적용 & AI 제안 반복 학습',
+        desc: '펀치 줌, 효과음, 화면 속 화면 같은 묶음 효과를 AI가 제안하고, 내가 고른 스타일을 계속 학습해 맞춥니다.'
+      },
+      {
+        src: '/castedit-screens/4-export.webp',
+        title: '4. 내보내기 — 구간 지정만으로 롱폼·쇼츠 완성',
+        desc: '한 창에서 롱폼 본편과 쇼츠 구간을 함께 관리하고, 길이 체크부터 유튜브 설정까지 한 번에 내보냅니다.'
+      },
+      {
+        src: '/castedit-screens/5-shorts.webp',
+        title: '쇼츠 화면 구성 및 추가 편집',
+        desc: '세로 쇼츠용 캠·게임·채팅 3분할 화면을 직관적으로 배치하고, 쇼츠 전용 컷 편집까지 바로 이어서 합니다.'
+      },
+      {
+        src: '/castedit-screens/6-thumb.webp',
+        title: '빠른 썸네일 — 최근 게임 이미지 추천 & 템플릿 조합',
+        desc: '최근 찍어둔 게임 스크린샷을 바로 불러와 게임별 로고·도장·제목 틀을 얹어 16:9 썸네일을 순식간에 만듭니다.'
+      }
+    ];
+    let currentScreen = 0;
+
+    function switchScreen(idx) {
+      currentScreen = (idx + SCREENS.length) % SCREENS.length;
+      const item = SCREENS[currentScreen];
+      const img = document.getElementById('screenImg');
+      img.src = item.src;
+      img.alt = item.title;
+      document.getElementById('screenTitle').textContent = item.title;
+      document.getElementById('screenDesc').textContent = item.desc;
+      document.getElementById('screenCounter').textContent = (currentScreen + 1) + ' / ' + SCREENS.length;
+      const btns = document.querySelectorAll('#screenTabs .s-tab-btn');
+      btns.forEach((b, i) => {
+        b.classList.toggle('active', i === currentScreen);
+        if (i === currentScreen) {
+          b.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        }
+      });
     }
+
+    function stepScreen(delta) {
+      switchScreen(currentScreen + delta);
+    }
+
+    function openLightbox() {
+      const item = SCREENS[currentScreen];
+      document.getElementById('lightboxImg').src = item.src;
+      document.getElementById('lightboxTitle').textContent = item.title;
+      document.getElementById('lightboxDesc').textContent = item.desc;
+      document.getElementById('lightboxModal').classList.add('open');
+    }
+
+    function closeLightbox() {
+      document.getElementById('lightboxModal').classList.remove('open');
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeLightbox();
+      else if (e.key === 'ArrowLeft') stepScreen(-1);
+      else if (e.key === 'ArrowRight') stepScreen(1);
+    });
   </script>
 </body>
 </html>
