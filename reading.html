@@ -216,12 +216,15 @@
   // ── 장면 ────────────────────────────────────────────
   var SLOTS = ["bg", "left", "center", "right"];
   function stateAt(cues, i){
-    var st = {bg:null, left:null, center:null, right:null};
+    var st = {bg:null, left:null, center:null, right:null}, looks = {};
     (cues || []).forEach(function(c){
       if((c.at | 0) > i) return;
       if(c.clear) st = {bg:null, left:null, center:null, right:null};
       SLOTS.forEach(function(k){ if(k in c) st[k] = c[k]; });
+      Object.keys(c.looks || {}).forEach(function(w){ if(c.looks[w]) looks[w] = c.looks[w]; else delete looks[w]; });   // 모습 바꾸기 (가면·실루엣)
     });
+    ["left", "center", "right"].forEach(function(k){ if(st[k] && looks[st[k]]) st[k] = looks[st[k]]; });
+    st.looks = looks;
     return st;
   }
   function speakerOf(p){
@@ -245,7 +248,7 @@
     }
     // 인물 (말하는 인물이 화면에 없으면 빈 칸에 잠깐)
     var chars = {left: st.left, center: st.center, right: st.right};
-    var simg = sp.who && (work.speakers || {})[sp.who];
+    var simg = sp.who && ((st.looks || {})[sp.who] || (work.speakers || {})[sp.who]);
     if(simg && [chars.left, chars.center, chars.right].indexOf(simg) < 0 && (work.images || {})[simg]){
       var free = ["right", "center", "left"].filter(function(s){ return !chars[s]; })[0] || "right";
       chars[free] = simg;
