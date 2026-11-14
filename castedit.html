@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>CastEdit — 방송 운영부터 편집·업로드까지, 스트리머를 위한 데스크톱 툴킷</title>
-  <meta name="description" content="송출컴 원격 제어, 치지직 카테고리 자동 변경, T1~T5 멀티트랙 사운드 제어, 스트림덱 허브 매크로, 썸네일·주간 일정표 1초 생성, 유튜브 다시보기 자동 업로드까지.">
+  <meta name="description" content="방송 켜기 전 세팅부터 소리 조절, 게임별 치지직 방제 자동 변경, 썸네일·일정표 제작, 방송 후 다시보기 업로드와 컷 편집까지 한 번에.">
   <link rel="icon" href="/castedit-icon.png">
   <link rel="preconnect" href="https://cdn.jsdelivr.net">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
@@ -987,9 +987,9 @@
       </h1>
 
       <p class="hero-subtitle">
-        송출컴-게임컴 녹화본 자동 이동, OBS 장면 전환에 따른 치지직 카테고리 실시간 변경,<br>
-        T1~T5 사운드 제어, 스트림덱 단일 허브 매크로, 썸네일·주간 일정표 1초 생산, 그리고 유튜브 다시보기 자동 업로드까지.<br>
-        스트리머가 방송 본연의 재미에만 집중할 수 있도록 돕는 실전 데스크톱 올인원 툴킷입니다.
+        게임 바꿀 때마다 치지직 카테고리 바꾸고, 방송 끝나면 녹화 파일 옮겨서 이름 바꾸고, 썸네일에 일정표 공지까지...<br>
+        매일 반복되는 번거로운 방송 뒤처리는 전부 CastEdit에 맡기고,<br>
+        스트리머는 오직 방송과 시청자와의 소통에만 집중하세요.
       </p>
 
       <div class="hero-cta-group">
@@ -1004,11 +1004,11 @@
       </div>
 
       <div class="hero-badges">
-        <span class="hero-badge-item">🖥️ Windows 10/11 64-bit 전용</span>
-        <span class="hero-badge-item">⚡ OBS & PRISM WebSocket v5</span>
-        <span class="hero-badge-item">🎙️ T1~T5 사운드 분리 & BGM 브릿지</span>
-        <span class="hero-badge-item">🕹️ 스트림덱 단일 허브 & 매크로</span>
-        <span class="hero-badge-item">🔒 Windows 자격 증명 보안</span>
+        <span class="hero-badge-item">🖥️ Windows 10/11 64비트 전용</span>
+        <span class="hero-badge-item">⚡ OBS · 프리즘 라이브 완벽 연동</span>
+        <span class="hero-badge-item">🎙️ 소리 트랙 분리 & 오디오 간편 제어</span>
+        <span class="hero-badge-item">🕹️ 스트림덱 버튼 하나로 투컴 제어</span>
+        <span class="hero-badge-item">🎬 AI 자막 컷 편집 & 쇼츠 제작</span>
       </div>
 
       <!-- Real Windows UI Showcase -->
@@ -1297,7 +1297,7 @@
                   </div>
                   <div class="status-row"><span>Whisper AI</span><span class="status-val">로컬 GPU 가속 받아쓰기</span></div>
                   <div class="status-row"><span>자막 기반 컷</span><span class="status-val">자막 고르고 Del 누르면 컷</span></div>
-                  <div class="status-row"><span>문서형 대본</span><span class="status-val">워드프로세서처럼 보며 컷</span></div>
+                  <div class="status-row"><span>자막 텍스트 컷</span><span class="status-val">자막 글자 보며 바로 컷</span></div>
                   <div style="font-size:11px; color:#94a3b8; margin-top:4px;">파형을 더듬을 필요 없이 글자를 보며 말 단위로 자릅니다.</div>
                 </div>
 
@@ -1326,9 +1326,9 @@
     <div class="container">
       <div class="section-header">
         <span class="section-eyebrow">All-In-One Toolkit</span>
-        <h2 class="section-title">방송 준비부터 송출·정리·편집까지, 모든 실전 기능</h2>
+        <h2 class="section-title">방송 준비부터 생방, 뒷정리, 편집까지 한 번에</h2>
         <p class="section-desc">
-          사운드 제어, 스트림덱 매크로, 데일리 생방 운영, AI 편집, 특화 컨텐츠까지 스트리머가 매일 쓰는 모든 기능을 하나도 빠짐없이 담았습니다.
+          복잡한 전문 용어나 어려운 설정 없이, 스트리머가 매일 겪는 귀찮은 작업들을 편하게 해결해 주는 기능들만 모았습니다.
         </p>
       </div>
 
@@ -1336,64 +1336,64 @@
       <div class="feat-category">
         <div class="feat-cat-header">
           <span class="feat-cat-badge cat-audio">사운드 & 오디오</span>
-          <h3 class="feat-cat-title">🎙️ 사운드 제어 & 멀티트랙 라우팅 엔진</h3>
-          <span class="feat-cat-desc">마이크·게임·디코·알림·BGM 완전 분리 및 실시간 원격 조작</span>
+          <h3 class="feat-cat-title">🎙️ 소리 분리 녹음 & 오디오 간편 조절</h3>
+          <span class="feat-cat-desc">내 목소리, 게임, 디코 친구 목소리를 깔끔하게 나누고 편하게 조절해요</span>
         </div>
         <div class="features-grid">
           <div class="feat-card">
             <span class="feat-badge-top">멀티트랙</span>
-            <h4 class="feat-title">T1~T5 멀티트랙 무손실 분리 녹화</h4>
+            <h4 class="feat-title">내 목소리·게임·디코 소리 따로따로 녹음</h4>
             <p class="feat-desc">
-              마이크(T1), 게임 사운드(T2), 디스코드 손님(T3), 시스템 알림(T4), BGM(T5)을 무손실 개별 트랙으로 완벽히 분리 녹화해 편집 시 필요한 소리만 정밀 제어합니다.
+              내 마이크, 게임 소리, 디스코드 친구 목소리, 배경음악을 각기 다른 트랙으로 따로 녹음해 두어, 나중에 편집할 때 원하는 소리만 키우거나 지울 수 있습니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">BGM 스마트 브릿지</span>
-            <h4 class="feat-title">솔로 내레이션 모드 (게임 소리 유지)</h4>
+            <h4 class="feat-title">내 말실수만 잘라내도 게임 소리는 그대로</h4>
             <p class="feat-desc">
-              말실수나 불필요한 마이크 구간을 잘라내도 게임 BGM과 효과음은 끊김 없이 자연스럽게 이어 붙여 오디오 공백이나 튀는 현상을 원천 방지합니다.
+              방송 중 헛기침이나 말실수 구간을 잘라내도 게임 배경음악과 효과음은 뚝 끊기지 않고 자연스럽게 이어집니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">합방 최적화</span>
-            <h4 class="feat-title">디스코드 화자별 음량 자동 평준화 (Normalizer)</h4>
+            <h4 class="feat-title">합방 멤버별 목소리 크기 자동 맞춤</h4>
             <p class="feat-desc">
-              합방 멤버마다 제각각인 마이크 크기를 자동으로 분석해 균일한 볼륨으로 평준화하고, 말할 때 화면에 캐릭터 바운스 반응을 띄웁니다.
+              합방할 때 유독 목소리가 크거나 작은 멤버의 음량을 자동으로 고르게 맞춰주고, 말하는 사람에 맞춰 화면 캐릭터가 통통 튀는 효과도 줄 수 있습니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">스마트 BGM</span>
-            <h4 class="feat-title">배경음악 스마트 마디 마커 & 길이 맞춤</h4>
+            <h4 class="feat-title">영상 길이에 맞춰 배경음악 자연스럽게 마무리</h4>
             <p class="feat-desc">
-              음악이 영상 끝에서 뚝 끊기지 않고 곡의 원래 마디와 엔딩 멜로디에 맞춰 자연스럽게 페이드아웃되도록 곡 길이를 자동으로 조절합니다.
+              영상 끝에 맞춰 배경음악이 어색하게 뚝 끊기지 않고, 곡의 흐름과 마디에 맞춰 자연스럽게 줄어들며 끝나도록 길이를 맞춰줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">저챗 원격 제어</span>
-            <h4 class="feat-title">송출컴 유튜브뮤직 원격 제어 (YTM-Remote)</h4>
+            <h4 class="feat-title">게임컴에서 송출컴 유튜브뮤직 바로 조작</h4>
             <p class="feat-desc">
-              저챗 방송 중 게임컴에서 송출컴 크롬의 유튜브뮤직을 HTTP 8787 포트로 재생, 정지, 다음 곡, 볼륨 조절까지 딜레이 없이 원격 조작합니다.
+              저챗이나 방송 중에 송출컴까지 마우스를 넘기지 않아도, 게임컴에서 바로 송출컴의 유튜브뮤직 재생·정지·다음 곡·볼륨을 조절할 수 있습니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">오디오 라우팅</span>
-            <h4 class="feat-title">Voicemeeter 원격 API 직결 제어</h4>
+            <h4 class="feat-title">복잡한 보이스미터 창 없이 원클릭 음량 조절</h4>
             <p class="feat-desc">
-              OBS 송출용 마이크와 디스코드 통화용 마이크를 원클릭으로 분리 토글하고, 게임컴 노래방 반주를 디스코드로 즉시 라우팅합니다.
+              어려운 보이스미터 화면을 매번 열 필요 없이, CastEdit 버튼 하나로 방송용 마이크와 디코 마이크를 따로 끄고 켜며 노래방 반주도 바로 보냅니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">사적 알림 차단</span>
-            <h4 class="feat-title">송출컴 사운드 레인 분리 (Not Stream)</h4>
+            <h4 class="feat-title">카톡·시스템 알림 소리 방송 유출 원천 차단</h4>
             <p class="feat-desc">
-              카카오톡, 라인, 윈도우 사적 시스템 알림 소리를 방송 송출과 녹화에서 원천 차단하여 방송 사고 위험을 제로로 만듭니다.
+              방송 중에 카카오톡이나 윈도우 알림 소리가 방송과 녹화에 절대 들어가지 않도록 소리 길을 아예 분리해 방송 사고를 막아줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">AI 오디오</span>
-            <h4 class="feat-title">AI 목소리 복원 & 노이즈 캔슬링</h4>
+            <h4 class="feat-title">키보드·마우스 소음 지우고 목소리만 또렷하게</h4>
             <p class="feat-desc">
-              작은 로컬 딥러닝 모델을 내장하여 키보드 타건음, 마우스 클릭음, 주변 소음을 제거하고 목소리 톤을 또렷하게 복원합니다.
+              방송이나 녹화 파일에 들어간 시끄러운 키보드 타건음과 마우스 클릭 소리를 AI가 깔끔하게 지우고 내 목소리만 선명하게 살려줍니다.
             </p>
           </div>
         </div>
@@ -1403,50 +1403,50 @@
       <div class="feat-category">
         <div class="feat-cat-header">
           <span class="feat-cat-badge cat-deck">스트림덱 & 매크로</span>
-          <h3 class="feat-cat-title">🕹️ 스트림덱 단일 허브 & 크로스-PC 매크로</h3>
-          <span class="feat-cat-desc">외부 플러그인 Zero, 단일 CLI와 게임별 자동 인식 핫키</span>
+          <h3 class="feat-cat-title">🕹️ 스트림덱 버튼 하나로 모든 방송 조작</h3>
+          <span class="feat-cat-desc">복잡한 플러그인 설치 없이 버튼 한 번으로 투컴·OBS·게임 캡처를 한 번에</span>
         </div>
         <div class="features-grid">
           <div class="feat-card">
             <span class="feat-badge-top">허브 단일화</span>
-            <h4 class="feat-title">플러그인 3종을 하나로 (CastEdit 스트림덱 허브)</h4>
+            <h4 class="feat-title">스트림덱 플러그인 여러 개 깔 필요 없는 통합 연결</h4>
             <p class="feat-desc">
-              VBANDeck, Multi-OBS, WebRequests 플러그인을 깔 필요 없이, CastEdit 단일 실행 파일 명령(CastEdit.exe deck &lt;기능&gt;) 하나로 통합 호출합니다.
+              여러 개의 외부 플러그인을 따로 설치하고 설정할 필요 없이, 스트림덱 기본 기능만으로 CastEdit의 모든 제어 기능을 바로 연결해 쓸 수 있습니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">투컴 제어</span>
-            <h4 class="feat-title">게임컴에서 송출컴 OBS·사운드 완벽 제어</h4>
+            <h4 class="feat-title">게임컴 스트림덱으로 송출컴 OBS까지 한 번에 조작</h4>
             <p class="feat-desc">
-              게임컴 스트림덱 버튼 하나로 송출컴 OBS 장면 전환, 소스 토글, 마이크 음소거, 녹화 챕터 마커 생성을 실시간 원격 실행합니다.
+              게임컴 앞에 앉아서 스트림덱 버튼만 누르면 송출컴의 OBS 화면 전환, 마이크 음소거, 하이라이트 챕터 표시가 실시간으로 실행됩니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">게임 자동 감지</span>
-            <h4 class="feat-title">활성 게임 인식 매크로 & 무손실 스크린샷</h4>
+            <h4 class="feat-title">버튼 한 번으로 UI 숨기고 고화질 게임 스샷 찍기</h4>
             <p class="feat-desc">
-              현재 실행 중인 게임을 자동으로 판별해 인게임 UI 숨김 → 스크린샷 캡처 → UI 복원 매크로를 실행하고 게임별 전용 폴더에 자동 분류합니다.
+              지금 플레이 중인 게임을 알아서 파악해 게임 UI를 잠시 숨긴 뒤 깨끗한 스샷을 찍고 다시 UI를 켜주며, 게임별 폴더에 예쁘게 정리해 줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">원클릭 전환</span>
-            <h4 class="feat-title">원클릭 라이브 노래 모드 전환</h4>
+            <h4 class="feat-title">버튼 하나로 1초 만에 노래방 모드 켜기</h4>
             <p class="feat-desc">
-              버튼 하나로 목소리에 감성 보컬 리버브를 켜고, 게임컴 노래방 반주를 디스코드 멤버에게 즉시 들려주는 노래 모드로 전환합니다.
+              노래 부르고 싶을 때 버튼 한 번만 누르면 내 목소리에 에코가 들어가고, 게임컴에서 트는 반주 소리가 디코 친구들에게도 바로 들립니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">생성기 내장</span>
-            <h4 class="feat-title">스트림덱 버튼 코드 원클릭 생성기</h4>
+            <h4 class="feat-title">어려운 명령어 몰라도 클릭 한 번으로 버튼 만들기</h4>
             <p class="feat-desc">
-              앱 메뉴(도구 → 스트림덱 버튼 만들기)에서 원하는 기능을 선택하면 스트림덱에 바로 붙여넣을 수 있는 실행 명령어를 즉시 클립보드에 복사합니다.
+              복잡한 명령어를 외울 필요 없이 앱 메뉴에서 원하는 기능을 고르기만 하면 스트림덱에 바로 붙여넣을 수 있게 복사해 줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">다이얼 조작</span>
-            <h4 class="feat-title">스트림덱 플러스 다이얼 볼륨 정밀 조절</h4>
+            <h4 class="feat-title">다이얼 돌려서 마이크·게임·BGM 소리 미세 조절</h4>
             <p class="feat-desc">
-              스트림덱 로터리 다이얼을 돌려 마이크 볼륨, 인게임 소리, 배경음악 크기를 ±2dB 단위로 세밀하게 조절합니다.
+              스트림덱 플러스의 다이얼을 돌리면 마이크, 게임 소리, 배경음악 크기를 방송 도중에도 손쉽게 조금씩 키우거나 줄일 수 있습니다.
             </p>
           </div>
         </div>
@@ -1456,50 +1456,50 @@
       <div class="feat-category">
         <div class="feat-cat-header">
           <span class="feat-cat-badge cat-ops">생방 운영 자동화</span>
-          <h3 class="feat-cat-title">⚡ 데일리 생방송 운영 도구 (Stream Ops)</h3>
-          <span class="feat-cat-desc">치지직 카테고리 연동, 투컴 녹화본 이동, 썸네일·일정표 생산</span>
+          <h3 class="feat-cat-title">⚡ 매일 반복되는 생방 준비와 뒷정리 자동화</h3>
+          <span class="feat-cat-desc">방제 변경부터 파일 이동, 썸네일, 일정표 공지, 다시보기 업로드까지</span>
         </div>
         <div class="features-grid">
           <div class="feat-card">
             <span class="feat-badge-top">치지직 직결</span>
-            <h4 class="feat-title">OBS 장면 연동 치지직 카테고리 자동 변경</h4>
+            <h4 class="feat-title">OBS 화면만 바꾸면 치지직 게임·방제 자동 변경</h4>
             <p class="feat-desc">
-              방송 중 OBS에서 게임 장면으로 전환하면 치지직 공식 API를 통해 방송 카테고리, 제목, 태그가 즉시 자동 변경되어 수동 변경이 필요 없습니다.
+              다른 게임으로 넘어갈 때마다 치지직 스튜디오에 들어가서 일일이 수정할 필요 없이, OBS 장면만 바꾸면 카테고리와 방제가 알아서 바뀝니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">투컴 자동화</span>
-            <h4 class="feat-title">송출컴 녹화본 자동 이동 (SMB 동기화)</h4>
+            <h4 class="feat-title">방송 끝나면 송출컴 녹화 파일 알아서 가져오기</h4>
             <p class="feat-desc">
-              방송 종료를 OBS WebSocket으로 감지하는 즉시, 송출 PC의 원본 녹화 파일을 편집 PC의 보관 폴더로 백그라운드 복사하고 표본 해시로 무결성을 검증합니다.
+              방송을 끄는 순간 송출컴에 저장된 대용량 녹화 파일을 편집컴 폴더로 깨짐 없이 안전하게 자동으로 옮겨옵니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">1초 완성</span>
-            <h4 class="feat-title">템플릿 기반 썸네일 간편 생산기</h4>
+            <h4 class="feat-title">게임 로고·회차 넣어서 1초 만에 썸네일 완성</h4>
             <p class="feat-desc">
-              게임별 로고, 다시보기 도장, 회차 번호(⑦)를 조합해 배경과 제목만 넣으면 16:9 고화질 썸네일(1280×720 PNG)이 1초 만에 완성됩니다.
+              미리 맞춰둔 게임 로고, 다시보기 도장, 회차 번호 틀에 배경 이미지와 제목만 넣으면 깔끔한 고화질 썸네일이 1초 만에 나옵니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">공지 동시 배포</span>
-            <h4 class="feat-title">노션 기반 주간 일정표 & 커뮤니티 원클릭 게시</h4>
+            <h4 class="feat-title">노션 일정으로 주간 시간표 만들고 카페·디코 동시 공지</h4>
             <p class="feat-desc">
-              노션 방송 일정 DB에서 한 주간 일정을 읽어 16:9 주간 일정표 카드를 렌더링하고, 네이버 카페, 디스코드 웹후크, 유튜브 커뮤니티로 동시 공지합니다.
+              노션에 적어둔 이번 주 방송 일정을 불러와 깔끔한 주간 일정표 이미지로 만들고, 네이버 카페·디스코드·유튜브 커뮤니티에 한 번에 올립니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">종료 후 마법사</span>
-            <h4 class="feat-title">방송 정리 마법사 (Stream Wrapup)</h4>
+            <h4 class="feat-title">다시보기 파일 이름 정리부터 유튜브 업로드까지 원클릭</h4>
             <p class="feat-desc">
-              방송 종료 후 원본 파일명을 규칙대로 일괄 정리하고(예: 채널명 26.11.13 게임명 다시보기 ①.mp4), 다시보기 유튜브 채널로 재생목록·예약 공개 자동 업로드를 진행합니다.
+              방송이 끝난 뒤 파일 이름을 날짜와 회차에 맞춰 예쁘게 바꾸고, 다시보기 유튜브 채널의 해당 재생목록에 예약 업로드까지 한 번에 끝냅니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">보안 보호</span>
-            <h4 class="feat-title">Windows 자격 증명 관리자로 API 토큰 보호</h4>
+            <h4 class="feat-title">내 계정 정보와 방송 키 안전하게 암호화 보관</h4>
             <p class="feat-desc">
-              유튜브 OAuth, 치지직 API 토큰, 디스코드 웹후크 주소 등 민감 정보를 평문 파일이 아닌 Windows Credential Manager에 안전하게 암호화 보관합니다.
+              유튜브나 치지직 연동 정보, 디스코드 주소 같은 민감한 키 값을 윈도우 보안 저장소에 안전하게 암호화해서 보관합니다.
             </p>
           </div>
         </div>
@@ -1509,57 +1509,57 @@
       <div class="feat-category">
         <div class="feat-cat-header">
           <span class="feat-cat-badge cat-edit">영상 편집 & AI</span>
-          <h3 class="feat-cat-title">🎬 전문 영상 편집 & AI 자동화</h3>
-          <span class="feat-cat-desc">F1~F4 작업 공간, 로컬 Whisper 자막 컷, 숏폼 3분할, 하이라이트 탐지</span>
+          <h3 class="feat-cat-title">🎬 긴 방송 영상도 빠르고 쉽게 편집하기</h3>
+          <span class="feat-cat-desc">AI 받아쓰기 자막 컷부터 하이라이트 찾기, 세로 쇼츠 만들기까지</span>
         </div>
         <div class="features-grid">
           <div class="feat-card">
             <span class="feat-badge-top">작업 공간</span>
-            <h4 class="feat-title">F1~F4 작업 공간 분리 워크플로우</h4>
+            <h4 class="feat-title">단계별로 딱 맞춘 4가지 편집 화면</h4>
             <p class="feat-desc">
-              대구간 선택(F1), 정밀 컷 & 자막(F2), 세부 효과(F3), 내보내기(F4)로 분리되어 편집 단계별로 최적화된 화면 배치와 도구를 제공합니다.
+              긴 영상 크게 자르기(F1), 세밀한 컷과 자막(F2), 효과 넣기(F3), 영상 뽑기(F4)까지 작업 순서에 맞춰 화면이 딱 맞게 바뀝니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">로컬 AI</span>
-            <h4 class="feat-title">Whisper AI 로컬 음성인식 받아쓰기</h4>
+            <h4 class="feat-title">AI가 내 방송 말소리 알아서 자막으로 받아쓰기</h4>
             <p class="feat-desc">
-              NVIDIA GPU 가속으로 몇 시간짜리 방송 음성을 자막으로 빠르게 변환하며, 고유명사 사전 교정 기능으로 게임 용어를 오타 없이 처리합니다.
+              몇 시간짜리 긴 방송도 내 컴퓨터 그래픽카드를 활용해 AI가 빠르게 말소리를 받아적고, 어려운 게임 고유명사도 사전에 맞춰 정확히 적어줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">혁신적 편집</span>
-            <h4 class="feat-title">자막 기반 말 단위 컷 & 문서형 대본 편집</h4>
+            <h4 class="feat-title">생성된 자막을 보면서 글자 지우듯 쉽게 컷 편집</h4>
             <p class="feat-desc">
-              복잡한 파형 대신 자막 텍스트나 문서형 대본을 보며 Del 키를 누르면 말 단위로 영상이 즉시 잘려 나갑니다.
+              어려운 소리 파형 그래프를 눈 빠지게 볼 필요 없이, AI가 뽑아준 자막을 읽으면서 필요 없는 문장에 Del 키만 누르면 영상이 바로 잘립니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">스마트 탐지</span>
-            <h4 class="feat-title">헛말·침묵 자동 탐지 및 무음 구간 일괄 컷</h4>
+            <h4 class="feat-title">어..., 음... 헛말과 빈 침묵 구간 한 번에 날리기</h4>
             <p class="feat-desc">
-              "어", "음" 같은 불필요한 추임새, 말 반복, 어색한 긴 침묵 구간을 앱이 스스로 탐지하여 일괄 정리 후보로 제안합니다.
+              말 사이사이에 들어간 긴 침묵이나 "어...", "음..." 같은 추임새 구간을 프로그램이 알아서 찾아내어 한 번에 정리할 수 있게 해줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">토큰 0원</span>
-            <h4 class="feat-title">로컬 하이라이트 탐지 (!클립 연동)</h4>
+            <h4 class="feat-title">채팅 폭발 구간과 !클립 명장면 자동으로 찾기</h4>
             <p class="feat-desc">
-              API 비용 없이 채팅 폭발 지점, 오디오 데시벨 피크, 웃음소리, 시청자 !클립 명령어를 분석해 쇼츠와 하이라이트 명장면을 자동으로 짚어냅니다.
+              추가 비용 없이 방송 중 채팅이 터진 순간, 내가 크게 웃거나 소리친 순간, 시청자가 !클립을 친 명장면을 자동으로 짚어줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">숏폼 특화</span>
-            <h4 class="feat-title">숏폼 3분할 캔버스 & 2분 59초 초과 경고</h4>
+            <h4 class="feat-title">세로 쇼츠 3분할 제작 & 3분 길이 자동 체크</h4>
             <p class="feat-desc">
-              캠+게임+채팅 3분할 템플릿으로 세로 쇼츠를 간편 배치하고, 쇼츠 한도(3분)에 맞춘 2분 59초 초과 알림 및 숏폼만 일괄 예약 업로드를 지원합니다.
+              게임 화면과 채팅창을 위아래로 예쁘게 쌓는 세로 쇼츠 틀을 제공하고, 쇼츠 제한 시간(3분)이 넘지 않게 경고해 주며 쇼츠만 모아서 업로드합니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">전문 편집</span>
-            <h4 class="feat-title">프리미어급 전문 타임라인 & 가벼운 프록시</h4>
+            <h4 class="feat-title">전문 편집기 수준의 타임라인과 버벅임 없는 재생</h4>
             <p class="feat-desc">
-              잔물결 삭제, 롤링/리플 다듬기, J컷/L컷, 멀티 비디오 트랙(V1~V4), 키프레임 모션, 장시간 녹화도 버벅임 없는 libmpv 프록시 재생을 지원합니다.
+              여러 겹의 영상과 자막 트랙, 부드러운 화면 이동 효과는 물론이고 몇 시간짜리 고화질 원본 영상도 버벅임 없이 가볍게 재생하며 편집합니다.
             </p>
           </div>
         </div>
@@ -1569,50 +1569,50 @@
       <div class="feat-category">
         <div class="feat-cat-header">
           <span class="feat-cat-badge cat-novel">특화 방송 연출</span>
-          <h3 class="feat-cat-title">🎭 특화 컨텐츠 & 낭독회 비주얼 노벨 엔진</h3>
-          <span class="feat-cat-desc">인터랙티브 웹 슬라이드, 괴담/웹소설 낭독회 엔진, 대사창 자막 회피</span>
+          <h3 class="feat-cat-title">🎭 낭독회·설명회 등 특별한 방송 콘텐츠 연출</h3>
+          <span class="feat-cat-desc">시청자와 함께 보는 낭독회 화면부터 게임 대사창 피하기까지</span>
         </div>
         <div class="features-grid">
           <div class="feat-card">
             <span class="feat-badge-top">웹 인터랙션</span>
-            <h4 class="feat-title">설명회·토론회용 인터랙티브 웹 슬라이드</h4>
+            <h4 class="feat-title">시청자 화면에서도 같이 넘어가는 발표 슬라이드</h4>
             <p class="feat-desc">
-              방송 진행자가 웹 슬라이드를 넘기면 시청자 브라우저에서도 같은 슬라이드가 실시간으로 따라 넘어가며 참여 몰입도를 극대화합니다.
+              스토리 설명회나 토론회를 할 때 내가 슬라이드를 넘기면 시청자가 열어둔 웹페이지 화면도 똑같이 넘어가서 훨씬 몰입감 있는 진행이 가능합니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">낭독 방송</span>
-            <h4 class="feat-title">텍스트-비주얼 노벨 낭독 엔진</h4>
+            <h4 class="feat-title">글만 넣으면 미연시 게임 화면처럼 바뀌는 낭독회</h4>
             <p class="feat-desc">
-              웹소설이나 괴담 텍스트를 넣으면 화자, 배경, 장면, 효과음 연출을 자동 분할하여 한 편의 비주얼 노벨 게임 화면으로 변환합니다.
+              소설이나 괴담 대본 글만 붙여넣으면 캐릭터, 배경, 대사창, 효과음을 자동으로 나눠서 진짜 미연시 게임 같은 낭독 화면으로 만들어 줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">AI 배역</span>
-            <h4 class="feat-title">AI 배역 & 지문 자동 분배</h4>
+            <h4 class="feat-title">합방 멤버들에게 대사 배역 자동으로 나눠주기</h4>
             <p class="feat-desc">
-              등장인물의 성별과 대사 분량을 정밀 분석해 합방 참여자들에게 균형 있게 배역과 지문을 자동 배분합니다.
+              여러 명이 함께 낭독 방송을 할 때 등장인물 성별과 대사량을 분석해서 참여 멤버들에게 공평하게 배역을 자동으로 배정해 줍니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">실시간 합방</span>
-            <h4 class="feat-title">낭독회 웹 동시 송출 (브라우저 동기화)</h4>
+            <h4 class="feat-title">합방 멤버들과 웹으로 똑같은 대본 보며 실시간 낭독</h4>
             <p class="feat-desc">
-              참여 멤버들이 각자의 브라우저로 같은 비주얼 노벨 화면과 전체 대본을 보며 실시간 합방 낭독을 진행할 수 있습니다.
+              합방에 참여한 동료들이 각자 인터넷 창으로 똑같은 게임 화면과 대본을 동시에 보면서 어긋남 없이 호흡을 맞춰 낭독할 수 있습니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">자막 지능</span>
-            <h4 class="feat-title">게임 대사창 영역 감지 자막 자동 회피</h4>
+            <h4 class="feat-title">게임 속 대사창을 가리지 않게 편집 자막 자동 이동</h4>
             <p class="feat-desc">
-              인게임 대사창 위치를 지정하면 게임 대사가 출력되는 구간 동안 편집 자막이 화면 상단으로 자동 이동해 게임 대사를 가리지 않습니다.
+              스토리 게임 편집할 때 게임 자체 대사창이 뜨는 구간만 알아서 피해, 내 편집 자막을 화면 위쪽으로 스르륵 옮겨주어 자막이 겹치지 않습니다.
             </p>
           </div>
           <div class="feat-card">
             <span class="feat-badge-top">보안 모자이크</span>
-            <h4 class="feat-title">키프레임 자유 다각형 모자이크 자동 추적</h4>
+            <h4 class="feat-title">움직이는 개인정보나 채팅창 자유롭게 따라가며 가리기</h4>
             <p class="feat-desc">
-              사각·타원뿐 아니라 자유로운 다각형 모양으로 모자이크를 그리고, 회전하거나 크기가 바뀌는 대상을 Ctrl+Alt+M으로 자동 추적 가림 처리합니다.
+              네모나 동그라미뿐 아니라 원하는 모양대로 모자이크 영역을 그리고, 화면에서 움직이거나 크기가 변하는 대상도 끝까지 따라가며 가려줍니다.
             </p>
           </div>
         </div>
